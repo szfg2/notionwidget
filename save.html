@@ -3,32 +3,42 @@
 <head>
     <title>Stroke Onset Date Calculator</title>
     <style>
-        /* Add CSS styles here */
+        /* Add CSS styles for background and input boxes */
         body {
-            background-color: white; /* Sets the background color of the body to white */
+            background-color: white; /* Set the background to white */
         }
-
-        input, button {
-            border: 2px solid black; /* Sets a black border around input boxes and buttons */
-            margin: 10px; /* Adds some space around them */
-            padding: 5px; /* Adds some space inside them */
+        input, select {
+            border: 1px solid black; /* Add a border around input boxes and select dropdown */
+            padding: 5px; /* Add some padding inside the boxes for better appearance */
+            margin: 5px 0; /* Add some margin for spacing around the elements */
         }
     </style>
 </head>
 <body>
     <label for="dateOfOnset">Date of Onset:</label>
     <input type="date" id="dateOfOnset" name="dateOfOnset">
+    <br> <!-- Add a line break for better spacing -->
+    <label for="typeOfStroke">Type of Stroke:</label>
+    <select id="typeOfStroke" name="typeOfStroke">
+        <option value="pureSensory">pure sensory</option>
+        <option value="pureMotor">pure motor</option>
+        <option value="sensorimotor">sensorimotor</option>
+        <option value="sensorimotor">sensorimotor</option>
+    </select>
+    <br> <!-- Add a line break for better spacing -->
     <button onclick="calculateDays()">Submit</button>
     <p id="output"></p>
     <script>
-        // JavaScript function placed here for direct invocation
+        // Updated JavaScript function
         function calculateDays() {
             const dateOfOnset = document.getElementById('dateOfOnset').value;
+            const strokeSelect = document.getElementById('typeOfStroke'); // Get the select element
+            const typeOfStroke = strokeSelect.options[strokeSelect.selectedIndex].text; // Get the text of the selected option
             const date1 = new Date(dateOfOnset);
             const date2 = new Date(); // Current date
             const diffTime = Math.abs(date2 - date1);
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-            document.getElementById('output').innerHTML = "Day " + diffDays + " of stroke<br>- Date of onset: " + dateOfOnset;
+            document.getElementById('output').innerHTML = "Day " + diffDays + " " + typeOfStroke + " syndrome<br>- Date of onset: " + dateOfOnset + "<br>- Type of stroke: " + typeOfStroke;
         }
     </script>
 </body>
