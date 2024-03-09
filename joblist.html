@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Text Line Editor</title>
+    <style>
+        .checked {
+            text-decoration: line-through;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="inputArea">
+        <textarea id="textInput" rows="10" cols="50"></textarea>
+        <br>
+        <button onclick="breakTextIntoLines()">Submit</button>
+    </div>
+    <div id="outputArea"></div>
+    <br>
+    <button onclick="resetPage()">Refresh</button>
+
+    <script>
+        function breakTextIntoLines() {
+            var text = document.getElementById("textInput").value;
+            var lines = text.split('\n');
+            var outputHtml = '';
+            for (var i = 0; i < lines.length; i++) {
+                if (lines[i].trim() !== '') { // Ignore empty lines
+                    outputHtml += '<div><input type="checkbox" onchange="toggleLineThrough(this)">' + lines[i] + '</div>';
+                }
+            }
+            document.getElementById('outputArea').innerHTML = outputHtml;
+            // Hide the text area and submit button after submitting
+            document.getElementById('inputArea').classList.add('hidden');
+        }
+
+        function toggleLineThrough(checkbox) {
+            if (checkbox.checked) {
+                checkbox.parentNode.classList.add('checked');
+            } else {
+                checkbox.parentNode.classList.remove('checked');
+            }
+        }
+
+        function resetPage() {
+            document.getElementById('textInput').value = '';
+            document.getElementById('outputArea').innerHTML = '';
+            // Show the text area and submit button again when refreshing
+            document.getElementById('inputArea').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
