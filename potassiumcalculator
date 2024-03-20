@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Potassium Deficit Calculator</title>
+    <script>
+        function calculateKDeficit() {
+            // Retrieve values from input fields
+            var Ktarget = parseFloat(document.getElementById('Ktarget').value);
+            var Kmeasured = parseFloat(document.getElementById('Kmeasured').value);
+            var bodyWeight = parseFloat(document.getElementById('bodyWeight').value);
+
+            // Calculate the potassium deficit
+            var Kdeficit = (Ktarget - Kmeasured) * bodyWeight * 0.4;
+
+            // Display the result
+            document.getElementById('result').innerHTML = "Potassium Deficit: " + Kdeficit.toFixed(2) + " mmol";
+        }
+    </script>
+</head>
+<body>
+    <h2>Potassium Deficit Calculator</h2>
+    <form>
+        <label for="Ktarget">Ktarget (mmol/L): </label>
+        <input type="number" id="Ktarget" step="0.01" required><br><br>
+        
+        <label for="Kmeasured">Kmeasured (mmol/L): </label>
+        <input type="number" id="Kmeasured" step="0.01" required><br><br>
+        
+        <label for="bodyWeight">Body Weight (kg): </label>
+        <input type="number" id="bodyWeight" step="0.1" required><br><br>
+        
+        <input type="button" value="Calculate" onclick="calculateKDeficit()">
+    </form>
+    <p id="result"></p>
+</body>
+</html>
