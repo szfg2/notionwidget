@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mentzer Index Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+        }
+        .container {
+            max-width: 300px;
+            margin: auto;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Mentzer Index Calculator</h2>
+    <label for="mcv">Mean Corpuscular Volume (MCV) (fL):</label>
+    <input type="number" id="mcv" placeholder="Enter MCV" step="any">
+    
+    <label for="rbc">Red Blood Cell (RBC) Count (10^12/L):</label>
+    <input type="number" id="rbc" placeholder="Enter RBC count" step="any">
+    
+    <button onclick="calculateMentzerIndex()">Calculate</button>
+    
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+    function calculateMentzerIndex() {
+        var mcv = parseFloat(document.getElementById("mcv").value);
+        var rbc = parseFloat(document.getElementById("rbc").value);
+        
+        if (!isNaN(mcv) && !isNaN(rbc) && rbc !== 0) {
+            var mentzerIndex = mcv / rbc;
+            document.getElementById("result").innerText = "Mentzer Index: " + mentzerIndex.toFixed(2);
+        } else {
+            document.getElementById("result").innerText = "Please enter valid MCV and RBC values.";
+        }
+    }
+</script>
+
+</body>
+</html>
