@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R Factor Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            background-color: #ffffff;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: auto;
+        }
+        input[type="number"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>R Factor Calculator</h2>
+        <form id="rFactorForm">
+            <label for="alt">ALT (U/L):</label>
+            <input type="number" id="alt" name="alt" required>
+
+            <label for="alp">ALP (U/L):</label>
+            <input type="number" id="alp" name="alp" required>
+
+            <button type="button" onclick="calculateRFactor()">Calculate</button>
+        </form>
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        function calculateRFactor() {
+            const alt = parseFloat(document.getElementById('alt').value);
+            const alp = parseFloat(document.getElementById('alp').value);
+
+            if (isNaN(alt) || isNaN(alp)) {
+                document.getElementById('result').innerText = "Please enter valid numbers for ALT and ALP.";
+                return;
+            }
+
+            const upperLimitALT = 66;
+            const upperLimitALP = 125;
+
+            const rFactor = (alt / upperLimitALT) / (alp / upperLimitALP);
+
+            let classification;
+            if (rFactor >= 5) {
+                classification = "Hepatocellular";
+            } else if (rFactor <= 2) {
+                classification = "Cholestatic";
+            } else {
+                classification = "Mixed";
+            }
+
+            document.getElementById('result').innerText = `R Factor: ${rFactor.toFixed(2)} (${classification})`;
+        }
+    </script>
+</body>
+</html>
