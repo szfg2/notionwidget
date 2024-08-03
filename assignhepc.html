@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowchart</title>
+    <style>
+        .section {
+            display: none;
+        }
+        .visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="start" class="section visible">
+        <h2>START: Does patient have a valid Virology test (within 4 months)?</h2>
+        <button onclick="showSection('noTest')">NO</button>
+        <button onclick="showSection('A')">YES</button>
+    </div>
+
+    <div id="noTest" class="section">
+        <h2>Team Doctor to Repeat Hep C EIA</h2>
+        <button onclick="showSection('A')">Continue</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="A" class="section">
+        <h2>A: Is Hep C EIA result Positive?</h2>
+        <button onclick="showSection('B')">YES</button>
+        <button onclick="showSection('I')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="B" class="section">
+        <h2>B: Does the patient have known Hep C in the past?</h2>
+        <button onclick="showSection('D')">YES</button>
+        <button onclick="showSection('C')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="C" class="section">
+        <h2>C: Are RIBA and HCV RNA positive?</h2>
+        <button onclick="showSection('D')">YES</button>
+        <button onclick="showSection('I')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="D" class="section">
+        <h2>D: Has the patient received treatment?</h2>
+        <button onclick="showSection('E')">YES</button>
+        <button onclick="showSection('J')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="E" class="section">
+        <h2>E: Has the patient completed treatment?</h2>
+        <button onclick="showSection('F')">YES</button>
+        <button onclick="showSection('J')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="F" class="section">
+        <h2>F: Is there sustained virologic response documented? (HCV RNA negative twice at least 4 months apart)</h2>
+        <button onclick="showSection('G')">YES</button>
+        <button onclick="showSection('J')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="G" class="section">
+        <h2>G: Is lab result within one year?</h2>
+        <button onclick="showSection('I')">YES</button>
+        <button onclick="showSection('repeatTest')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="repeatTest" class="section">
+        <h2>Repeat HCV RNA test</h2>
+        <p>Go to H</p>
+        <button onclick="showSection('H')">Continue</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <div id="H" class="section">
+        <h2>H: Is repeat Hep C RNA Test positive?</h2>
+        <button onclick="showSection('J')">YES</button>
+        <button onclick="showSection('I')">NO</button>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+  <div id="I" class="section">
+    <h2>I: This is NOT a Hep C Case.</h2>
+    <p>May assign clean machine.</p>
+    <p>Nurses may call to confirm that patient is truly not Hep C case if patient's Hep C EIA is positive.</p>
+    <button onclick="showSection('start')">Start Over</button>
+  </div>
+
+    <div id="J" class="section">
+        <h2>J: This is a Hep C Case</h2>
+        <p>A Hep C dialysis machine should be assigned.</p>
+        <button onclick="showSection('start')">Start Over</button>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(function(section) {
+                section.classList.remove('visible');
+            });
+            document.getElementById(sectionId).classList.add('visible');
+        }
+    </script>
+</body>
+</html>
