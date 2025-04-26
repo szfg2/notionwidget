@@ -2,97 +2,136 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ask ChatGPT</title>
+  <title>Medical Document Generator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px;
       background: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
       color: #333;
     }
-    h1 {
-      text-align: center;
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: bold;
+      color: #555;
     }
     textarea {
       width: 100%;
-      height: 150px;
       padding: 10px;
-      margin-top: 20px;
-      font-size: 16px;
+      font-size: 14px;
+      margin-top: 8px;
       border: 1px solid #ccc;
-      border-radius: 8px;
+      border-radius: 6px;
       resize: vertical;
+      min-height: 100px;
+      box-sizing: border-box;
     }
     button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 18px;
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      font-size: 16px;
       background-color: #4CAF50;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
     }
     button:hover {
       background-color: #45a049;
     }
     #spinner {
-      display: none;
-      margin-top: 20px;
-      text-align: center;
-    }
-    .loader {
+      margin: 20px auto;
       border: 8px solid #f3f3f3;
       border-top: 8px solid #3498db;
       border-radius: 50%;
       width: 50px;
       height: 50px;
       animation: spin 1s linear infinite;
-      margin: auto;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
     pre {
+      background: #f4f4f4;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
       white-space: pre-wrap;
       word-wrap: break-word;
-      background: #fff;
-      padding: 20px;
-      border: 1px solid #ddd;
       margin-top: 20px;
-      border-radius: 8px;
+    }
+    #copyBtn {
+      margin-top: 10px;
+      background-color: #008CBA;
+    }
+    #copyBtn:hover {
+      background-color: #007bb5;
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Medical Document Generator</h1>
 
-  <h1>Ask ChatGPT</h1>
+    <label for="dataInput">Clinical Data (Vitals, Labs, Imaging):</label>
+    <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
-  <textarea id="prompt" placeholder="Enter your prompt here..."></textarea>
-  <br>
-  <button onclick="sendPrompt()">Submit</button>
+    <label for="templateInput">Document Template:</label>
+    <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
 
-  <div id="spinner">
-    <div class="loader"></div>
-    <p>Waiting for ChatGPT to respond...</p>
+    <label for="instructionsInput">Special Instructions:</label>
+    <textarea id="instructionsInput" placeholder="E.g., write in full sentences, no bullet points..."></textarea>
+
+    <button onclick="generateDocument()">Generate Document</button>
+
+    <div id="spinner" style="display:none;"></div>
+
+    <h2>Generated Document:</h2>
+    <pre id="response"></pre>
+    <button id="copyBtn" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
   </div>
 
-  <pre id="response"></pre>
-
   <script>
-    async function sendPrompt() {
-      const prompt = document.getElementById('prompt').value.trim();
-      const responseDiv = document.getElementById('response');
-      const spinner = document.getElementById('spinner');
-      
-      if (!prompt) {
-        responseDiv.textContent = "Please enter a prompt.";
-        return;
-      }
+    async function generateDocument() {
+      const data = document.getElementById('dataInput').value.trim();
+      const template = document.getElementById('templateInput').value.trim();
+      const instructions = document.getElementById('instructionsInput').value.trim();
 
-      responseDiv.textContent = "";
-      spinner.style.display = "block";
+      const prompt = `
+You are a medical scribe.
+Fill in the following template using the provided clinical data. Follow the specific instructions carefully.
+
+Clinical Data:
+${data}
+
+Template:
+${template}
+
+Instructions:
+${instructions}
+
+Return the completed document as plain text.
+      `;
+
+      document.getElementById('spinner').style.display = "block";
+      document.getElementById('response').textContent = "";
+      document.getElementById('copyBtn').style.display = "none";
 
       try {
         const res = await fetch('https://chatgpt-proxy.chatgpt-helper.workers.dev', {
@@ -101,15 +140,24 @@
           body: JSON.stringify({ prompt })
         });
 
-        const data = await res.json();
-        responseDiv.textContent = data.response || "Error getting response.";
+        const dataOut = await res.json();
+        document.getElementById('spinner').style.display = "none";
+        document.getElementById('response').textContent = dataOut.response || "Error generating document.";
+        if (dataOut.response) {
+          document.getElementById('copyBtn').style.display = "block";
+        }
       } catch (err) {
-        responseDiv.textContent = "Network error: " + err.message;
-      } finally {
-        spinner.style.display = "none";
+        document.getElementById('spinner').style.display = "none";
+        document.getElementById('response').textContent = "Error: " + err.message;
       }
     }
-  </script>
 
+    function copyToClipboard() {
+      const text = document.getElementById('response').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Document copied to clipboard!");
+      });
+    }
+  </script>
 </body>
 </html>
