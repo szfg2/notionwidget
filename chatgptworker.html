@@ -216,6 +216,7 @@ You are a medical scribe.
 Use the following clinical data to fill into the document template.
 Follow the special instructions carefully.
 If lab values are present, do not display their units.
+If dates are available, include them in parentheses using ().
 Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable.
 
 Clinical Data:
@@ -234,6 +235,7 @@ Return the completed document as plain text without showing any units for lab va
 You are a medical editor.
 Edit and format the following clinical data according to the special instructions.
 If lab values are present, do not display their units.
+If dates are available, include them in parentheses using ().
 Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable.
 
 Clinical Data:
@@ -280,8 +282,7 @@ Return the revised clinical text as plain text without showing any units for lab
       document.getElementById('dataInput').value = '';
       document.getElementById('templateSelect').value = '';
       document.getElementById('templateInput').value = '';
-      document.getElementById('instructionSelect').value = '';
-      loadDefaultSpecialInstructions(); // reload default instructions after clear
+      loadDefaultSpecialInstructions();
       document.getElementById('response').textContent = '';
       document.getElementById('copyBtn').style.display = "none";
     }
@@ -298,6 +299,9 @@ Return the revised clinical text as plain text without showing any units for lab
       } catch (error) {
         document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
       }
+
+      // Also auto-select Generic Instructions
+      document.getElementById('instructionSelect').value = 'generic_instructions';
     }
 
     window.onload = loadDefaultSpecialInstructions;
