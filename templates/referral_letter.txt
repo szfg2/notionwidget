@@ -1,0 +1,22 @@
+Many thanks for reviewing the above patient for ##insert reason for referral##
+
+
+Past Medical History
+- 
+- 
+- 
+
+Presentation 
+- 
+-
+- 
+
+Relevant Investigations
+- 
+- 
+- 
+
+Issues
+1. ##list out important medical issues, with the most relevant issue for the referring specialty being number 1##
+
+Kindly review the above patient for ___
