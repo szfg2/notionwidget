@@ -99,7 +99,6 @@
     #copyBtn:hover {
       background-color: #007bb5;
     }
-    /* Flex styling for label + dropdowns */
     .flex-row {
       display: flex;
       align-items: center;
@@ -132,8 +131,8 @@
       <label for="templateSelect">Choose a Document Template:</label>
       <select id="templateSelect" onchange="loadTemplate()">
         <option value="">-- Select a Template --</option>
-        <option value="micu_am_rounds">Medical ICU AM Round</option> 
-        <option value="exit_round">Exit Round</option> 
+        <option value="micu_am_rounds">Medical ICU AM Round</option>
+        <option value="exit_round">Exit Round</option>
       </select>
     </div>
 
@@ -150,7 +149,7 @@
     </div>
 
     <label for="instructionsInput">Special Instructions:</label>
-    <textarea id="instructionsInput" rows="5">Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.</textarea>
+    <textarea id="instructionsInput" rows="5"></textarea>
 
     <button onclick="generateDocument()">Generate Document</button>
 
@@ -217,8 +216,7 @@ You are a medical scribe.
 Use the following clinical data to fill into the document template.
 Follow the special instructions carefully.
 If lab values are present, do not display their units.
-If dates are present, include them in parenthesis.
-Anything enclosed between ## ## are internal instructions — replace them with instructed content or leave blank with a '-' if not applicable.
+Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable.
 
 Clinical Data:
 ${data}
@@ -236,8 +234,7 @@ Return the completed document as plain text without showing any units for lab va
 You are a medical editor.
 Edit and format the following clinical data according to the special instructions.
 If lab values are present, do not display their units.
-If dates are present, include them in parenthesis.
-Anything enclosed between ## ## are internal instructions — replace them with instructed content or leave blank with a '-' if not applicable
+Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable.
 
 Clinical Data:
 ${data}
@@ -284,10 +281,26 @@ Return the revised clinical text as plain text without showing any units for lab
       document.getElementById('templateSelect').value = '';
       document.getElementById('templateInput').value = '';
       document.getElementById('instructionSelect').value = '';
-      document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+      loadDefaultSpecialInstructions(); // reload default instructions after clear
       document.getElementById('response').textContent = '';
       document.getElementById('copyBtn').style.display = "none";
     }
+
+    async function loadDefaultSpecialInstructions() {
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/szfg2/notionwidget/main/special_instructions/generic_instructions.txt');
+        if (response.ok) {
+          const text = await response.text();
+          document.getElementById('instructionsInput').value = text.trim();
+        } else {
+          document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+        }
+      } catch (error) {
+        document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+      }
+    }
+
+    window.onload = loadDefaultSpecialInstructions;
   </script>
 </body>
 </html>
