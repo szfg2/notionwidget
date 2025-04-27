@@ -1,6 +1,6 @@
 Summarize the Clinical Data into the following structure:
 
-1.  ## Main Diagnosis ##
+1.  ## Please write main diagnosis summarised in one line ##
 
 [Investigations]
 - (List the relevant investigations done, including laboratory results, imaging, or any tests)
