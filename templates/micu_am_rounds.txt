@@ -2,34 +2,35 @@ Medical ICU AM Rounds
 
 
 Past Medical History
-1. 
+1. ##fill in past medical history word from word from data if present##
 
 Presentation
+##summarise reason patient presented to hospital##
 
 Reason for ICU Admission
+##summarise reason patient was admitted to ICU##
 
 Counters 
 Disposition:
-- D2 MICU 
+- ##days patient in ICU##
 
 Antibiotics: 
-- D2  
+- ##list out antibiotics given if any 
 
 Lines: 
-- D2 IA line  
-- D2 IDC 
+- ##list out lines patient has, such as CVC, IA, IDC##
 
 Treatment:
-- D2 
+- ##List out other treatments such as steroids, CRRT duration##
 
 Overnight
 Noted on call rounding with thanks 
 
 Objective
 [On Examination]
-GCS: 15
+GCS: 
 H: S1 + S2
-Lungs: bilateral creps
+Lungs: 
 Abdomen: SNT 
 Calves: supple
 IA line site clean 
