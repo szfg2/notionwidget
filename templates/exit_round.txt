@@ -22,6 +22,9 @@ Full blood count: ___ [Hb, WBC, platelet]
  
 O/E: 
 ##insert findings if present##
+
+Impression
+1. ##List out in short lines most important issues related to this patient##
  
 Plans
 ##list out summarised plans with - ##
