@@ -28,16 +28,19 @@
       font-weight: bold;
       color: #555;
     }
-    textarea {
+    select, textarea {
       width: 100%;
       padding: 10px;
       font-size: 14px;
       margin-top: 8px;
       border: 1px solid #ccc;
       border-radius: 6px;
-      resize: vertical;
-      min-height: 100px;
       box-sizing: border-box;
+      resize: vertical;
+      min-height: 40px;
+    }
+    textarea {
+      min-height: 100px;
     }
     button {
       display: block;
@@ -92,11 +95,17 @@
     <label for="dataInput">Clinical Data (Vitals, Labs, Imaging):</label>
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
+    <label for="templateSelect">Choose a Template:</label>
+    <select id="templateSelect" onchange="loadTemplate()">
+      <option value="">-- Select a Template --</option>
+      <option value="micu_am_rounds">Medical ICU AM Round</option>
+    </select>
+
     <label for="templateInput">Document Template:</label>
     <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
 
     <label for="instructionsInput">Special Instructions:</label>
-    <textarea id="instructionsInput" rows="5">Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. </textarea>
+    <textarea id="instructionsInput" rows="5">Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.</textarea>
 
     <button onclick="generateDocument()">Generate Document</button>
 
@@ -108,6 +117,29 @@
   </div>
 
   <script>
+    async function loadTemplate() {
+      const templateSelect = document.getElementById('templateSelect');
+      const templateInput = document.getElementById('templateInput');
+      const selectedTemplate = templateSelect.value;
+
+      if (selectedTemplate) {
+        try {
+          const response = await fetch('https://raw.githubusercontent.com/sfzg2/notionwidget/main/templates/' + selectedTemplate + '.txt');
+          
+          if (!response.ok) {
+            throw new Error('Template not found');
+          }
+
+          const templateText = await response.text();
+          templateInput.value = templateText.trim();
+        } catch (error) {
+          alert('Failed to load template: ' + error.message);
+        }
+      } else {
+        templateInput.value = '';
+      }
+    }
+
     async function generateDocument() {
       const data = document.getElementById('dataInput').value.trim();
       const template = document.getElementById('templateInput').value.trim();
@@ -155,7 +187,7 @@ Return the revised clinical text as plain text without showing any units for lab
       document.getElementById('copyBtn').style.display = "none";
 
       try {
-        const res = await fetch('https://chatgpt-proxy.chatgpt-helper.workers.dev', { // <-- use your backend URL
+        const res = await fetch('https://chatgpt-proxy.chatgpt-helper.workers.dev', { // your backend URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt })
