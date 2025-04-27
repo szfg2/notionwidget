@@ -1,0 +1,1 @@
+Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.
