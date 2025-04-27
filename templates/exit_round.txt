@@ -1,0 +1,27 @@
+Exit Rounds
+s/b Dr
+ 
+Summary: 
+- B/G ##list out past medical history in one line##
+- Presented with ##describe reason patient came to hospital in one line##
+- Treating for ##summarized list of active issues patient is in ICU for##
+ 
+ 
+Clinical Review
+BP ___ HR __ Temp __  RR __ Sats __  
+Ventilation: ___
+Ionotropes: ___
+Intake: ___; Output: ___; Net: ___ 
+Feeding: ___
+Urine output: ___
+CBG: ___
+
+ABG: ___
+Renal panel: ___
+Full blood count: ___ [Hb, WBC, platelet]
+ 
+O/E: 
+##insert findings if present##
+ 
+Plans
+##list out summarised plans##
