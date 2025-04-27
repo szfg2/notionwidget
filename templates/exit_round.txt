@@ -24,4 +24,4 @@ O/E:
 ##insert findings if present##
  
 Plans
-##list out summarised plans##
+##list out summarised plans with - ##
