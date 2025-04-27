@@ -18,29 +18,36 @@
       border-radius: 10px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    h1, h2 {
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    h2 {
       text-align: center;
       color: #333;
     }
     label {
-      display: block;
-      margin-top: 20px;
       font-weight: bold;
       color: #555;
+      font-size: 14px;
     }
-    select, textarea {
+    textarea {
       width: 100%;
       padding: 10px;
       font-size: 14px;
       margin-top: 8px;
       border: 1px solid #ccc;
       border-radius: 6px;
-      box-sizing: border-box;
       resize: vertical;
-      min-height: 40px;
-    }
-    textarea {
       min-height: 100px;
+      box-sizing: border-box;
     }
     button {
       display: block;
@@ -56,6 +63,12 @@
     }
     button:hover {
       background-color: #45a049;
+    }
+    #clearBtn {
+      background-color: #f44336;
+    }
+    #clearBtn:hover {
+      background-color: #d32f2f;
     }
     #spinner {
       margin: 20px auto;
@@ -86,30 +99,54 @@
     #copyBtn:hover {
       background-color: #007bb5;
     }
+    /* Flex styling for label + dropdowns */
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .flex-row label {
+      flex: 1;
+      font-weight: bold;
+      color: #555;
+      font-size: 14px;
+    }
+    .flex-row select {
+      flex: 2;
+      font-size: 13px;
+      padding: 8px;
+      height: auto;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Medical Document Generator</h1>
+    <div class="subtitle">a webpage made by Samuel Goh</div>
 
     <label for="dataInput">Clinical Data (Vitals, Labs, Imaging):</label>
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
-    <label for="templateSelect">Choose a Document Template:</label>
-    <select id="templateSelect" onchange="loadTemplate()">
-      <option value="">-- Select a Template --</option>
-      <option value="micu_am_rounds">Medical ICU AM Round</option>
-    </select>
+    <div class="flex-row">
+      <label for="templateSelect">Choose a Document Template:</label>
+      <select id="templateSelect" onchange="loadTemplate()">
+        <option value="">-- Select a Template --</option>
+        <option value="micu_am_rounds">Medical ICU AM Round</option>
+      </select>
+    </div>
 
     <label for="templateInput">Document Template:</label>
     <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
 
-    <label for="instructionSelect">Choose Special Instruction:</label>
-    <select id="instructionSelect" onchange="loadSpecialInstruction()">
-      <option value="">-- Select Special Instruction --</option>
-      <option value="generic_instructions">Generic Instructions</option>
-      <option value="strict_instructions">Strict Instructions</option>
-    </select>
+    <div class="flex-row">
+      <label for="instructionSelect">Choose Special Instruction:</label>
+      <select id="instructionSelect" onchange="loadSpecialInstruction()">
+        <option value="">-- Select Special Instruction --</option>
+        <option value="generic_instructions">Generic Instructions</option>
+        <option value="strict_instructions">Strict Instructions</option>
+      </select>
+    </div>
 
     <label for="instructionsInput">Special Instructions:</label>
     <textarea id="instructionsInput" rows="5">Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.</textarea>
@@ -120,7 +157,9 @@
 
     <h2>Generated Document:</h2>
     <pre id="response"></pre>
+
     <button id="copyBtn" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
+    <button id="clearBtn" onclick="clearAll()">Clear All</button>
   </div>
 
   <script>
@@ -162,7 +201,6 @@
           alert('Failed to load special instruction: ' + error.message);
         }
       }
-      // else do nothing if empty
     }
 
     async function generateDocument() {
@@ -233,6 +271,16 @@ Return the revised clinical text as plain text without showing any units for lab
       navigator.clipboard.writeText(text).then(() => {
         alert("Document copied to clipboard!");
       });
+    }
+
+    function clearAll() {
+      document.getElementById('dataInput').value = '';
+      document.getElementById('templateSelect').value = '';
+      document.getElementById('templateInput').value = '';
+      document.getElementById('instructionSelect').value = '';
+      document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+      document.getElementById('response').textContent = '';
+      document.getElementById('copyBtn').style.display = "none";
     }
   </script>
 </body>
