@@ -1,0 +1,13 @@
+Summarize the patient's clinical condition into a single narrative paragraph.
+
+Guidelines:
+- Focus on the main diagnosis, key background comorbidities, reason for hospital admission, significant investigations, current treatment, and clinical status.
+- Write in a formal but concise style.
+- Avoid listing in point form.
+- If certain information is missing, do not invent it; leave it out.
+- If lab results or imaging findings are important, integrate them naturally into the paragraph without listing values.
+
+Example of ideal output:
+"Mr Tan is a 68-year-old man with a history of hypertension and chronic kidney disease who was admitted with shortness of breath secondary to community-acquired pneumonia. His course has been complicated by acute kidney injury requiring temporary dialysis. Chest X-ray revealed bilateral lower lobe consolidation, and he is currently on broad-spectrum antibiotics with gradual clinical improvement. He remains hemodynamically stable on minimal oxygen support."
+
+Return only the narrative paragraph without headings.
