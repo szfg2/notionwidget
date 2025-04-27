@@ -1,7 +1,7 @@
 Summarize the Clinical Data into the following structure:
 
 1.  ## Please write main diagnosis summarised in one line ##
-- ##List out how patient presented if available
+- ##List out how patient presented if available##
 - 
 
 [Investigations]
@@ -15,6 +15,7 @@ Summarize the Clinical Data into the following structure:
 
 Important instructions:
 - Only summarize information that is explicitly present in the Clinical Data.
+- Include dates where available.
 - If any section has no relevant information, leave it blank with a '-' marker.
 - Do not invent or guess information not stated.
 - Write clearly and concisely.
