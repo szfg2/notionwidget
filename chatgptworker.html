@@ -95,7 +95,7 @@
     <label for="dataInput">Clinical Data (Vitals, Labs, Imaging):</label>
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
-    <label for="templateSelect">Choose a Template:</label>
+    <label for="templateSelect">Choose a Document Template:</label>
     <select id="templateSelect" onchange="loadTemplate()">
       <option value="">-- Select a Template --</option>
       <option value="micu_am_rounds">Medical ICU AM Round</option>
@@ -103,6 +103,13 @@
 
     <label for="templateInput">Document Template:</label>
     <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
+
+    <label for="instructionSelect">Choose Special Instruction:</label>
+    <select id="instructionSelect" onchange="loadSpecialInstruction()">
+      <option value="">-- Select Special Instruction --</option>
+      <option value="generic_instructions">Generic Instructions</option>
+      <option value="strict_instructions">Strict Instructions</option>
+    </select>
 
     <label for="instructionsInput">Special Instructions:</label>
     <textarea id="instructionsInput" rows="5">Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.</textarea>
@@ -125,11 +132,9 @@
       if (selectedTemplate) {
         try {
           const response = await fetch('https://raw.githubusercontent.com/szfg2/notionwidget/main/templates/' + selectedTemplate + '.txt');
-          
           if (!response.ok) {
             throw new Error('Template not found');
           }
-
           const templateText = await response.text();
           templateInput.value = templateText.trim();
         } catch (error) {
@@ -138,6 +143,26 @@
       } else {
         templateInput.value = '';
       }
+    }
+
+    async function loadSpecialInstruction() {
+      const instructionSelect = document.getElementById('instructionSelect');
+      const instructionsInput = document.getElementById('instructionsInput');
+      const selectedInstruction = instructionSelect.value;
+
+      if (selectedInstruction) {
+        try {
+          const response = await fetch('https://raw.githubusercontent.com/szfg2/notionwidget/main/special_instructions/' + selectedInstruction + '.txt');
+          if (!response.ok) {
+            throw new Error('Instruction template not found');
+          }
+          const instructionText = await response.text();
+          instructionsInput.value = instructionText.trim();
+        } catch (error) {
+          alert('Failed to load special instruction: ' + error.message);
+        }
+      }
+      // else do nothing if empty
     }
 
     async function generateDocument() {
@@ -151,7 +176,7 @@
         prompt = `
 You are a medical scribe.
 Use the following clinical data to fill into the document template.
-Follow the special instructions carefully. 
+Follow the special instructions carefully.
 If lab values are present, do not display their units.
 
 Clinical Data:
@@ -185,7 +210,7 @@ Return the revised clinical text as plain text without showing any units for lab
       document.getElementById('copyBtn').style.display = "none";
 
       try {
-        const res = await fetch('https://chatgpt-proxy.chatgpt-helper.workers.dev', { // your backend URL
+        const res = await fetch('https://chatgpt-proxy.chatgpt-helper.workers.dev', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt })
