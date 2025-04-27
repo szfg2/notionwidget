@@ -1,0 +1,20 @@
+Summarize the Clinical Data into the following structure:
+
+1. Main Diagnosis
+- (List the main diagnoses based on the clinical data)
+
+[Investigations]
+- (List the relevant investigations done, including laboratory results, imaging, or any tests)
+
+[Treatment]
+- (List the key treatments or management steps being given to the patient)
+
+[Complications]
+- (List any complications that have occurred or are being monitored for)
+
+Important instructions:
+- Only summarize information that is explicitly present in the Clinical Data.
+- If any section has no relevant information, leave it blank with a '-' marker.
+- Do not invent or guess information not stated.
+- Write clearly and concisely.
+- Use simple plain text formatting without any extra comments.
