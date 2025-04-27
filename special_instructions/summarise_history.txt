@@ -1,7 +1,6 @@
 Summarize the Clinical Data into the following structure:
 
-1. Main Diagnosis
-- (List the main diagnoses based on the clinical data)
+1. __ ## Main Diagnosis ##
 
 [Investigations]
 - (List the relevant investigations done, including laboratory results, imaging, or any tests)
