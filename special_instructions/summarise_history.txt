@@ -1,15 +1,17 @@
 Summarize the Clinical Data into the following structure:
 
 1.  ## Please write main diagnosis summarised in one line ##
+- ##List out how patient presented if available
+- 
 
 [Investigations]
-- (List the relevant investigations done, including laboratory results, imaging, or any tests)
+- ##List the relevant investigations done, including laboratory results, imaging, or any tests##
 
 [Treatment]
-- (List the key treatments or management steps being given to the patient)
+- ##List the key treatments or management steps being given to the patient##
 
 [Complications]
-- (List any complications that have occurred or are being monitored for)
+- ##List any complications that have occurred or are being monitored for##
 
 Important instructions:
 - Only summarize information that is explicitly present in the Clinical Data.
