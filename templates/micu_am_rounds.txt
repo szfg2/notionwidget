@@ -1,0 +1,334 @@
+Medical ICU AM Rounds
+
+
+Past Medical History
+1. 
+
+Presentation
+
+Reason for ICU Admission
+
+Counters 
+Disposition:
+- D2 MICU 
+
+Antibiotics: 
+- D2  
+
+Lines: 
+- D2 IA line  
+- D2 IDC 
+
+Treatment:
+- D2 
+
+Overnight
+Noted on call rounding with thanks 
+
+Objective
+[On Examination]
+GCS: 15
+H: S1 + S2
+Lungs: bilateral creps
+Abdomen: SNT 
+Calves: supple
+IA line site clean 
+
+[Respiratory]
+RR: 
+Sats: 
+Secretions: 
+Latest ABG: 
+Latest CXR: 
+
+Ventilation: 
+
+[Cardio]
+HR: 
+BP: 
+Telemetry: 
+Last ECG: 
+Latest trops: 
+Latest 2DE: 
+BNP: 
+
+Ionotropes: 
+
+[Neuro]
+GCS: 
+RASS score: 
+Latest brain imaging: 
+
+Sedation: 
+
+[Endocrine]
+CBG: 
+Calcium: 
+Magnesium: 
+Phosphate: 
+
+Insulin: 
+Other diabetes medication: 
+
+[Renal/Fluids]
+Intake: 
+Output: 
+Net: 
+Urine output: 
+Daily IO trend: 
+Weight 
+- 
+- Previously 
+
+Latest renal panel: 
+Lactate: 
+
+IV fluids: 
+Diuretics: 
+RRT: 
+
+[Gastro]
+Feeding: 
+Bowels: 
+Latest LFTS: 
+
+Stress prophylaxis: 
+
+[Haematology]
+Latest FBC:	
+Ferritin
+B12: 
+Folate: 
+Previous antiplatelets/anticoagulation: 
+Current thromboprophylaxis: 
+
+[Infective]
+Temperature: 
+WBC: 
+CRP: 
+Procal: 
+
+UFEME: 
+Previous positive cultures: 
+
+Current Antibiotics: 
+
+[Rheumatology]
+Current joints: 
+Previous rheumatological medication: 
+
+Assessment
+1. 
+
+
+
+Plans
+[Respiratory]
+Keep sats
+Ventilator
+
+[Cardio]
+Keep MAP 
+Trops 
+ECG
+2DE / MIBI
+
+[Neuro]
+Keep RASS score 
+IV sedation
+
+[Endocrine]
+CBG 
+
+[Renal/Fluids]
+RP
+Keep IO even
+IV fluids 
+
+[Gastro]
+Clear bowels daily
+Stress ulcer prophylaxis 
+
+[Haematology]
+Keep Hb > 
+
+[Infective]
+Trace
+If temperature spike culture _
+Continue IV Abx 
+
+[Others]
+EOC: 
+Keep family updated 
+
+[Disposition]
+Keep in ICU 
+
+Changes to chronic medications: 
+Medical ICU AM Rounds
+
+
+Past Medical History
+1. 
+
+Presentation
+
+Reason for ICU Admission
+
+Counters 
+Disposition:
+- D2 MICU 
+
+Antibiotics: 
+- D2  
+
+Lines: 
+- D2 IA line  
+- D2 IDC 
+
+Treatment:
+- D2 
+
+Overnight
+Noted on call rounding with thanks 
+
+Objective
+[On Examination]
+GCS: 15
+H: S1 + S2
+Lungs: bilateral creps
+Abdomen: SNT 
+Calves: supple
+IA line site clean 
+
+[Respiratory]
+RR: 
+Sats: 
+Secretions: 
+Latest ABG: 
+Latest CXR: 
+
+Ventilation: 
+
+[Cardio]
+HR: 
+BP: 
+Telemetry: 
+Last ECG: 
+Latest trops: 
+Latest 2DE: 
+BNP: 
+
+Ionotropes: 
+
+[Neuro]
+GCS: 
+RASS score: 
+Latest brain imaging: 
+
+Sedation: 
+
+[Endocrine]
+CBG: 
+Calcium: 
+Magnesium: 
+Phosphate: 
+
+Insulin: 
+Other diabetes medication: 
+
+[Renal/Fluids]
+Intake: 
+Output: 
+Net: 
+Urine output: 
+Daily IO trend: 
+Weight 
+- 
+- Previously 
+
+Latest renal panel: 
+Lactate: 
+
+IV fluids: 
+Diuretics: 
+RRT: 
+
+[Gastro]
+Feeding: 
+Bowels: 
+Latest LFTS: 
+
+Stress prophylaxis: 
+
+[Haematology]
+Latest FBC:	
+Ferritin
+B12: 
+Folate: 
+Previous antiplatelets/anticoagulation: 
+Current thromboprophylaxis: 
+
+[Infective]
+Temperature: 
+WBC: 
+CRP: 
+Procal: 
+
+UFEME: 
+Previous positive cultures: 
+
+Current Antibiotics: 
+
+[Rheumatology]
+Current joints: 
+Previous rheumatological medication: 
+
+Assessment
+1. 
+
+
+
+Plans
+[Respiratory]
+Keep sats
+Ventilator
+
+[Cardio]
+Keep MAP 
+Trops 
+ECG
+2DE / MIBI
+
+[Neuro]
+Keep RASS score 
+IV sedation
+
+[Endocrine]
+CBG 
+
+[Renal/Fluids]
+RP
+Keep IO even
+IV fluids 
+
+[Gastro]
+Clear bowels daily
+Stress ulcer prophylaxis 
+
+[Haematology]
+Keep Hb > 
+
+[Infective]
+Trace
+If temperature spike culture _
+Continue IV Abx 
+
+[Others]
+EOC: 
+Keep family updated 
+
+[Disposition]
+Keep in ICU 
+
+Changes to chronic medications: 
