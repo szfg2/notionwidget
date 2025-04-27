@@ -216,6 +216,7 @@ You are a medical scribe.
 Use the following clinical data to fill into the document template.
 Follow the special instructions carefully.
 If lab values are present, do not display their units.
+Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable.
 
 Clinical Data:
 ${data}
@@ -232,6 +233,8 @@ Return the completed document as plain text without showing any units for lab va
         prompt = `
 You are a medical editor.
 Edit and format the following clinical data according to the special instructions.
+If lab values are present, do not display their units.
+Anything enclosed between ## ## are internal instructions — replace them with actual summarized content or leave blank with a '-' if not applicable
 
 Clinical Data:
 ${data}
