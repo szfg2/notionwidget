@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Medical Document Generator</title>
+  <title>Medical Document Generator and Summarizer</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,10 +28,6 @@
       color: #777;
       font-size: 14px;
       margin-bottom: 20px;
-    }
-    h2 {
-      text-align: center;
-      color: #333;
     }
     label {
       font-weight: bold;
@@ -121,14 +117,14 @@
 </head>
 <body>
   <div class="container">
-    <h1>Medical Document Generator</h1>
+    <h1>Medical Document Generator and Summarizer</h1>
     <div class="subtitle">a webpage made by Samuel Goh</div>
 
-    <label for="dataInput">Clinical Data (Vitals, Labs, Imaging):</label>
+    <label for="dataInput">Clinical Data:</label>
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
     <div class="flex-row">
-      <label for="templateSelect">Choose a Document Template:</label>
+      <label for="templateSelect">Choose a Document Template (or input your own):</label>
       <select id="templateSelect" onchange="loadTemplate()">
         <option value="">-- Select a Template --</option>
         <option value="micu_am_rounds">Medical ICU AM Round</option>
@@ -136,11 +132,10 @@
       </select>
     </div>
 
-    <label for="templateInput">Document Template:</label>
-    <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
+    <textarea id="templateInput" placeholder="Enter template manually if preferred..."></textarea>
 
     <div class="flex-row">
-      <label for="instructionSelect">Choose Special Instruction:</label>
+      <label for="instructionSelect">Choose Special Instruction (or input your own):</label>
       <select id="instructionSelect" onchange="loadSpecialInstruction()">
         <option value="">-- Select Special Instruction --</option>
         <option value="generic_instructions">Generic Instructions</option>
@@ -148,14 +143,12 @@
       </select>
     </div>
 
-    <label for="instructionsInput">Special Instructions:</label>
-    <textarea id="instructionsInput" rows="5"></textarea>
+    <textarea id="instructionsInput" rows="5" placeholder="Enter special instructions manually if preferred..."></textarea>
 
     <button onclick="generateDocument()">Generate Document</button>
 
     <div id="spinner" style="display:none;"></div>
 
-    <h2>Generated Document:</h2>
     <pre id="response"></pre>
 
     <button id="copyBtn" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
@@ -300,7 +293,6 @@ Return the revised clinical text as plain text without showing any units for lab
         document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
       }
 
-      // Also auto-select Generic Instructions
       document.getElementById('instructionSelect').value = 'generic_instructions';
     }
 
