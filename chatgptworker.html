@@ -96,7 +96,7 @@
     <textarea id="templateInput" placeholder="Enter template with placeholders..."></textarea>
 
     <label for="instructionsInput">Special Instructions:</label>
-    <textarea id="instructionsInput" rows="5">Fill in ___. If not explicitly stated in clinical data, then leave as ___. If lab values are present, do not display their units.</textarea>
+    <textarea id="instructionsInput" rows="5">Fill in blanks. If not explicitly stated in clinical data, then leave as blanks. </textarea>
 
     <button onclick="generateDocument()">Generate Document</button>
 
@@ -120,7 +120,8 @@
         prompt = `
 You are a medical scribe.
 Use the following clinical data to fill into the document template.
-Follow the special instructions carefully.
+Follow the special instructions carefully. 
+If lab values are present, do not display their units.
 
 Clinical Data:
 ${data}
