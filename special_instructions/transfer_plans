@@ -1,0 +1,30 @@
+Reorganise these plans into the following headers
+
+[Nursing]
+
+[Investigations]
+
+[Medications]
+
+[Management]
+
+Instructions
+- do not include systems (i.e. cardio, res, neuro)
+- vitals target, CBG or blood glucose plans, diet plans should go under nursing 
+- Anything to trace should go under Investigations 
+- Anything regarding current medications, or medications planned to be given, should go under Medications 
+- EOC should go under Management. Anything that is not clear, should go under Management 
+- You should not put a dash in front of each plan 
+
+Example:
+[Nursing]
+Keep sats above 94%
+
+[Investigations]
+Trace blood culture sent 28/4/2025 
+
+[Medications]
+Continue IV Tazocin
+
+[Management]
+EOC full active 
