@@ -85,14 +85,16 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    pre {
-      background: #f4f4f4;
-      padding: 20px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+    #response {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
       margin-top: 20px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: vertical;
+      min-height: 200px;
+      box-sizing: border-box;
     }
     #copyBtn {
       margin-top: 10px;
@@ -188,7 +190,7 @@
 
     <div id="spinner" style="display:none;"></div>
 
-    <pre id="response"></pre>
+    <textarea id="response" placeholder="Generated document will appear here..."></textarea>
 
     <button id="copyBtn" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
     <button id="clearBtn" onclick="clearAll()">Clear All</button>
@@ -281,7 +283,7 @@ Return the revised clinical text as plain text without showing any units for lab
       }
 
       document.getElementById('spinner').style.display = "block";
-      document.getElementById('response').textContent = "";
+      document.getElementById('response').value = "";
       document.getElementById('copyBtn').style.display = "none";
 
       try {
@@ -293,21 +295,25 @@ Return the revised clinical text as plain text without showing any units for lab
 
         const dataOut = await res.json();
         document.getElementById('spinner').style.display = "none";
-        document.getElementById('response').textContent = dataOut.response || "Error generating document.";
+        document.getElementById('response').value = dataOut.response || "Error generating document.";
         if (dataOut.response) {
           document.getElementById('copyBtn').style.display = "block";
         }
       } catch (err) {
         document.getElementById('spinner').style.display = "none";
-        document.getElementById('response').textContent = "Error: " + err.message;
+        document.getElementById('response').value = "Error: " + err.message;
       }
     }
 
     function copyToClipboard() {
-      const text = document.getElementById('response').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        alert("Document copied to clipboard!");
-      });
+      const text = document.getElementById('response').value.trim();
+      if (!text) {
+        alert("No document available to copy.");
+        return;
+      }
+      navigator.clipboard.writeText(text)
+        .then(() => alert("Document copied to clipboard!"))
+        .catch(() => alert("Failed to copy text."));
     }
 
     function clearAll() {
@@ -315,7 +321,7 @@ Return the revised clinical text as plain text without showing any units for lab
       document.getElementById('templateSelect').value = '';
       document.getElementById('templateInput').value = '';
       loadDefaultSpecialInstructions();
-      document.getElementById('response').textContent = '';
+      document.getElementById('response').value = '';
       document.getElementById('copyBtn').style.display = "none";
     }
 
@@ -326,16 +332,13 @@ Return the revised clinical text as plain text without showing any units for lab
           const text = await response.text();
           document.getElementById('instructionsInput').value = text.trim();
         } else {
-          document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data.';
+          document.getElementById('instructionsInput').value = 'Fill in blanks only if data provided.';
         }
       } catch (error) {
-        document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data.';
+        document.getElementById('instructionsInput').value = 'Fill in blanks only if data provided.';
       }
-
       document.getElementById('instructionSelect').value = 'generic_instructions';
     }
-
-    // === NEW: Saving and Loading Patient Data ===
 
     function saveClinicalData() {
       const data = document.getElementById('dataInput').value.trim();
@@ -374,6 +377,9 @@ Return the revised clinical text as plain text without showing any units for lab
     window.onload = function() {
       loadDefaultSpecialInstructions();
       renderPatientList();
+      document.getElementById('response').addEventListener('click', function() {
+        this.select();
+      });
     };
   </script>
 </body>
