@@ -66,6 +66,12 @@
     #clearBtn:hover {
       background-color: #d32f2f;
     }
+    #deletePatientsBtn {
+      background-color: #f44336;
+    }
+    #deletePatientsBtn:hover {
+      background-color: #d32f2f;
+    }
     #spinner {
       margin: 20px auto;
       border: 8px solid #f3f3f3;
@@ -113,6 +119,35 @@
       padding: 8px;
       height: auto;
     }
+    .save-button {
+      margin-top: 10px;
+      margin-bottom: 10px;
+      background-color: #2196F3;
+      color: white;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .save-button:hover {
+      background-color: #0b7dda;
+    }
+    .patient-list {
+      margin-top: 10px;
+    }
+    .patient-list button {
+      margin: 5px 5px 5px 0;
+      padding: 5px 10px;
+      font-size: 13px;
+      background-color: #e0e0e0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .patient-list button:hover {
+      background-color: #c0c0c0;
+    }
   </style>
 </head>
 <body>
@@ -121,7 +156,11 @@
     <div class="subtitle">a webpage made by Samuel Goh</div>
 
     <label for="dataInput">Clinical Data:</label>
+    <button class="save-button" onclick="saveClinicalData()">Save Clinical Data</button>
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
+
+    <div class="patient-list" id="patientList"></div>
+    <button id="deletePatientsBtn" onclick="deleteAllPatients()">Delete All Saved Patients</button>
 
     <div class="flex-row">
       <label for="templateSelect">Choose a Document Template (or input your own):</label>
@@ -129,7 +168,6 @@
         <option value="">-- Select a Template --</option>
         <option value="micu_am_rounds">Medical ICU AM Round</option>
         <option value="exit_round">Exit Round</option>
-        <option value="referral_letter">Referral Letter</option>
       </select>
     </div>
 
@@ -141,7 +179,6 @@
         <option value="">-- Select Special Instruction --</option>
         <option value="generic_instructions">Generic Instructions</option>
         <option value="summarise_history">Summarise History</option>
-        <option value="narrative_summary">Narrative Summary</option>
       </select>
     </div>
 
@@ -289,16 +326,55 @@ Return the revised clinical text as plain text without showing any units for lab
           const text = await response.text();
           document.getElementById('instructionsInput').value = text.trim();
         } else {
-          document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+          document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data.';
         }
       } catch (error) {
-        document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data. If there is no explicit information, leave the blank empty without guessing or inferring. If lab values are present, do not display their units.';
+        document.getElementById('instructionsInput').value = 'Fill in blanks. Only fill in information that is directly stated in the Clinical Data.';
       }
 
       document.getElementById('instructionSelect').value = 'generic_instructions';
     }
 
-    window.onload = loadDefaultSpecialInstructions;
+    // === NEW: Saving and Loading Patient Data ===
+
+    function saveClinicalData() {
+      const data = document.getElementById('dataInput').value.trim();
+      if (!data) {
+        alert("No clinical data to save.");
+        return;
+      }
+      const initials = prompt("Enter patient initials:");
+      if (initials) {
+        localStorage.setItem(initials, data);
+        renderPatientList();
+      }
+    }
+
+    function renderPatientList() {
+      const patientListDiv = document.getElementById('patientList');
+      patientListDiv.innerHTML = '';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const btn = document.createElement('button');
+        btn.textContent = key;
+        btn.onclick = function() {
+          document.getElementById('dataInput').value = localStorage.getItem(key);
+        };
+        patientListDiv.appendChild(btn);
+      }
+    }
+
+    function deleteAllPatients() {
+      if (confirm("Are you sure you want to delete all saved patients?")) {
+        localStorage.clear();
+        renderPatientList();
+      }
+    }
+
+    window.onload = function() {
+      loadDefaultSpecialInstructions();
+      renderPatientList();
+    };
   </script>
 </body>
 </html>
