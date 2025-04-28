@@ -46,8 +46,6 @@
       box-sizing: border-box;
     }
     button {
-      display: block;
-      width: 100%;
       margin-top: 20px;
       padding: 12px;
       font-size: 16px;
@@ -56,15 +54,26 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      width: 100%;
     }
     button:hover {
       background-color: #45a049;
     }
-    #clearBtn {
-      background-color: #f44336;
+    .small-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 5px;
     }
-    #clearBtn:hover {
-      background-color: #d32f2f;
+    .small-buttons button {
+      font-size: 12px;
+      padding: 6px 10px;
+      width: auto;
+      background-color: #2196F3;
+    }
+    .small-buttons button:hover {
+      background-color: #0b7dda;
     }
     #deletePatientsBtn {
       background-color: #f44336;
@@ -121,20 +130,6 @@
       padding: 8px;
       height: auto;
     }
-    .save-button {
-      margin-top: 10px;
-      margin-bottom: 10px;
-      background-color: #2196F3;
-      color: white;
-      padding: 8px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .save-button:hover {
-      background-color: #0b7dda;
-    }
     .patient-list {
       margin-top: 10px;
     }
@@ -158,13 +153,17 @@
     <div class="subtitle">a webpage made by Samuel Goh</div>
 
     <label for="dataInput">Clinical Data:</label>
-    <button class="save-button" onclick="saveClinicalData()">Save Clinical Data</button>
+
+    <div class="small-buttons">
+      <button onclick="saveClinicalData()">Save Clinical Data</button>
+      <button id="deletePatientsBtn" onclick="deleteAllPatients()">Delete All Saved Patients</button>
+    </div>
+
     <textarea id="dataInput" placeholder="Enter clinical data..."></textarea>
 
     <div class="patient-list" id="patientList"></div>
-    <button id="deletePatientsBtn" onclick="deleteAllPatients()">Delete All Saved Patients</button>
 
-    <div class="flex-row">
+    <div class="flex-row"><!-- Dropdown1 for Templates -->
       <label for="templateSelect">Choose a Document Template (or input your own):</label>
       <select id="templateSelect" onchange="loadTemplate()">
         <option value="">-- Select a Template --</option>
@@ -175,7 +174,7 @@
 
     <textarea id="templateInput" placeholder="Enter template manually if preferred..."></textarea>
 
-    <div class="flex-row">
+    <div class="flex-row"> <!-- Dropdown2 for Special Instructions -->
       <label for="instructionSelect">Choose Special Instruction (or input your own):</label>
       <select id="instructionSelect" onchange="loadSpecialInstruction()">
         <option value="">-- Select Special Instruction --</option>
@@ -197,6 +196,8 @@
     <button id="copyBtn" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
     <button id="clearBtn" onclick="clearAll()">Clear All</button>
   </div>
+
+<!-- JavaScript same as your current setup: will continue next if you want! -->
 
   <script>
     async function loadTemplate() {
