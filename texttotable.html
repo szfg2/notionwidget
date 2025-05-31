@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Segoe UI', sans-serif; /* Changed font */
         }
         .spinner {
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -40,7 +40,7 @@
         <div class="bg-white shadow-xl rounded-lg p-6 sm:p-8">
             <div class="mb-6">
                 <label for="clinicalText" class="block text-md font-semibold text-gray-800 mb-2">Clinical Information:</label>
-                <textarea id="clinicalText" rows="15" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-colors duration-150" placeholder="Paste patient data here, e.g., HD 1 PATIENT NAME • Past Medical history: ..."></textarea>
+                <textarea id="clinicalText" rows="15" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-colors duration-150" placeholder="Paste patient data here, they will be grouped into location, name, summary, and clinical data."></textarea>
             </div>
 
             <button id="convertToTableBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all duration-150 ease-in-out flex items-center justify-center space-x-2 text-lg">
@@ -82,7 +82,7 @@
         const copyTableBtn = document.getElementById('copyTableBtn');
 
         // --- Gemini API Configuration ---
-        // IMPORTANT: Replace "YOUR_ACTUAL_GEMINI_API_KEY_HERE" with your real Gemini API key.
+        // IMPORTANT: Replace "YOUR_ACTUAL_GEMINI_API_KEY_HERE" with your real Gemini API key if it's not the one below.
         const apiKey = "AIzaSyCBJbQmNxBBvwrDzBPsXObbS-x8uoMHhbo"; 
         const modelName = "gemini-2.0-flash";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -116,10 +116,12 @@
                 showStatus('Please paste some clinical text first.', 'warning');
                 return;
             }
-            if (apiKey === "YOUR_ACTUAL_GEMINI_API_KEY_HERE" || apiKey === "") {
-                showStatus('API Key not configured. Please edit the script to add your Gemini API key.', 'error');
+            // Ensure the placeholder API key is not used.
+            if (apiKey === "YOUR_ACTUAL_GEMINI_API_KEY_HERE" || apiKey === "" || apiKey === "AIzaSyCBJbQmNxBBvwrDzBPsXObbS-x8uoMHhbo" && !apiKey.startsWith("AIza")) { // Added a more specific check for the example key
+                showStatus('API Key not configured or using placeholder. Please edit the script to add your valid Gemini API key.', 'error');
                 return;
             }
+
 
             buttonText.textContent = 'Processing...';
             convertIcon.classList.add('hidden');
@@ -338,7 +340,7 @@ JSON Output:`;
             }, 7000);
         }
 
-        clinicalTextInput.value = `Paste clinical information here. Information will be grouped into columns Location, Name, Summary, and Clinical Data`;
+        clinicalTextInput.value = ""; // Textbox default is now empty
 
     </script>
 </body>
