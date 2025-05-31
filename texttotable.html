@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Text to Table Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #tableOutput table {
+            table-layout: fixed;
+            width: 100%;
+        }
+         #tableOutput td, #tableOutput th {
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-indigo-700">Clinical Text to Table Converter</h1>
+            <p class="text-sm text-gray-600 mt-1">Paste clinical notes below. The AI will structure them into 'Location', 'Patient Name', 'Summary', and 'Objective Data' columns.</p>
+        </header>
+
+        <div class="bg-white shadow-xl rounded-lg p-6 sm:p-8">
+            <div class="mb-6">
+                <label for="clinicalText" class="block text-md font-semibold text-gray-800 mb-2">Clinical Information:</label>
+                <textarea id="clinicalText" rows="15" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-colors duration-150" placeholder="Paste patient data here, e.g., HD 1 PATIENT NAME • Past Medical history: ..."></textarea>
+            </div>
+
+            <button id="convertToTableBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all duration-150 ease-in-out flex items-center justify-center space-x-2 text-lg">
+                <svg id="convertIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+                <span id="buttonText">Convert to Table</span>
+                <div id="loadingSpinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="statusMessage" class="mt-5 text-sm text-center py-2 px-3 rounded-md"></div>
+        </div>
+
+        <div id="tableContainer" class="mt-10 bg-white shadow-xl rounded-lg p-6 sm:p-8 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-3 sm:mb-0">Generated Table</h2>
+                <button id="copyTableBtn" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-all duration-150 ease-in-out flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 2a1 1 0 000 2h2a1 1 0 100-2H8z" />
+                        <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 0v8h6V5H5z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Copy Table</span>
+                </button>
+            </div>
+            <div id="tableOutput" class="overflow-x-auto rounded-lg">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const clinicalTextInput = document.getElementById('clinicalText');
+        const convertToTableBtn = document.getElementById('convertToTableBtn');
+        const buttonText = document.getElementById('buttonText');
+        const convertIcon = document.getElementById('convertIcon');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const statusMessage = document.getElementById('statusMessage');
+        const tableContainer = document.getElementById('tableContainer');
+        const tableOutput = document.getElementById('tableOutput');
+        const copyTableBtn = document.getElementById('copyTableBtn');
+
+        // --- Gemini API Configuration ---
+        // IMPORTANT: Replace "YOUR_ACTUAL_GEMINI_API_KEY_HERE" with your real Gemini API key.
+        // Be aware of the security risks if this code is hosted publicly.
+        const apiKey = "YOUR_ACTUAL_GEMINI_API_KEY_HERE"; 
+        const modelName = "gemini-2.0-flash"; // Or your preferred model
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        // Updated tableSchema for the API call's generationConfig.responseSchema
+        const tableSchema = {
+            type: "OBJECT",
+            properties: {
+                "headers": {
+                    type: "ARRAY",
+                    items: { type: "STRING" },
+                    description: "Fixed headers: ['Location', 'Patient Name', 'Summary', 'Objective Data']"
+                },
+                "rows": {
+                    type: "ARRAY",
+                    items: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        minItems: 4,
+                        maxItems: 4,
+                        description: "An array of arrays, where each inner array represents a patient's data corresponding to the fixed headers: Location, Patient Name, Summary, Objective Data."
+                    },
+                    description: "The data rows of the table, with each row containing 4 string elements."
+                }
+            },
+            required: ["headers", "rows"]
+        };
+
+
+        convertToTableBtn.addEventListener('click', async () => {
+            const textInput = clinicalTextInput.value.trim();
+            if (!textInput) {
+                showStatus('Please paste some clinical text first.', 'warning');
+                return;
+            }
+            if (apiKey === "AIzaSyCBJbQmNxBBvwrDzBPsXObbS-x8uoMHhbo" || apiKey === "") {
+                showStatus('API Key not configured. Please edit the script to add your Gemini API key.', 'error');
+                return;
+            }
+
+            buttonText.textContent = 'Processing...';
+            convertIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            convertToTableBtn.disabled = true;
+            statusMessage.textContent = '';
+            statusMessage.className = 'mt-5 text-sm text-center py-2 px-3 rounded-md';
+            tableContainer.classList.add('hidden');
+            tableOutput.innerHTML = '';
+
+            try {
+                const prompt = `You are an expert medical data processor. Your task is to analyze the following clinical text, which contains information for multiple patients, and convert it into a structured JSON table format.
+Each patient's entry typically starts with a location identifier like "HD X" followed by their name.
+
+The output JSON object must strictly adhere to the following schema:
+${JSON.stringify(tableSchema, null, 2)}
+
+The table must have the following four columns in this exact order for its 'headers' field: ["Location", "Patient Name", "Summary", "Objective Data"].
+Each element in the 'rows' array must be an array of exactly four strings, corresponding to these headers.
+
+Instructions for populating each column:
+1.  "Location": Extract the location identifier (e.g., "HD 1", "HD 2"). Copy this verbatim.
+2.  "Patient Name": Extract the patient's name (e.g., "AN AH LIM", "GOV RAS"). Copy this verbatim.
+3.  "Summary": Create a concise summary for the patient. This should primarily include information from "Past Medical history", "Presenting Complaint", and "Current Issues" sections of the input for that patient. Combine these into a coherent paragraph or bullet points within this single cell. Copy the information word-for-word from these sections.
+4.  "Objective Data": This column should contain all other specific clinical parameters and treatments. This includes, but is not limited to: Ventilation, Blood pressure, Inotropes, Intake, Output, Net, urine output, Creatinine, Hb, CRP, Procal, Albumin, and Antibiotics.
+    - Each piece of objective data (e.g., "Ventilation: BiPAP 24/4 4L", "Blood pressure: 136/79") must be on a new line within this single cell. Achieve this by using '\\n' as a newline character in the JSON string for this cell.
+    - All data, including labels (e.g., "Blood pressure:") and values (e.g., "136/79", "___", "IV Remdesivir, IV Dexamethasone"), must be copied EXACTLY WORD-FOR-WORD from the source text. Do not change, abbreviate, summarize, or interpret the data within this column. If a value is "___" or "Not available", copy that verbatim.
+
+Process each patient entry from the clinical text and create one row in the 'rows' array for each patient. Ensure all string values in the JSON are properly escaped.
+
+Clinical Text:
+---
+${textInput}
+---
+
+JSON Output:`;
+
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: tableSchema,
+                        temperature: 0.1,
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error('API Error Response:', errorBody);
+                    let detailedError = `API request failed with status ${response.status}.`;
+                    try {
+                        const errorJson = JSON.parse(errorBody);
+                        if (errorJson.error && errorJson.error.message) {
+                            detailedError += ` Message: ${errorJson.error.message}`;
+                        }
+                    } catch (e) {
+                        detailedError += ` Response: ${errorBody}`;
+                    }
+                    throw new Error(detailedError);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    let jsonText = result.candidates[0].content.parts[0].text;
+                    jsonText = jsonText.replace(/^```json\s*|```$/g, '').trim();
+                    
+                    const tableData = JSON.parse(jsonText);
+
+                    if (tableData.headers && tableData.headers.length === 4 && tableData.rows) {
+                        renderTable(tableData.headers, tableData.rows);
+                        showStatus('Table generated successfully!', 'success');
+                        tableContainer.classList.remove('hidden');
+                    } else {
+                        console.error('Invalid table data structure:', tableData);
+                        throw new Error('Invalid table data structure received. Expected 4 headers and corresponding rows.');
+                    }
+                } else {
+                    console.error('Unexpected API response structure:', result);
+                    let errorMessage = "Failed to generate table. The AI model returned an unexpected response structure.";
+                     if (result.promptFeedback && result.promptFeedback.blockReason) {
+                         errorMessage += ` Reason: ${result.promptFeedback.blockReason.reason || result.promptFeedback.blockReason}`;
+                         if(result.promptFeedback.blockReasonMessage) errorMessage += ` Message: ${result.promptFeedback.blockReasonMessage}`;
+                    } else if (result.error) { // Check for direct error object in response
+                        errorMessage += ` API Error: ${result.error.message} (Code: ${result.error.code})`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+            } catch (error) {
+                console.error('Error during conversion:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+                tableContainer.classList.add('hidden');
+            } finally {
+                buttonText.textContent = 'Convert to Table';
+                convertIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+                convertToTableBtn.disabled = false;
+            }
+        });
+
+        function renderTable(headers, rows) {
+            tableOutput.innerHTML = ''; 
+
+            if (!headers || !rows || headers.length === 0) {
+                tableOutput.innerHTML = '<p class="text-gray-600">No data to display in table.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-300 border border-gray-300 shadow-sm rounded-lg';
+
+            const thead = document.createElement('thead');
+            thead.className = 'bg-gray-100';
+            const headerRow = document.createElement('tr');
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.scope = 'col';
+                th.className = 'px-4 py-3.5 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider';
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            tbody.className = 'bg-white divide-y divide-gray-200';
+            rows.forEach(rowData => {
+                const tr = document.createElement('tr');
+                for (let i = 0; i < headers.length; i++) {
+                    const td = document.createElement('td');
+                    td.className = 'px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap align-top';
+                    td.textContent = rowData[i] !== undefined ? rowData[i] : '';
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            tableOutput.appendChild(table);
+        }
+
+        copyTableBtn.addEventListener('click', () => {
+            if (tableOutput.firstChild) {
+                const range = document.createRange();
+                const tableElement = tableOutput.querySelector('table');
+                if (!tableElement) {
+                    showStatus('No table element found to copy.', 'warning');
+                    return;
+                }
+                range.selectNode(tableElement);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showStatus('Table copied to clipboard!', 'success_persistent');
+                    } else {
+                        showStatus('Failed to copy table. Your browser might not support this action or it was blocked.', 'error_persistent');
+                    }
+                } catch (err) {
+                    console.error('Copy error:', err);
+                    showStatus('Error copying table. See console for details.', 'error_persistent');
+                }
+                window.getSelection().removeAllRanges();
+            } else {
+                showStatus('No table to copy.', 'warning');
+            }
+        });
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'mt-5 text-sm text-center py-2 px-3 rounded-md ';
+            switch (type) {
+                case 'success':
+                    statusMessage.classList.add('bg-green-100', 'text-green-700');
+                    break;
+                case 'success_persistent':
+                     statusMessage.classList.add('bg-green-100', 'text-green-700');
+                     return; 
+                case 'error':
+                    statusMessage.classList.add('bg-red-100', 'text-red-700');
+                    break;
+                case 'error_persistent':
+                    statusMessage.classList.add('bg-red-100', 'text-red-700');
+                    return; 
+                case 'warning':
+                    statusMessage.classList.add('bg-yellow-100', 'text-yellow-700');
+                    break;
+                default:
+                    statusMessage.classList.add('bg-gray-100', 'text-gray-700');
+            }
+            setTimeout(() => {
+                if (!type.includes('_persistent')) {
+                    statusMessage.textContent = '';
+                    statusMessage.className = 'mt-5 text-sm text-center py-2 px-3 rounded-md';
+                }
+            }, 7000);
+        }
+
+        clinicalTextInput.value = `HD 1	AN AH LIM	• Past Medical history: Nil significant
+• Presenting Complaint: Admitted 18/1/25 for cough with lower limb swelling and unintentional weight loss >10kg
+• Current Issues: 1. Decompensated Type 2 Respiratory Failure secondary to COVID-19 Acute Bronchitis; 2. Severe Deconditioning; 3. Left Hydropneumothorax	Ventilation: BiPAP 24/4 4L
+Blood pressure: 136/79  Inotropes: ___
+Intake: 600 Output: 360 Net: 240 urine output ___
+Creatinine: ___
+Hb: ___
+CRP: ___ Procal: ___
+Albumin: ___
+Antibiotics: IV Remdesivir, IV Dexamethasone
+
+HD 2	GOV RAS	• Past Medical history: HTN HLD DM, ILD on prednisolone 5mg OM, IHD s/p CABG 2000, multiple CAGs, latest TTE July 2024 shows LVEF 55-60%, Osteoporosis, OA knees s/p Left TKR 2015, Left EAC cholesteatoma s/p mastoidectomy 2018, Mild cognitive impairment, Left sided abdominal pain with umbilical nodule 2021, Intussusception 2021 - conservative management, Right foot drop likely CPN, Thyroid nodule - monitored at OPS, Postural hypotension - pseudomotor dysautonomia
+• Presenting Complaint: Admitted on 20/5/2025 with >D2 fever, cough and functional decline
+• Current Issues: Severe COVID-19 pneumonia with possible bacterial component and superimposed ILD flare, thrombocytopenia likely from sepsis	Ventilation: HFNC 60/60
+Blood pressure: 126/64 NIBP Inotropes: ___
+Intake: 400 Output: 350 Net: 50 urine output 350
+Creatinine: 47
+Hb: 10.2
+CRP: 166.2 Procal: 0.26
+Albumin: 28
+Antibiotics: IV Remdesivir (23/5/25 - ongoing), IV Dexamethasone (23/5/25 - ongoing), IV Augmentin (28/5/25 - ongoing)
+
+HD 8	SAL BIN OTH	• Past Medical history: HTN, DM, HLD, OA, ESRF on PD, Liver cirrhosis
+• Presenting Complaint: Admitted for fall with LOC, generalized weakness, poor appetite, fever
+• Current Issues: Secondary bacterial peritonitis with septic shock, Liver cirrhosis C10 with portal hypertension	Ventilation: Not on ventilator
+Blood pressure: 104/58  Inotropes: None documented in vitals
+Intake: 608 Output: 0 Net: 608 urine output 0
+Creatinine: 456
+Hb: Not available in selected timeframe
+CRP: 162 Procal: 1.58
+Albumin: 18
+Antibiotics: IV meropenem, IV Gentamicin given 28/05/2025, IP gentamicin given 29/05/2025, IP Cefzolin given 29/05/2025, IV Hydrocort 50mg Q6H`;
+
+    </script>
+</body>
+</html>
