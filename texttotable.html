@@ -83,12 +83,10 @@
 
         // --- Gemini API Configuration ---
         // IMPORTANT: Replace "YOUR_ACTUAL_GEMINI_API_KEY_HERE" with your real Gemini API key.
-        // Be aware of the security risks if this code is hosted publicly.
         const apiKey = "AIzaSyCBJbQmNxBBvwrDzBPsXObbS-x8uoMHhbo"; 
-        const modelName = "gemini-2.0-flash"; // Or your preferred model
+        const modelName = "gemini-2.0-flash";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        // Updated tableSchema for the API call's generationConfig.responseSchema
         const tableSchema = {
             type: "OBJECT",
             properties: {
@@ -111,7 +109,6 @@
             },
             required: ["headers", "rows"]
         };
-
 
         convertToTableBtn.addEventListener('click', async () => {
             const textInput = clinicalTextInput.value.trim();
@@ -215,7 +212,7 @@ JSON Output:`;
                      if (result.promptFeedback && result.promptFeedback.blockReason) {
                          errorMessage += ` Reason: ${result.promptFeedback.blockReason.reason || result.promptFeedback.blockReason}`;
                          if(result.promptFeedback.blockReasonMessage) errorMessage += ` Message: ${result.promptFeedback.blockReasonMessage}`;
-                    } else if (result.error) { // Check for direct error object in response
+                    } else if (result.error) {
                         errorMessage += ` API Error: ${result.error.message} (Code: ${result.error.code})`;
                     }
                     throw new Error(errorMessage);
@@ -263,8 +260,18 @@ JSON Output:`;
                 const tr = document.createElement('tr');
                 for (let i = 0; i < headers.length; i++) {
                     const td = document.createElement('td');
+                    const cellData = rowData[i] !== undefined ? rowData[i] : '';
+                    
+                    // Apply whitespace-pre-wrap for all cells for consistent whitespace handling by browser
                     td.className = 'px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap align-top';
-                    td.textContent = rowData[i] !== undefined ? rowData[i] : '';
+                    
+                    // For the "Objective Data" column (index 3), replace \n with <br> for better Word compatibility
+                    // The headers are fixed: ['Location', 'Patient Name', 'Summary', 'Objective Data']
+                    if (i === 3) { 
+                        td.innerHTML = cellData.replace(/\n/g, '<br>');
+                    } else {
+                        td.textContent = cellData;
+                    }
                     tr.appendChild(td);
                 }
                 tbody.appendChild(tr);
