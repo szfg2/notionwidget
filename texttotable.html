@@ -143,7 +143,7 @@ Each element in the 'rows' array must be an array of exactly four strings, corre
 Instructions for populating each column:
 1.  "Location": Extract the location identifier (e.g., "HD 1", "HD 2"). Copy this verbatim.
 2.  "Patient Name": Extract the patient's name (e.g., "AN AH LIM", "GOV RAS"). Copy this verbatim.
-3.  "Summary": Create a concise summary for the patient. This should primarily include information from "Past Medical history", "Presenting Complaint", and "Current Issues" sections of the input for that patient. Combine these into a coherent paragraph or bullet points within this single cell. Copy the information word-for-word from these sections.
+3.  "Summary": Create a concise summary for the patient. This should primarily include information from "Past Medical history", "Presenting Complaint", and "Current Issues" sections of the input for that patient. Combine these into a coherent paragraph or using bullet points (with '\\n' for new lines between bullet points or paragraphs) within this single cell. Copy the information word-for-word from these sections.
 4.  "Objective Data": This column should contain all other specific clinical parameters and treatments. This includes, but is not limited to: Ventilation, Blood pressure, Inotropes, Intake, Output, Net, urine output, Creatinine, Hb, CRP, Procal, Albumin, and Antibiotics.
     - Each piece of objective data (e.g., "Ventilation: BiPAP 24/4 4L", "Blood pressure: 136/79") must be on a new line within this single cell. Achieve this by using '\\n' as a newline character in the JSON string for this cell.
     - All data, including labels (e.g., "Blood pressure:") and values (e.g., "136/79", "___", "IV Remdesivir, IV Dexamethasone"), must be copied EXACTLY WORD-FOR-WORD from the source text. Do not change, abbreviate, summarize, or interpret the data within this column. If a value is "___" or "Not available", copy that verbatim.
@@ -262,12 +262,12 @@ JSON Output:`;
                     const td = document.createElement('td');
                     const cellData = rowData[i] !== undefined ? rowData[i] : '';
                     
-                    // Apply whitespace-pre-wrap for all cells for consistent whitespace handling by browser
                     td.className = 'px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap align-top';
                     
-                    // For the "Objective Data" column (index 3), replace \n with <br> for better Word compatibility
                     // The headers are fixed: ['Location', 'Patient Name', 'Summary', 'Objective Data']
-                    if (i === 3) { 
+                    // "Summary" is at index 2, "Objective Data" is at index 3.
+                    // For these columns, replace \n with <br> for better Word compatibility.
+                    if (i === 2 || i === 3) { 
                         td.innerHTML = cellData.replace(/\n/g, '<br>');
                     } else {
                         td.textContent = cellData;
@@ -338,38 +338,7 @@ JSON Output:`;
             }, 7000);
         }
 
-        clinicalTextInput.value = `HD 1	AN AH LIM	• Past Medical history: Nil significant
-• Presenting Complaint: Admitted 18/1/25 for cough with lower limb swelling and unintentional weight loss >10kg
-• Current Issues: 1. Decompensated Type 2 Respiratory Failure secondary to COVID-19 Acute Bronchitis; 2. Severe Deconditioning; 3. Left Hydropneumothorax	Ventilation: BiPAP 24/4 4L
-Blood pressure: 136/79  Inotropes: ___
-Intake: 600 Output: 360 Net: 240 urine output ___
-Creatinine: ___
-Hb: ___
-CRP: ___ Procal: ___
-Albumin: ___
-Antibiotics: IV Remdesivir, IV Dexamethasone
-
-HD 2	GOV RAS	• Past Medical history: HTN HLD DM, ILD on prednisolone 5mg OM, IHD s/p CABG 2000, multiple CAGs, latest TTE July 2024 shows LVEF 55-60%, Osteoporosis, OA knees s/p Left TKR 2015, Left EAC cholesteatoma s/p mastoidectomy 2018, Mild cognitive impairment, Left sided abdominal pain with umbilical nodule 2021, Intussusception 2021 - conservative management, Right foot drop likely CPN, Thyroid nodule - monitored at OPS, Postural hypotension - pseudomotor dysautonomia
-• Presenting Complaint: Admitted on 20/5/2025 with >D2 fever, cough and functional decline
-• Current Issues: Severe COVID-19 pneumonia with possible bacterial component and superimposed ILD flare, thrombocytopenia likely from sepsis	Ventilation: HFNC 60/60
-Blood pressure: 126/64 NIBP Inotropes: ___
-Intake: 400 Output: 350 Net: 50 urine output 350
-Creatinine: 47
-Hb: 10.2
-CRP: 166.2 Procal: 0.26
-Albumin: 28
-Antibiotics: IV Remdesivir (23/5/25 - ongoing), IV Dexamethasone (23/5/25 - ongoing), IV Augmentin (28/5/25 - ongoing)
-
-HD 8	SAL BIN OTH	• Past Medical history: HTN, DM, HLD, OA, ESRF on PD, Liver cirrhosis
-• Presenting Complaint: Admitted for fall with LOC, generalized weakness, poor appetite, fever
-• Current Issues: Secondary bacterial peritonitis with septic shock, Liver cirrhosis C10 with portal hypertension	Ventilation: Not on ventilator
-Blood pressure: 104/58  Inotropes: None documented in vitals
-Intake: 608 Output: 0 Net: 608 urine output 0
-Creatinine: 456
-Hb: Not available in selected timeframe
-CRP: 162 Procal: 1.58
-Albumin: 18
-Antibiotics: IV meropenem, IV Gentamicin given 28/05/2025, IP gentamicin given 29/05/2025, IP Cefzolin given 29/05/2025, IV Hydrocort 50mg Q6H`;
+        clinicalTextInput.value = `Paste clinical information here. Information will be grouped into columns Location, Name, Summary, and Clinical Data`;
 
     </script>
 </body>
