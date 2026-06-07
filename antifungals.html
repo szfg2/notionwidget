@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive Antifungal Coverage Map</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#111827; --panel2:#1f2937; --ink:#e5e7eb; --muted:#9ca3af;
+  --accent:#38bdf8; --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --blue:#60a5fa;
+  --purple:#a78bfa; --border:#374151; --white:#ffffff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(140deg,#020617,#111827 45%,#172554);color:var(--ink);}
+header{padding:32px 28px 22px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(2,6,23,.72);backdrop-filter:blur(8px);position:sticky;top:0;z-index:30}
+h1{margin:0;font-size:clamp(26px,4vw,46px);letter-spacing:-.03em}
+.subtitle{margin-top:10px;color:var(--muted);max-width:1050px;line-height:1.55}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.badge{border:1px solid var(--border);border-radius:999px;padding:6px 10px;color:#d1d5db;background:rgba(255,255,255,.04);font-size:13px}
+main{padding:24px;max-width:1500px;margin:0 auto}.controls{display:grid;grid-template-columns:1.4fr repeat(4, minmax(150px, .7fr));gap:12px;margin-bottom:18px;position:sticky;top:145px;z-index:20;background:rgba(15,23,42,.86);padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:18px;backdrop-filter:blur(8px)}
+input,select,button{width:100%;border:1px solid var(--border);background:#020617;color:var(--ink);border-radius:12px;padding:11px 12px;font-size:14px}button{cursor:pointer;background:#0f172a}button:hover{border-color:var(--accent)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 18px}.legend span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}.good{background:rgba(34,197,94,.22);color:#bbf7d0;border-color:rgba(34,197,94,.45)}.partial{background:rgba(245,158,11,.18);color:#fde68a;border-color:rgba(245,158,11,.45)}.poor{background:rgba(239,68,68,.18);color:#fecaca;border-color:rgba(239,68,68,.45)}.none{background:rgba(107,114,128,.18);color:#d1d5db;border-color:rgba(107,114,128,.45)}.toxic{background:rgba(167,139,250,.16);color:#ddd6fe;border-color:rgba(167,139,250,.4)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}.card{background:rgba(17,24,39,.88);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:18px;box-shadow:0 14px 50px rgba(0,0,0,.22)}.card h2{font-size:20px;margin:0 0 6px}.card h3{font-size:15px;margin:16px 0 8px;color:#dbeafe}.meta{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 12px}.pill{font-size:12px;padding:5px 8px;border-radius:999px;border:1px solid var(--border);color:#d1d5db;background:rgba(255,255,255,.04)}.coverage{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}.covrow{display:contents}.org{font-size:13px;color:#e5e7eb;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.07)}.score{font-size:12px;border:1px solid;border-radius:999px;padding:5px 8px;margin-bottom:5px;min-width:80px;text-align:center}.note{font-size:13px;color:var(--muted);line-height:1.5}.warning{border-left:3px solid var(--amber);padding-left:10px;color:#fde68a}.matrixwrap{overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:rgba(17,24,39,.84)}table{border-collapse:collapse;width:100%;min-width:1200px}th,td{border-bottom:1px solid rgba(255,255,255,.08);padding:10px;vertical-align:top;font-size:13px}th{position:sticky;top:0;background:#0f172a;color:#dbeafe;text-align:left;z-index:2}td:first-child,th:first-child{position:sticky;left:0;background:#111827;z-index:3;min-width:190px}.cell{border-radius:10px;padding:7px 8px;border:1px solid;min-height:34px}.cell small{display:block;color:inherit;opacity:.86;margin-top:4px;line-height:1.3}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 14px}.tab{width:auto;padding:10px 13px;border-radius:999px}.tab.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(56,189,248,.12)}.section{display:none}.section.active{display:block}.pearls{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.pearl{background:rgba(31,41,55,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:15px}.pearl b{color:#bfdbfe}.footer{color:#9ca3af;font-size:12px;line-height:1.55;margin:30px 0 20px}.quiz{display:grid;gap:12px}.q{padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(31,41,55,.72)}.q button{margin-top:8px;width:auto}.answer{display:none;margin-top:10px;color:#d1d5db}.kbd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#020617;border:1px solid var(--border);border-radius:6px;padding:2px 5px;color:#e0f2fe}.syndrome{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.pathway{background:rgba(31,41,55,.78);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:15px}.pathway ul{margin:8px 0 0 20px;padding:0}.pathway li{margin:7px 0;color:#d1d5db;line-height:1.42}@media(max-width:900px){.controls{grid-template-columns:1fr;position:relative;top:0}header{position:relative}.card{padding:15px}main{padding:14px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Interactive antifungal coverage map</h1>
+  <div class="subtitle">A clinical comparison of antifungal classes, organism coverage, common blind spots, pharmacology, and practical selection logic. Use this as a structured memory aid, not as a substitute for local antibiogram, MICs, source control, TDM, and actual thinking.</div>
+  <div class="badges"><span class="badge">Candida</span><span class="badge">Aspergillus</span><span class="badge">Mucorales</span><span class="badge">Cryptococcus</span><span class="badge">Endemic fungi</span><span class="badge">Dermatophytes</span></div>
+</header>
+<main>
+  <div class="controls">
+    <input id="search" placeholder="Search drug, class, organism, syndrome, note…" />
+    <select id="classFilter"><option value="all">All classes</option></select>
+    <select id="organismFilter"><option value="all">All organisms</option></select>
+    <select id="routeFilter"><option value="all">All routes</option><option>IV</option><option>PO</option><option>Topical</option></select>
+    <button id="reset">Reset filters</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot good"></i>Reliable usual activity</span>
+    <span><i class="dot partial"></i>Variable / species-dependent / adjunctive</span>
+    <span><i class="dot poor"></i>Poor or important resistance caveat</span>
+    <span><i class="dot none"></i>No meaningful activity</span>
+    <span><i class="dot toxic"></i>Notable toxicity / interaction issue</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="cards">Drug cards</button>
+    <button class="tab" data-tab="matrix">Coverage matrix</button>
+    <button class="tab" data-tab="syndromes">Syndrome approach</button>
+    <button class="tab" data-tab="pearls">High-yield gaps</button>
+    <button class="tab" data-tab="quiz">Micro-quiz</button>
+  </div>
+
+  <section id="cards" class="section active"><div id="cardsGrid" class="grid"></div></section>
+  <section id="matrix" class="section"><div class="matrixwrap"><table id="matrixTable"></table></div></section>
+  <section id="syndromes" class="section"><div class="syndrome" id="syndromeGrid"></div></section>
+  <section id="pearls" class="section"><div class="pearls" id="pearlsGrid"></div></section>
+  <section id="quiz" class="section"><div class="quiz" id="quizGrid"></div></section>
+
+  <div class="footer">
+    <b>Scope and assumptions:</b> “Coverage” means typical clinical activity, not guaranteed susceptibility. Always check species, MIC, site penetration, host immune status, local resistance, and drug interactions. Echinocandins have limited urinary and CNS penetration. Azoles have clinically irritating CYP interactions and usually need TDM for itraconazole, voriconazole, and posaconazole. Amphotericin B covers broadly but exact formulation and toxicity matter.<br><br>
+    <b>Selected references used in building this teaching file:</b> IDSA candidiasis and aspergillosis guidance; ECMM/MSG global mucormycosis guidance; CDC Candida auris resistance/treatment pages; EMA/FDA rezafungin prescribing information and summaries; contemporary reviews on newer agents. Links are provided in the ChatGPT response that generated this file.
+  </div>
+</main>
+<script>
+const organisms = ["Candida albicans", "Candida glabrata", "Candida krusei", "Candida auris", "Cryptococcus", "Aspergillus", "Mucorales", "Histoplasma", "Blastomyces", "Coccidioides", "Dermatophytes", "Pneumocystis"];
+const scoreClass = {"Good":"good","Variable":"partial","Poor":"poor","None":"none","Toxicity":"toxic"};
+const drugs = [
+ {name:"Fluconazole", cls:"Triazole", route:"IV / PO", tags:["Candida step-down","Cryptococcus consolidation","Urine-friendly"], mechanism:"Ergosterol synthesis inhibition via fungal lanosterol 14-α-demethylase.",
+  coverage:{"Candida albicans":["Good","If susceptible"],"Candida glabrata":["Variable","often SDD/resistant; use MIC"],"Candida krusei":["None","intrinsic resistance"],"Candida auris":["Poor","frequent resistance"],"Cryptococcus":["Good","consolidation/maintenance; not induction monotherapy"],"Aspergillus":["None","no mould activity"],"Mucorales":["None",""],"Histoplasma":["Poor","not preferred"],"Blastomyces":["Poor","not preferred"],"Coccidioides":["Good","commonly used"],"Dermatophytes":["Variable","not first-line for many tinea"],"Pneumocystis":["None",""]},
+  caveats:"Renal dose adjustment. QT prolongation. CYP interactions, less dramatic than voriconazole/posaconazole. Excellent urine penetration makes it useful for susceptible Candida UTI."},
+ {name:"Itraconazole", cls:"Triazole", route:"PO", tags:["Endemic fungi","Dermatophytes","TDM"], mechanism:"Triazole ergosterol synthesis inhibition.",
+  coverage:{"Candida albicans":["Variable","not candidemia workhorse"],"Candida glabrata":["Poor",""],"Candida krusei":["Variable",""],"Candida auris":["Poor",""],"Cryptococcus":["Variable","not preferred"],"Aspergillus":["Variable","chronic/saprophytic roles; not first-line IA"],"Mucorales":["None",""],"Histoplasma":["Good","preferred oral step-down"],"Blastomyces":["Good","preferred oral therapy"],"Coccidioides":["Good","alternative to fluconazole"],"Dermatophytes":["Good","onychomycosis/tinea"],"Pneumocystis":["None",""]},
+  caveats:"Absorption is formulation- and acid-dependent for capsules; many interactions; negative inotropy/heart failure warning; TDM strongly preferred."},
+ {name:"Voriconazole", cls:"Triazole", route:"IV / PO", tags:["Aspergillus first-line","No Mucorales","TDM"], mechanism:"Triazole ergosterol synthesis inhibition.",
+  coverage:{"Candida albicans":["Good","if susceptible"],"Candida glabrata":["Variable","MIC-dependent"],"Candida krusei":["Good","often active"],"Candida auris":["Poor","unreliable"],"Cryptococcus":["Variable","salvage, not standard induction"],"Aspergillus":["Good","classic first-line IA"],"Mucorales":["None","major blind spot"],"Histoplasma":["Variable","not preferred"],"Blastomyces":["Variable","not preferred"],"Coccidioides":["Good","selected cases"],"Dermatophytes":["Variable",""],"Pneumocystis":["None",""]},
+  caveats:"Nonlinear PK; TDM. Visual disturbance, hallucinations, hepatotoxicity, photosensitivity, periostitis. Major CYP interactions. IV vehicle can accumulate in renal impairment."},
+ {name:"Posaconazole", cls:"Triazole", route:"IV / PO", tags:["Mould prophylaxis","Mucorales active","TDM"], mechanism:"Triazole ergosterol synthesis inhibition.",
+  coverage:{"Candida albicans":["Good","if susceptible"],"Candida glabrata":["Variable",""],"Candida krusei":["Good","often active"],"Candida auris":["Variable","unreliable; test"],"Cryptococcus":["Variable","not standard"],"Aspergillus":["Good","treatment/salvage/prophylaxis"],"Mucorales":["Good","active; commonly step-down/salvage"],"Histoplasma":["Good","alternative"],"Blastomyces":["Good","alternative"],"Coccidioides":["Good","alternative/salvage"],"Dermatophytes":["Variable",""],"Pneumocystis":["None",""]},
+  caveats:"TDM usually used. Tablet/IV preferred over suspension. CYP3A4 inhibition. Can cause pseudo-hyperaldosteronism with hypertension/hypokalaemia."},
+ {name:"Isavuconazole", cls:"Triazole", route:"IV / PO", tags:["Aspergillus","Mucorales","Less QT issue"], mechanism:"Triazole ergosterol synthesis inhibition.",
+  coverage:{"Candida albicans":["Variable","not usual candidemia drug"],"Candida glabrata":["Variable",""],"Candida krusei":["Variable",""],"Candida auris":["Poor","unreliable"],"Cryptococcus":["Variable","not standard"],"Aspergillus":["Good","first-line alternative"],"Mucorales":["Good","licensed option"],"Histoplasma":["Variable","not first-line"],"Blastomyces":["Variable","not first-line"],"Coccidioides":["Variable","selected cases"],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"Prodrug is isavuconazonium. Shortens QT rather than prolonging it. Fewer interactions than voriconazole but still CYP3A4 substrate/inhibitor."},
+ {name:"Echinocandins", cls:"Echinocandin", route:"IV", tags:["Candidemia first-line","No Cryptococcus","No Mucorales"], mechanism:"β-1,3-D-glucan synthase inhibition; cell wall active. Includes caspofungin, micafungin, anidulafungin, rezafungin.",
+  coverage:{"Candida albicans":["Good","fungicidal"],"Candida glabrata":["Good","watch FKS resistance"],"Candida krusei":["Good",""],"Candida auris":["Good","initial treatment usually"],"Cryptococcus":["None","minimal β-glucan target"],"Aspergillus":["Variable","static/salvage/combination; not ideal monotherapy"],"Mucorales":["None",""],"Histoplasma":["Poor",""],"Blastomyces":["Poor",""],"Coccidioides":["Poor",""],"Dermatophytes":["None",""],"Pneumocystis":["Variable","not standard; cyst-wall activity only" ]},
+  caveats:"Excellent for candidemia but poor CNS, eye, and urine penetration. Candida parapsilosis tends to have higher MICs. Rezafungin is once weekly where available."},
+ {name:"Liposomal amphotericin B", cls:"Polyene", route:"IV", tags:["Broadest practical coverage","Mucorales","Severe endemic mycoses"], mechanism:"Binds ergosterol and disrupts fungal cell membrane.",
+  coverage:{"Candida albicans":["Good","broad Candida activity"],"Candida glabrata":["Good",""],"Candida krusei":["Good",""],"Candida auris":["Variable","some resistance"],"Cryptococcus":["Good","induction with flucytosine"],"Aspergillus":["Good","alternative/salvage"],"Mucorales":["Good","preferred initial therapy"],"Histoplasma":["Good","severe disease induction"],"Blastomyces":["Good","severe disease induction"],"Coccidioides":["Good","severe/disseminated selected cases"],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"Nephrotoxicity, hypokalaemia, hypomagnesaemia, infusion reactions. Liposomal formulation less nephrotoxic than deoxycholate but still not mineral water."},
+ {name:"Amphotericin B deoxycholate", cls:"Polyene", route:"IV", tags:["Resource-limited broad coverage","Toxic"], mechanism:"Polyene membrane disruption via ergosterol binding.",
+  coverage:{"Candida albicans":["Good",""],"Candida glabrata":["Good",""],"Candida krusei":["Good",""],"Candida auris":["Variable",""],"Cryptococcus":["Good","induction option"],"Aspergillus":["Variable","less favoured"],"Mucorales":["Good","active"],"Histoplasma":["Good",""],"Blastomyces":["Good",""],"Coccidioides":["Good",""],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"More nephrotoxic and infusion-toxic than lipid formulations. Often avoided if liposomal formulation available."},
+ {name:"Flucytosine", cls:"Antimetabolite", route:"PO", tags:["Cryptococcus induction adjunct","Never monotherapy"], mechanism:"Converted intracellularly to 5-FU; inhibits DNA/RNA synthesis.",
+  coverage:{"Candida albicans":["Variable","adjunct/susceptibility-dependent"],"Candida glabrata":["Variable",""],"Candida krusei":["Poor",""],"Candida auris":["Variable","test"],"Cryptococcus":["Good","with amphotericin for induction"],"Aspergillus":["None",""],"Mucorales":["None",""],"Histoplasma":["None",""],"Blastomyces":["None",""],"Coccidioides":["None",""],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"Rapid resistance if used alone. Bone marrow suppression, hepatotoxicity, GI toxicity. Renal dose adjustment and drug levels where available."},
+ {name:"Terbinafine", cls:"Allylamine", route:"PO / Topical", tags:["Dermatophytes","Onychomycosis"], mechanism:"Squalene epoxidase inhibition; ergosterol synthesis pathway upstream of azoles.",
+  coverage:{"Candida albicans":["Poor","not reliable"],"Candida glabrata":["None",""],"Candida krusei":["None",""],"Candida auris":["None",""],"Cryptococcus":["None",""],"Aspergillus":["Variable","in vitro only; not standard"],"Mucorales":["None",""],"Histoplasma":["None",""],"Blastomyces":["None",""],"Coccidioides":["None",""],"Dermatophytes":["Good","first-line for many tinea/onychomycosis"],"Pneumocystis":["None",""]},
+  caveats:"Check liver considerations for systemic use. Drug interactions less annoying than azoles but not zero."},
+ {name:"Griseofulvin", cls:"Mitotic inhibitor", route:"PO", tags:["Tinea capitis","Old but useful"], mechanism:"Disrupts fungal microtubules; concentrates in keratin precursor cells.",
+  coverage:{"Candida albicans":["None",""],"Candida glabrata":["None",""],"Candida krusei":["None",""],"Candida auris":["None",""],"Cryptococcus":["None",""],"Aspergillus":["None",""],"Mucorales":["None",""],"Histoplasma":["None",""],"Blastomyces":["None",""],"Coccidioides":["None",""],"Dermatophytes":["Good","especially Microsporum tinea capitis"],"Pneumocystis":["None",""]},
+  caveats:"Only dermatophytes. Long courses. Induces hepatic enzymes; photosensitivity and GI upset."},
+ {name:"Nystatin", cls:"Topical polyene", route:"Topical / oral non-absorbed", tags:["Mucosal Candida","No systemic use"], mechanism:"Polyene ergosterol binding; not systemically absorbed orally.",
+  coverage:{"Candida albicans":["Good","mucosal/local"],"Candida glabrata":["Variable","local only"],"Candida krusei":["Variable","local only"],"Candida auris":["Poor","not invasive therapy"],"Cryptococcus":["None",""],"Aspergillus":["None",""],"Mucorales":["None",""],"Histoplasma":["None",""],"Blastomyces":["None",""],"Coccidioides":["None",""],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"Use for oral/vaginal/cutaneous Candida. Meaningless for candidemia; the bloodstream will not be impressed."},
+ {name:"Ibrexafungerp", cls:"Triterpenoid glucan synthase inhibitor", route:"PO", tags:["VVC","Oral glucan synthase inhibitor","Emerging roles"], mechanism:"Oral glucan synthase inhibitor, mechanistically related to echinocandin target but structurally distinct.",
+  coverage:{"Candida albicans":["Good","VVC indication in some jurisdictions"],"Candida glabrata":["Variable","potential activity; test"],"Candida krusei":["Variable",""],"Candida auris":["Variable","investigational/limited clinical role"],"Cryptococcus":["None",""],"Aspergillus":["Poor","not standard"],"Mucorales":["None",""],"Histoplasma":["Poor",""],"Blastomyces":["Poor",""],"Coccidioides":["Poor",""],"Dermatophytes":["None",""],"Pneumocystis":["None",""]},
+  caveats:"Do not mentally upgrade it to routine candidemia therapy unless your local formulary/guidance says so. Pregnancy warnings apply."}
+];
+const syndromes = [
+ {title:"Candidemia / invasive candidiasis", bullets:["Initial: echinocandin for most adults, especially unstable/ICU/prior azole exposure.","Step down to fluconazole when clinically stable, blood cultures cleared, isolate susceptible, and source controlled.","Think eye/CNS/urine: echinocandins may be the wrong hammer.","C. auris: echinocandin initial; watch for emerging resistance and infection control implications."]},
+ {title:"Invasive aspergillosis", bullets:["Voriconazole or isavuconazole are usual first-line options.","Liposomal amphotericin B is an alternative, especially when azole resistance or mixed mould infection is a concern.","Echinocandin monotherapy is not ideal for primary treatment; may have salvage/combination roles.","Voriconazole and posaconazole usually need TDM."]},
+ {title:"Mucormycosis", bullets:["Urgent source control/debridement plus reversal of host factors where possible.","Liposomal amphotericin B is usual initial therapy.","Isavuconazole or posaconazole are active options for step-down/salvage or selected initial therapy.","Voriconazole and echinocandins do not cover Mucorales. This is the trap door."]},
+ {title:"Cryptococcal meningitis", bullets:["Induction: amphotericin B plus flucytosine when available.","Consolidation/maintenance: fluconazole.","Echinocandins have no meaningful Cryptococcus activity.","Manage raised ICP; antifungal choice alone does not save the day."]},
+ {title:"Endemic mycoses", bullets:["Severe histoplasmosis/blastomycosis: amphotericin induction then itraconazole.","Milder histoplasmosis/blastomycosis: itraconazole is typical oral therapy.","Coccidioidomycosis: fluconazole commonly used; itraconazole/other azoles for selected disease.","Azole choice depends heavily on syndrome, severity, CNS/bone disease, and tolerance."]},
+ {title:"Dermatophytes", bullets:["Terbinafine is high-yield for tinea corporis/cruris/pedis and onychomycosis.","Griseofulvin remains useful for some tinea capitis, especially Microsporum.","Nystatin treats Candida, not dermatophytes. It is a classic wrong prescription for tinea.","Systemic therapy is needed for hair/nail infection; topical cream won’t penetrate wishfully."]}
+];
+const pearls = [
+ ["Fluconazole blind spot","No Aspergillus, no Mucorales. C. krusei is intrinsically resistant; C. glabrata is often dose-dependent or resistant."],
+ ["Voriconazole blind spot","Excellent Aspergillus drug, but no Mucorales coverage. A patient worsening on voriconazole may have mucormycosis, resistance, or inadequate levels."],
+ ["Echinocandin blind spot","Great for candidemia; bad for Cryptococcus, Mucorales, CNS, eye, and urinary Candida. The drug class is not magic."],
+ ["Amphotericin strength","Broadest practical invasive coverage including Mucorales and Cryptococcus induction, but nephrotoxicity/electrolytes/infusion reactions are the toll booth."],
+ ["Posaconazole/isavuconazole niche","Both cover Aspergillus and Mucorales. Posaconazole often used for prophylaxis/step-down; isavuconazole has less QT anxiety and is licensed for mucormycosis in some regions."],
+ ["TDM mental checklist","Voriconazole, posaconazole, itraconazole: check levels when treating invasive disease, prophylaxis failure, toxicity, absorption uncertainty, or major interactions."],
+ ["Candida auris","Assume resistance risk and infection control importance. Echinocandin is usually initial therapy, but susceptibility testing matters."],
+ ["Newer agents","Rezafungin is a once-weekly echinocandin for invasive candidiasis where approved. Ibrexafungerp is oral and mainly Candida/VVC-focused; pipeline agents should not be treated as routine formulary coverage."]
+];
+const quiz = [
+ {q:"Which common azole covers Aspergillus well but misses Mucorales?", a:"Voriconazole. This is one of the highest-yield mould traps."},
+ {q:"Candidemia in an unstable ICU patient: usual initial class?", a:"Echinocandin, then step down to fluconazole if stable, cultures clear, isolate susceptible, and source controlled."},
+ {q:"Cryptococcal meningitis induction backbone?", a:"Amphotericin B plus flucytosine, then fluconazole for consolidation/maintenance."},
+ {q:"Nystatin for tinea corporis: reasonable?", a:"No. Nystatin is for Candida, not dermatophytes. Use a topical azole/allylamine or systemic therapy depending on site/severity."},
+ {q:"Two azoles with meaningful Mucorales activity?", a:"Posaconazole and isavuconazole."},
+ {q:"Why might echinocandin be poor for Candida UTI?", a:"Poor urinary penetration; fluconazole is preferred when susceptible."}
+];
+function clsFor(score){return scoreClass[score]||"none"}
+function matchDrug(d){
+ const q=document.getElementById('search').value.toLowerCase();
+ const cf=document.getElementById('classFilter').value; const of=document.getElementById('organismFilter').value; const rf=document.getElementById('routeFilter').value;
+ const blob=[d.name,d.cls,d.route,d.mechanism,d.caveats,...d.tags,...Object.entries(d.coverage).flat().flat()].join(' ').toLowerCase();
+ if(q && !blob.includes(q)) return false; if(cf!=="all" && d.cls!==cf) return false; if(rf!=="all" && !d.route.includes(rf)) return false;
+ if(of!=="all" && (!d.coverage[of] || d.coverage[of][0]==="None")) return false; return true;
+}
+function renderCards(){
+ const grid=document.getElementById('cardsGrid'); grid.innerHTML='';
+ drugs.filter(matchDrug).forEach(d=>{ const div=document.createElement('div'); div.className='card';
+  div.innerHTML=`<h2>${d.name}</h2><div class="note">${d.cls} · ${d.route}</div><div class="meta">${d.tags.map(t=>`<span class="pill">${t}</span>`).join('')}</div><h3>Mechanism</h3><div class="note">${d.mechanism}</div><h3>Coverage</h3><div class="coverage">${organisms.map(o=>{const c=d.coverage[o]||["None",""];return `<div class="org">${o}<div class="note">${c[1]||''}</div></div><div class="score ${clsFor(c[0])}">${c[0]}</div>`}).join('')}</div><h3>Caveats</h3><div class="note warning">${d.caveats}</div>`; grid.appendChild(div); });
+ if(!grid.innerHTML) grid.innerHTML='<div class="card"><h2>No matches</h2><div class="note">Try resetting filters or using broader search terms.</div></div>';
+}
+function renderMatrix(){
+ const table=document.getElementById('matrixTable'); const ds=drugs.filter(matchDrug);
+ table.innerHTML=`<thead><tr><th>Organism</th>${ds.map(d=>`<th>${d.name}<br><span class="note">${d.cls}</span></th>`).join('')}</tr></thead><tbody>${organisms.map(o=>`<tr><td><b>${o}</b></td>${ds.map(d=>{const c=d.coverage[o]||["None",""];return `<td><div class="cell ${clsFor(c[0])}">${c[0]}<small>${c[1]||''}</small></div></td>`}).join('')}</tr>`).join('')}</tbody>`;
+}
+function renderSyndromes(){document.getElementById('syndromeGrid').innerHTML=syndromes.map(s=>`<div class="pathway"><h2>${s.title}</h2><ul>${s.bullets.map(b=>`<li>${b}</li>`).join('')}</ul></div>`).join('')}
+function renderPearls(){document.getElementById('pearlsGrid').innerHTML=pearls.map(p=>`<div class="pearl"><b>${p[0]}</b><div class="note" style="margin-top:8px">${p[1]}</div></div>`).join('')}
+function renderQuiz(){document.getElementById('quizGrid').innerHTML=quiz.map((x,i)=>`<div class="q"><b>Q${i+1}. ${x.q}</b><br><button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">Show answer</button><div class="answer">${x.a}</div></div>`).join('')}
+function populateFilters(){
+ const classes=[...new Set(drugs.map(d=>d.cls))].sort(); const cf=document.getElementById('classFilter'); classes.forEach(c=>cf.add(new Option(c,c)));
+ const of=document.getElementById('organismFilter'); organisms.forEach(o=>of.add(new Option(o,o)));
+}
+function rerender(){renderCards();renderMatrix();}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab,.section').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById(t.dataset.tab).classList.add('active')}));
+['search','classFilter','organismFilter','routeFilter'].forEach(id=>document.getElementById(id).addEventListener('input',rerender));
+document.getElementById('reset').addEventListener('click',()=>{document.getElementById('search').value='';document.getElementById('classFilter').value='all';document.getElementById('organismFilter').value='all';document.getElementById('routeFilter').value='all';rerender();});
+populateFilters(); renderCards(); renderMatrix(); renderSyndromes(); renderPearls(); renderQuiz();
+</script>
+</body>
+</html>
