@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pneumonia: common → rare | clinical features & treatment</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#11182d; --panel2:#16213d; --ink:#f6f8ff; --muted:#b8c3df;
+    --line:#26365f; --accent:#7dd3fc; --green:#9ae6b4; --amber:#fbd38d; --red:#feb2b2; --purple:#c4b5fd;
+    --blue:#93c5fd; --teal:#5eead4; --shadow:0 18px 60px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top left,#172554 0,#0b1020 38%,#070b16 100%);font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;color:var(--ink);line-height:1.45}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 18px 60px}
+  header{display:grid;grid-template-columns:1.5fr .9fr;gap:18px;align-items:stretch;margin-bottom:18px}
+  .hero,.legend,.card,.matrix,.note{background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.12);border-radius:24px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+  .hero{padding:28px}.eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}.hero h1{font-size:clamp(34px,5vw,66px);line-height:.94;margin:8px 0 12px}.hero p{color:var(--muted);font-size:17px;margin:0;max-width:76ch}.legend{padding:20px}.legend h3{margin:0 0 10px;font-size:17px}.legend-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:999px;padding:7px 10px;font-size:12px;color:var(--muted)}.dot{width:10px;height:10px;border-radius:50%}.common{background:var(--green)}.occasional{background:var(--amber)}.uncommon{background:var(--blue)}.rare{background:var(--red)}.opportunistic{background:var(--purple)}
+  .toolbar{position:sticky;top:0;z-index:5;margin:14px 0 20px;padding:12px;background:rgba(8,13,28,.86);border:1px solid rgba(255,255,255,.12);border-radius:20px;backdrop-filter:blur(10px);display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar > input[type=search],.toolbar > input#search{flex:1;min-width:230px;background:#0c1328;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:14px}.btn{border:1px solid var(--line);background:#111a33;color:var(--muted);border-radius:14px;padding:10px 12px;font-weight:700;font-size:13px;cursor:pointer}.btn.active{background:linear-gradient(135deg,#0ea5e9,#7c3aed);color:white;border-color:transparent}.toggle{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}.rarity-control{display:flex;align-items:center;gap:10px;min-width:310px;flex:1.2;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:9px 12px}.rarity-control label{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}.rarity-control input[type=range]{appearance:auto;-webkit-appearance:auto;accent-color:#7dd3fc;flex:1;min-width:180px;width:100%;height:28px;padding:0;border:0;background:transparent;cursor:pointer}.rarity-value{font-size:13px;font-weight:800;color:#e0f2fe;min-width:135px;text-align:right}.rarity-ticks{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:2px;color:#93a4ca;font-size:10px;text-align:center}.rarity-box{flex:1;min-width:220px}.count{font-size:12px;color:var(--muted);padding:0 6px}
+  .timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:22px 0}.step{padding:16px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1)}.step b{display:block;font-size:15px}.step span{color:var(--muted);font-size:13px}.bar{height:6px;border-radius:999px;margin-bottom:10px;background:linear-gradient(90deg,var(--green),var(--amber),var(--blue),var(--red),var(--purple))}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{padding:18px;position:relative;overflow:hidden}.card:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--green)}.card.occasional:before{background:var(--amber)}.card.uncommon:before{background:var(--blue)}.card.rare:before{background:var(--red)}.card.opportunistic:before{background:var(--purple)}.meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.tag{font-size:11px;color:#dbeafe;background:rgba(147,197,253,.13);border:1px solid rgba(147,197,253,.26);padding:4px 8px;border-radius:999px}.freq{font-weight:800;color:#06111d}.freq.common{background:var(--green)}.freq.occasional{background:var(--amber)}.freq.uncommon{background:var(--blue)}.freq.rare{background:var(--red)}.freq.opportunistic{background:var(--purple)}.card h2{font-size:21px;margin:4px 0}.bug{color:var(--accent);font-weight:700}.section{margin-top:12px}.label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#93a4ca;font-weight:800;margin-bottom:4px}.card ul{margin:6px 0 0 18px;padding:0;color:#dbe4ff}.card li{margin:3px 0}.rx{background:rgba(154,230,180,.1);border:1px solid rgba(154,230,180,.28);border-radius:14px;padding:10px;color:#eafff1}.danger{background:rgba(254,178,178,.1);border:1px solid rgba(254,178,178,.28);border-radius:14px;padding:10px;color:#fff1f1}.hidden{display:none!important}
+  .matrix{margin-top:18px;padding:18px}.matrix h2{margin:0 0 12px}.table-wrap{overflow:auto;border-radius:16px;border:1px solid var(--line)}table{width:100%;border-collapse:collapse;min-width:900px;background:rgba(8,13,28,.45)}th,td{padding:12px 13px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;text-align:left;font-size:13px}th{position:sticky;top:0;background:#101a34;color:#dbeafe;z-index:1}td{color:#dbe4ff}.small{font-size:12px;color:var(--muted)}
+  .pearls{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.note{padding:18px}.note h3{margin:0 0 8px}.note ul{margin:0 0 0 18px;padding:0;color:#dbe4ff}.note li{margin:6px 0}.footer{color:#9ca8c6;font-size:12px;margin-top:18px}.sources a{color:#bae6fd}.sources{columns:2;column-gap:30px}.sources li{break-inside:avoid;margin-bottom:8px}
+  @media(max-width:980px){header{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}.timeline{grid-template-columns:1fr 1fr}.pearls{grid-template-columns:1fr}.sources{columns:1}.toggle{margin-left:0}}
+  @media(max-width:620px){.grid{grid-template-columns:1fr}.timeline{grid-template-columns:1fr}.hero h1{font-size:36px}.legend-grid{grid-template-columns:1fr}}
+  @media print{body{background:white;color:#111}.toolbar{display:none}.hero,.legend,.card,.matrix,.note{box-shadow:none;background:white;color:#111;border-color:#ddd}.card{break-inside:avoid}.card ul,td{color:#111}.hero p,.small,.label,.footer{color:#333}.grid{grid-template-columns:repeat(2,1fr)}a{color:#111}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <section class="hero">
+    <div class="eyebrow">Adult pneumonia differential</div>
+    <h1>Common → rare pneumonias</h1>
+    <p>A bedside-oriented map of pathogens, clinical clues, diagnostics and treatment. Frequency is approximate for adult internal medicine practice; actual epidemiology is local, ward-specific and occasionally malicious.</p>
+  </section>
+  <aside class="legend">
+    <h3>Frequency bands</h3>
+    <div class="legend-grid">
+      <span class="pill"><i class="dot common"></i>Common: think first</span>
+      <span class="pill"><i class="dot occasional"></i>Occasional: context-driven</span>
+      <span class="pill"><i class="dot uncommon"></i>Uncommon: clue-dependent</span>
+      <span class="pill"><i class="dot rare"></i>Rare: exposure/host clue</span>
+      <span class="pill"><i class="dot opportunistic"></i>Opportunistic: immune defect</span>
+    </div>
+    <div class="small" style="margin-top:12px">Treatments shown are adult, non-pregnant, normal-organ-function defaults. Dose-adjust and localise to antibiogram.</div>
+  </aside>
+</header>
+
+<div class="toolbar">
+  <input id="search" type="search" placeholder="Search: pneumococcus, Stenotrophomonas, Acinetobacter, Bordetella, cavitation, TMP-SMX…" />
+  <button class="btn active" data-filter="all">All</button>
+  <button class="btn" data-filter="cap">CAP</button>
+  <button class="btn" data-filter="atypical">Atypical</button>
+  <button class="btn" data-filter="hap">HAP/VAP</button>
+  <button class="btn" data-filter="immuno">Immunocompromised</button>
+  <button class="btn" data-filter="exposure">Exposure / travel</button>
+  <button class="btn" data-filter="cavitation">Cavitation</button>
+  <div class="rarity-control" title="Move right to progressively include rarer pneumonias">
+    <label for="raritySlider">Common → rare</label>
+    <div class="rarity-box">
+      <input id="raritySlider" type="range" min="1" max="5" step="1" value="5" aria-label="Rarity threshold" />
+      <div class="rarity-ticks"><span>Common</span><span>+Occ</span><span>+Unc</span><span>+Rare</span><span>All</span></div>
+    </div>
+    <span id="rarityLabel" class="rarity-value">All bands</span>
+  </div>
+  <span id="resultCount" class="count"></span>
+  <label class="toggle"><input id="compact" type="checkbox"> Compact view</label>
+</div>
+<div class="small" style="margin:-8px 0 14px 4px">Use the slider to move from common organisms only toward the full rare/opportunistic differential; the ticks are deliberately visible on mobile/desktop. Search accepts abbreviations and spelling variants including “Steno”, “CRAB”, “baumanii”, and “matlophilia”.</div>
+
+<section class="timeline">
+  <div class="step"><div class="bar"></div><b>1. Typical CAP</b><span>S. pneumoniae, viruses, H. influenzae; lobar or bronchopneumonia.</span></div>
+  <div class="step"><div class="bar"></div><b>2. Atypical CAP</b><span>Mycoplasma, Chlamydia, Legionella; dry cough, systemic clues.</span></div>
+  <div class="step"><div class="bar"></div><b>3. Aspiration / healthcare</b><span>Mixed oral flora, GNB, S. aureus, Pseudomonas; anatomy and exposure matter.</span></div>
+  <div class="step"><div class="bar"></div><b>4. Subacute mimics</b><span>TB, Nocardia, fungi; weight loss, nodules, cavitation, chronicity.</span></div>
+  <div class="step"><div class="bar"></div><b>5. Opportunists</b><span>PJP, Aspergillus, mucor; the immune defect is the diagnostic test.</span></div>
+</section>
+
+<main id="cards" class="grid"></main>
+
+
+<section class="matrix">
+  <h2>Sources and guideline spine</h2>
+  <ol class="sources small">
+    <li>ATS/IDSA adult community-acquired pneumonia guideline, 2019; IDSA page updated resources 2023. <a href="https://www.idsociety.org/practice-guideline/community-acquired-pneumonia-cap-in-adults/">IDSA CAP guideline</a></li>
+    <li>ATS/IDSA hospital-acquired and ventilator-associated pneumonia guideline, 2016. <a href="https://www.idsociety.org/practice-guideline/hap_vap/">IDSA HAP/VAP guideline</a></li>
+    <li>CDC Mycoplasma pneumoniae overview and treatment notes, updated 2026. <a href="https://www.cdc.gov/mycoplasma/about/index.html">CDC M. pneumoniae</a></li>
+    <li>CDC Legionella clinical guidance, updated 2025. <a href="https://www.cdc.gov/legionella/hcp/clinical-guidance/index.html">CDC Legionella</a></li>
+    <li>NIH HIV opportunistic infection guideline: Pneumocystis pneumonia treatment and steroid criteria. <a href="https://clinicalinfo.hiv.gov/en/guidelines/hiv-clinical-guidelines-adult-and-adolescent-opportunistic-infections/pneumocystis">NIH PJP guideline</a></li>
+    <li>CDC/WHO RSV treatment pages: supportive care, no routine antiviral. <a href="https://www.cdc.gov/rsv/symptoms/index.html">CDC RSV care</a></li>
+    <li>IDSA Aspergillosis guideline, 2016. <a href="https://www.idsociety.org/practice-guideline/aspergillosis/">IDSA aspergillosis</a></li>
+    <li>IDSA 2024 antimicrobial-resistant Gram-negative guidance: CRAB and Stenotrophomonas treatment approaches. <a href="https://www.idsociety.org/practice-guideline/amr-guidance/">IDSA AMR guidance</a></li>
+    <li>Singapore CDA/CDC pertussis guidance: epidemiology, diagnosis and treatment/public health approach. <a href="https://www.cda.gov.sg/professionals/diseases/pertussis/">Singapore CDA pertussis</a> / <a href="https://www.cdc.gov/pertussis/index.html">CDC pertussis</a></li>
+  </ol>
+</section>
+
+<div class="footer">Educational reference for clinicians. Not a substitute for local antimicrobial guidelines, antibiograms, renal dosing, allergy review, pregnancy considerations, or ID consultation when the fungus starts writing the discharge summary.</div>
+</div>
+<script>
+const data = [
+{freq:'common',tags:['cap'],name:'Streptococcus pneumoniae',bug:'Typical CAP',features:['Abrupt fever, rigors, pleuritic pain; lobar consolidation','Rusty sputum is exam-favourite, clinically optional','Hyponatraemia can occur but think Legionella if prominent'],dx:['Blood/sputum cultures if severe; urinary antigen selectively','Consider pleural tap if effusion'],rx:'Amoxicillin outpatient if low-risk; inpatient β-lactam such as ceftriaxone/ampicillin-sulbactam ± macrolide/doxycycline. Target penicillin/ceftriaxone if susceptible.',warn:'Post-splenectomy, CSF leak, cochlear implant: lower threshold for severe disease.'},
+{freq:'common',tags:['cap'],name:'Respiratory viruses',bug:'Influenza, SARS-CoV-2, RSV, others',features:['Diffuse or patchy bilateral infiltrates; wheeze possible','Myalgia/URTI prodrome; outbreaks matter more than auscultation poetry','Secondary bacterial pneumonia: recrudescent fever, lobar change, shock'],dx:['PCR/NAAT respiratory panel when it changes isolation or treatment','CXR may lag symptoms'],rx:'Supportive oxygen/fluids; influenza: oseltamivir especially hospitalized/high-risk; COVID-19: follow current severity-based antiviral/steroid guidance; RSV in adults is usually supportive.',warn:'Post-influenza necrotising pneumonia: think S. aureus/MRSA.'},
+{freq:'common',tags:['cap'],name:'Haemophilus influenzae / Moraxella catarrhalis',bug:'COPD/smoker CAP',features:['COPD, bronchiectasis, smoking; purulent sputum','Bronchopneumonia rather than clean lobar pattern','Often polymicrobial airway colonisation'],dx:['Sputum culture if admitted/COPD frequent exacerbator','Check prior cultures'],rx:'Amoxicillin-clavulanate or cefuroxime/ceftriaxone depending severity; doxycycline or macrolide sometimes if mild and local resistance acceptable.',warn:'Do not over-call colonisation as causation in chronic airways disease.'},
+{freq:'common',tags:['cap','atypical'],name:'Mycoplasma pneumoniae',bug:'Walking pneumonia / atypical',features:['Younger adults, dorms/military/schools; dry cough, low-grade fever','Looks better than the X-ray; symptoms linger','Extrapulmonary: haemolysis/cold agglutinins, rash/RIME, neuro'],dx:['PCR if needed; serology is often retrospective theatre','CXR: interstitial/patchy infiltrates'],rx:'Doxycycline, azithromycin, or respiratory fluoroquinolone for pneumonia; β-lactams do not work because no cell wall.',warn:'Macrolide resistance exists; treatment failure is not always “viral”.'},
+{freq:'occasional',tags:['cap','atypical','exposure'],name:'Legionella pneumophila',bug:'Severe atypical CAP',features:['Travel/hotel, cooling towers, outbreaks; elderly/smoker/immunocompromised','High fever, diarrhoea, confusion, relative bradycardia, hyponatraemia','Can progress rapidly to ICU-level pneumonia'],dx:['Urine antigen for L. pneumophila serogroup 1','PCR/culture respiratory samples if severe, outbreak, travel or urine antigen negative'],rx:'Azithromycin or levofloxacin/moxifloxacin; treat promptly, do not wait for the urine antigen to achieve enlightenment.',warn:'β-lactam monotherapy misses it.'},
+{freq:'occasional',tags:['cap','atypical'],name:'Chlamydia pneumoniae',bug:'Atypical CAP',features:['Gradual onset, pharyngitis/hoarseness, persistent cough','Usually mild but can affect older adults','Outbreaks in close communities'],dx:['PCR/serology rarely needed unless outbreak'],rx:'Doxycycline, azithromycin, or respiratory fluoroquinolone.',warn:'Usually covered by standard atypical CAP regimens.'},
+{freq:'occasional',tags:['cap','exposure'],name:'Aspiration pneumonia / lung abscess',bug:'Mixed oral flora ± anaerobes',features:['Reduced consciousness, dysphagia, seizures, stroke, reflux; dependent segments','Foul sputum, necrosis/cavity, empyema suggests anaerobes/abscess','Chemical pneumonitis can mimic infection early'],dx:['CT if abscess/empyema suspected','Sputum culture often contaminated; pleural fluid if effusion'],rx:'Ampicillin-sulbactam or amoxicillin-clavulanate; ceftriaxone + metronidazole if abscess/empyema concern. Pure witnessed chemical pneumonitis: observe unless infection develops.',warn:'Routine anaerobic cover for all aspiration events is old-school overkill.'},
+{freq:'occasional',tags:['cap','hap','cavitation'],name:'Staphylococcus aureus',bug:'MSSA/MRSA pneumonia',features:['Post-influenza, necrotising/cavitary pneumonia, haemoptysis, empyema','HAP/VAP, dialysis, prior MRSA, IVDU/endocarditis septic emboli','Can produce shock out of proportion'],dx:['Blood cultures; sputum/ET aspirate','CT for cavitation/empyema; echo if bacteraemia'],rx:'MSSA: cefazolin/anti-staph penicillin. MRSA: vancomycin or linezolid. Add empirically only with risk factors or severe necrotising picture.',warn:'Linezolid may be attractive in toxin-mediated/necrotising disease, but check interactions and cytopenias.'},
+{freq:'occasional',tags:['hap'],name:'Enteric Gram-negative bacilli',bug:'Klebsiella, E. coli, Enterobacterales',features:['Elderly, diabetes, alcoholism, aspiration, healthcare exposure','Klebsiella: upper lobe, bulging fissure/cavitation in textbooks; severe disease in real life','Risk rises with recent antibiotics/hospitalisation'],dx:['Sputum/blood cultures; review prior ESBL/carbapenemase history'],rx:'Ceftriaxone/cefepime/piperacillin-tazobactam depending severity/resistance risk; carbapenem for severe ESBL risk or confirmed ESBL.',warn:'Local ESBL epidemiology matters more than nostalgic microbiology mnemonics.'},
+{freq:'uncommon',tags:['hap','cap'],name:'Pseudomonas aeruginosa',bug:'Structural lung / healthcare pathogen',features:['Bronchiectasis, CF, severe COPD, tracheostomy, recent IV antibiotics, prolonged admission','HAP/VAP; can cause necrotising pneumonia','Prior culture is the best clue'],dx:['Respiratory culture before antibiotics if feasible','Check previous antibiogram'],rx:'Antipseudomonal β-lactam: piperacillin-tazobactam, cefepime, ceftazidime, meropenem. Add second class in severe/high-resistance risk; de-escalate shamelessly.',warn:'Do not cover in routine CAP unless risk factors exist.'},
+{freq:'uncommon',tags:['hap','immuno'],name:'Stenotrophomonas maltophilia',aliases:['S. maltophilia','Steno','sternotrophonomas matlophilia','stenotrophomonas matlophilia','sternotrophomonas maltophilia'],bug:'MDR non-fermenting Gram-negative rod',features:['Ventilated/HAP patient with prolonged broad-spectrum antibiotics, CVCs, malignancy/transplant or ICU stay','Often colonises airways; true pneumonia suggested by new infiltrate + purulent secretions + inflammatory deterioration','Intrinsic resistance to carbapenems and many β-lactams; “meropenem escalation” is how you select it, not treat it'],dx:['Respiratory culture with susceptibilities; interpret against clinical syndrome, not just the culture report','Look for polymicrobial infection and remove/optimise lines/devices where relevant'],rx:'If true moderate-severe infection: susceptibility-guided combination therapy, commonly 2 active agents among TMP-SMX, minocycline, levofloxacin, or cefiderocol; ceftazidime-avibactam + aztreonam is another IDSA AMR option. Mild infection may be monotherapy if active and patient stable.',warn:'The hardest question is usually infection vs colonisation. The second hardest is explaining why meropenem is doing absolutely nothing.'},
+{freq:'uncommon',tags:['hap'],name:'Acinetobacter baumannii complex',aliases:['A. baumannii','Acinetobacter baumanii','acitenobacter baumanii','acitenobacter baumannii','CRAB'],bug:'HAP/VAP, often carbapenem-resistant',features:['Late HAP/VAP, ICU outbreaks, prior carbapenem/broad-spectrum exposure, wounds/devices','Can cause severe necrotising pneumonia and bacteraemia; colonisation is common in ventilated patients','Carbapenem-resistant A. baumannii complex = CRAB, not the sort of crab anyone enjoys'],dx:['Respiratory culture plus blood cultures if septic; review previous isolates and local outbreak/ward epidemiology','Request full susceptibilities; distinguish colonisation from true VAP using clinical criteria'],rx:'Susceptibility-guided. For CRAB, IDSA AMR guidance favours a sulbactam-containing regimen: sulbactam-durlobactam + imipenem-cilastatin/meropenem where available; alternative high-dose ampicillin-sulbactam as part of combination therapy with another active agent such as polymyxin B, minocycline/tigecycline, or cefiderocol depending susceptibility/local access.',warn:'Avoid ceftriaxone/ceftazidime/ertapenem daydreaming; Acinetobacter has already seen that movie.'},
+{freq:'uncommon',tags:['cap','atypical','exposure'],name:'Bordetella pertussis',aliases:['Pertussis','Whooping cough','B. pertussis'],bug:'Pertussis / whooping cough',features:['Paroxysmal cough, inspiratory whoop, post-tussive vomiting; adults may just have a prolonged annoying cough','Catarrhal phase resembles URTI; paroxysmal phase can persist for weeks to months','Think outbreak exposure, incomplete/waning vaccination, household contact with infants or pregnant women'],dx:['Nasopharyngeal PCR early; culture is specific but less sensitive and needs correct sample/medium','Notify per local public health rules; assess close contacts needing prophylaxis'],rx:'Azithromycin is usual first-line; clarithromycin or erythromycin alternatives. TMP-SMX if macrolide cannot be used. Antibiotics reduce transmission best when given early; cough may persist because toxin-mediated airway drama has already occurred.',warn:'Treat and isolate for public-health benefit even if the cough is already doing its 100-day theatrical residency.'},
+{freq:'uncommon',tags:['cap','exposure','cavitation'],name:'Mycobacterium tuberculosis',bug:'Subacute/chronic pneumonia mimic',features:['Weeks-months cough, fever, night sweats, weight loss; haemoptysis','Upper lobe cavitation, tree-in-bud, miliary pattern','Risk: prior TB, exposure, birth/travel in high-incidence region, immunosuppression'],dx:['Airborne isolation; sputum AFB smear/culture + NAAT','HIV test; drug susceptibility testing'],rx:'Drug-susceptible pulmonary TB: intensive HRZE then continuation HR, adjusted to national/local protocol and susceptibility. Do not start casually without samples unless unstable.',warn:'Fluoroquinolone monotherapy can partially treat TB and delay diagnosis.'},
+{freq:'uncommon',tags:['immuno'],name:'Pneumocystis jirovecii pneumonia',bug:'PJP/PCP',features:['HIV CD4 <200, steroids, transplant, chemo, biologics','Subacute dyspnoea, dry cough, fever; exertional desaturation','CXR may be subtle; CT diffuse ground-glass'],dx:['LDH/β-D-glucan supportive; induced sputum/BAL PCR or DFA','ABG for A–a gradient'],rx:'TMP-SMX for 21 days. Add prednisone if PaO2 <70 mmHg on room air or A–a ≥35 mmHg. Alternatives: clindamycin-primaquine, atovaquone, IV pentamidine depending severity.',warn:'Non-HIV PJP can deteriorate faster with lower organism burden; BAL often needed.'},
+{freq:'rare',tags:['immuno','cavitation','exposure'],name:'Nocardia spp.',bug:'Weakly acid-fast branching Gram-positive rods',features:['Cell-mediated immunosuppression, chronic steroids, transplant; can occur in structural lung disease','Nodules, cavitation, consolidation; CNS dissemination','Subacute pneumonia that laughs at standard CAP therapy'],dx:['Tell lab to hold cultures and look for Nocardia','CT brain if confirmed/suspected disseminated disease'],rx:'TMP-SMX backbone; severe disease often imipenem/ceftriaxone/amikacin combination pending species/susceptibility; prolonged therapy.',warn:'Always think brain abscess; otherwise Nocardia will, which is inconvenient.'},
+{freq:'rare',tags:['immuno','exposure'],name:'Endemic fungi',bug:'Histoplasma, Coccidioides, Blastomyces',features:['Travel/exposure history: caves/bats/birds, Americas, soil disruption','Acute CAP-like illness or chronic cavitary disease; disseminated in immunocompromised','Mediastinal nodes/granulomas can mimic TB/malignancy'],dx:['Fungal antigen/serology/culture based on syndrome and organism','CT + tissue if malignancy/TB overlap'],rx:'Mild disease may observe or itraconazole; severe/disseminated: liposomal amphotericin B then itraconazole. Species and severity determine duration.',warn:'In Singapore, travel history does the heavy lifting.'},
+{freq:'opportunistic',tags:['immuno','cavitation'],name:'Aspergillus spp.',bug:'Invasive pulmonary aspergillosis / CPA',features:['Neutropenia, transplant, high-dose steroids; also severe influenza/COVID ICU','Nodules with halo sign, infarcts, cavitation; airway-invasive disease possible','Chronic pulmonary aspergillosis: cavities/fungal ball in abnormal lungs'],dx:['CT chest; serum/BAL galactomannan; fungal culture/histology','Bronchoscopy if safe'],rx:'Voriconazole or isavuconazole for invasive disease; liposomal amphotericin B if azole resistance/intolerance. Source control and reduce immunosuppression where possible.',warn:'Colonisation versus invasion is the entire game.'},
+{freq:'opportunistic',tags:['immuno','cavitation'],name:'Mucorales',bug:'Pulmonary mucormycosis',features:['Uncontrolled diabetes/DKA, neutropenia, haematologic malignancy, transplant','Necrotising pneumonia, infarcts, reverse halo, haemoptysis','Rapid angioinvasion; subtlety is not its brand'],dx:['Urgent CT; tissue histopath/culture','Serum galactomannan usually negative'],rx:'Liposomal amphotericin B urgently + surgical debridement where feasible; step-down posaconazole/isavuconazole.',warn:'Voriconazole does not cover mucor. This is a painful but important sentence.'}
+];
+const cards = document.getElementById('cards');
+const rarityRank = {common:1, occasional:2, uncommon:3, rare:4, opportunistic:5};
+const rarityNames = {1:'Common only', 2:'Common + occasional', 3:'Up to uncommon', 4:'Up to rare', 5:'All bands'};
+function render(){
+  const q = document.getElementById('search').value.toLowerCase();
+  const f = document.querySelector('.btn.active').dataset.filter;
+  const compact = document.getElementById('compact').checked;
+  const rarityLevel = Number(document.getElementById('raritySlider').value);
+  document.getElementById('rarityLabel').textContent = rarityNames[rarityLevel];
+  cards.innerHTML = '';
+  let shown = 0;
+  data.forEach(d=>{
+    const hay = JSON.stringify(d).toLowerCase();
+    const passFilter = f==='all' || d.tags.includes(f) || d.freq===f;
+    const passRarity = (rarityRank[d.freq] || 5) <= rarityLevel;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const passSearch = !q || tokens.every(tok => hay.includes(tok));
+    if(!passFilter || !passRarity || !passSearch) return;
+    shown++;
+    const el = document.createElement('article');
+    el.className = `card ${d.freq}`;
+    el.innerHTML = `
+      <div class="meta"><span class="tag freq ${d.freq}">${d.freq}</span>${d.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <h2>${d.name}</h2><div class="bug">${d.bug}</div>${d.aliases?`<div class="small"><b>Search aliases:</b> ${d.aliases.join(', ')}</div>`:''}
+      <div class="section"><div class="label">Clinical clues</div><ul>${d.features.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div class="section detail"><div class="label">Diagnostics</div><ul>${d.dx.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div class="section"><div class="label">Treatment</div><div class="rx">${d.rx}</div></div>
+      <div class="section detail"><div class="label">Trap</div><div class="danger">${d.warn}</div></div>`;
+    if(compact) el.querySelectorAll('.detail').forEach(x=>x.classList.add('hidden'));
+    cards.appendChild(el);
+  });
+  document.getElementById('resultCount').textContent = `${shown} organism${shown===1?'':'s'} shown`;
+}
+document.querySelectorAll('.btn').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');render()}));
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('raritySlider').addEventListener('input',render);
+document.getElementById('compact').addEventListener('change',render);
+render();
+</script>
+</body>
+</html>
