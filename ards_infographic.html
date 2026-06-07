@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ARDS Infographic</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0d1b2a;
+      color: #e8f0fe;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, #1a3a5c 0%, #0f2640 100%);
+      border: 1px solid #2a5f8f;
+      border-radius: 16px;
+      padding: 36px 40px;
+      text-align: center;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(56,139,253,0.18) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .header-tag {
+      display: inline-block;
+      background: #388bfd22;
+      color: #58a6ff;
+      border: 1px solid #388bfd55;
+      border-radius: 20px;
+      padding: 4px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 36px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+    .header h1 span { color: #58a6ff; }
+    .header p {
+      font-size: 14px;
+      color: #8b949e;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* STAT ROW */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #161f2e;
+      border: 1px solid #21344d;
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+    }
+    .stat-card .stat-num {
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-card .stat-label {
+      font-size: 11px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .stat-card.red .stat-num  { color: #f85149; }
+    .stat-card.blue .stat-num { color: #58a6ff; }
+    .stat-card.amber .stat-num{ color: #e3b341; }
+    .stat-card.green .stat-num{ color: #3fb950; }
+
+    /* GRID */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin-bottom: 20px; }
+
+    /* CARD */
+    .card {
+      background: #161f2e;
+      border: 1px solid #21344d;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .card-title .icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .icon-red   { background: #f8514922; color: #f85149; }
+    .icon-blue  { background: #58a6ff22; color: #58a6ff; }
+    .icon-amber { background: #e3b34122; color: #e3b341; }
+    .icon-green { background: #3fb95022; color: #3fb950; }
+    .icon-purple{ background: #bc8cff22; color: #bc8cff; }
+
+    /* LIST */
+    ul.plain { list-style: none; }
+    ul.plain li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #21344d;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #c9d1d9;
+    }
+    ul.plain li:last-child { border-bottom: none; }
+    ul.plain li .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .dot-red    { background: #f85149; }
+    .dot-blue   { background: #58a6ff; }
+    .dot-amber  { background: #e3b341; }
+    .dot-green  { background: #3fb950; }
+    .dot-purple { background: #bc8cff; }
+
+    /* SEVERITY TABLE */
+    .severity-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+    .sev-box {
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .sev-box.mild   { background: #e3b34115; border: 1px solid #e3b34144; }
+    .sev-box.moderate { background: #f0883e15; border: 1px solid #f0883e44; }
+    .sev-box.severe { background: #f8514915; border: 1px solid #f8514944; }
+    .sev-box .sev-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .sev-box.mild   .sev-label { color: #e3b341; }
+    .sev-box.moderate .sev-label { color: #f0883e; }
+    .sev-box.severe .sev-label { color: #f85149; }
+    .sev-box .pf-ratio {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .sev-box.mild   .pf-ratio { color: #e3b341; }
+    .sev-box.moderate .pf-ratio { color: #f0883e; }
+    .sev-box.severe .pf-ratio { color: #f85149; }
+    .sev-box .sev-detail { font-size: 11px; color: #8b949e; }
+
+    /* PATHWAY */
+    .pathway {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .phase-box {
+      position: relative;
+      background: #0f1f33;
+      border: 1px solid #21344d;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+    }
+    .phase-box::after {
+      content: '↓';
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: #444d56;
+    }
+    .phase-box:last-child::after { display: none; }
+    .phase-box .phase-num {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #58a6ff;
+      margin-bottom: 4px;
+    }
+    .phase-box .phase-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e8f0fe;
+      margin-bottom: 4px;
+    }
+    .phase-box .phase-desc {
+      font-size: 11px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    /* TREATMENT PILLARS */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .pillar {
+      background: #0f1f33;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .pillar-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #21344d;
+    }
+    .pillar-title.blue  { color: #58a6ff; border-color: #58a6ff33; }
+    .pillar-title.green { color: #3fb950; border-color: #3fb95033; }
+    .pillar-title.amber { color: #e3b341; border-color: #e3b34133; }
+    .pillar ul {
+      list-style: none;
+      font-size: 12px;
+      color: #8b949e;
+      line-height: 1.8;
+    }
+    .pillar ul li::before { content: '• '; }
+
+    /* BERLIN */
+    .berlin-criteria {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .berlin-item {
+      background: #0f1f33;
+      border-radius: 10px;
+      padding: 14px 16px;
+      border-left: 3px solid #58a6ff;
+    }
+    .berlin-item h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #58a6ff;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+    .berlin-item p {
+      font-size: 12px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 11px;
+      color: #444d56;
+      border-top: 1px solid #21344d;
+      margin-top: 28px;
+    }
+
+    /* SECTION LABEL */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #444d56;
+      margin-bottom: 12px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 700px) {
+      .stat-row { grid-template-columns: repeat(2,1fr); }
+      .grid-2, .grid-3, .pillars, .berlin-criteria { grid-template-columns: 1fr; }
+      .severity-grid { grid-template-columns: 1fr; }
+      .header h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-tag">Critical Care Medicine</div>
+    <h1>Acute Respiratory<br/><span>Distress Syndrome</span></h1>
+    <p>A life-threatening condition of widespread inflammation in the lungs, causing fluid accumulation and severe hypoxemia.</p>
+  </div>
+
+  <!-- KEY STATS -->
+  <div class="stat-row">
+    <div class="stat-card red">
+      <div class="stat-num">190K</div>
+      <div class="stat-label">US Cases / Year</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-num">30–40%</div>
+      <div class="stat-label">Mortality Rate</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-num">72 hrs</div>
+      <div class="stat-label">Typical Onset</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-num">6 ml/kg</div>
+      <div class="stat-label">Protective TV Target</div>
+    </div>
+  </div>
+
+  <!-- DEFINITION + CAUSES -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-blue">🫁</div>
+        <span style="color:#58a6ff">Berlin Definition (2012) Criteria</span>
+      </div>
+      <div class="berlin-criteria">
+        <div class="berlin-item">
+          <h4>Timing</h4>
+          <p>Onset within 1 week of known clinical insult or new/worsening respiratory symptoms</p>
+        </div>
+        <div class="berlin-item">
+          <h4>Chest Imaging</h4>
+          <p>Bilateral opacities not fully explained by effusions, collapse, or nodules</p>
+        </div>
+        <div class="berlin-item">
+          <h4>Oedema Origin</h4>
+          <p>Respiratory failure not fully explained by cardiac failure or fluid overload</p>
+        </div>
+        <div class="berlin-item">
+          <h4>Oxygenation</h4>
+          <p>PaO₂/FiO₂ ≤ 300 mmHg with PEEP or CPAP ≥ 5 cmH₂O</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-red">⚠️</div>
+        <span style="color:#f85149">Common Causes</span>
+      </div>
+      <div class="section-label" style="margin-top:0">Direct (Pulmonary)</div>
+      <ul class="plain">
+        <li><span class="dot dot-red"></span>Pneumonia (bacterial, viral, fungal)</li>
+        <li><span class="dot dot-red"></span>Aspiration of gastric contents</li>
+        <li><span class="dot dot-red"></span>Pulmonary contusion / inhalation injury</li>
+        <li><span class="dot dot-red"></span>Near drowning</li>
+      </ul>
+      <div class="section-label" style="margin-top:12px">Indirect (Extrapulmonary)</div>
+      <ul class="plain">
+        <li><span class="dot dot-amber"></span>Sepsis (most common cause overall)</li>
+        <li><span class="dot dot-amber"></span>Major trauma / shock</li>
+        <li><span class="dot dot-amber"></span>Pancreatitis, blood transfusion (TRALI)</li>
+        <li><span class="dot dot-amber"></span>Drug overdose / burns</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SEVERITY + PATHOPHYSIOLOGY -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-amber">📊</div>
+        <span style="color:#e3b341">Severity Classification (P/F Ratio)</span>
+      </div>
+      <div class="severity-grid">
+        <div class="sev-box mild">
+          <div class="sev-label">Mild</div>
+          <div class="pf-ratio">200–300</div>
+          <div class="sev-detail">mmHg<br/>Mortality ~27%</div>
+        </div>
+        <div class="sev-box moderate">
+          <div class="sev-label">Moderate</div>
+          <div class="pf-ratio">100–200</div>
+          <div class="sev-detail">mmHg<br/>Mortality ~32%</div>
+        </div>
+        <div class="sev-box severe">
+          <div class="sev-label">Severe</div>
+          <div class="pf-ratio">&lt;100</div>
+          <div class="sev-detail">mmHg<br/>Mortality ~45%</div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#444d56;margin-top:12px;line-height:1.5">P/F ratio = PaO₂ (arterial O₂) ÷ FiO₂ (fraction of inspired O₂), measured on ABG with PEEP ≥ 5 cmH₂O.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-purple">🔬</div>
+        <span style="color:#bc8cff">Pathophysiology Stages</span>
+      </div>
+      <div class="pathway">
+        <div class="phase-box">
+          <div class="phase-num">Phase 1 · 0–6 hrs</div>
+          <div class="phase-title">Exudative Phase</div>
+          <div class="phase-desc">Inflammatory cascade → alveolar-capillary barrier breakdown → protein-rich oedema floods alveoli → surfactant dysfunction → atelectasis</div>
+        </div>
+        <div class="phase-box" style="margin-top:16px">
+          <div class="phase-num">Phase 2 · Days 3–7</div>
+          <div class="phase-title">Proliferative Phase</div>
+          <div class="phase-desc">Type II pneumocyte proliferation, fibroblast activation, early fibrosis, ongoing hypoxaemia</div>
+        </div>
+        <div class="phase-box" style="margin-top:16px">
+          <div class="phase-num">Phase 3 · Week 2–3</div>
+          <div class="phase-title">Fibrotic Phase</div>
+          <div class="phase-desc">Collagen deposition, bullae formation, risk of pneumothorax; recovery or chronic respiratory impairment</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYMPTOMS + DIAGNOSIS -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-red">🩺</div>
+        <span style="color:#f85149">Clinical Features</span>
+      </div>
+      <ul class="plain">
+        <li><span class="dot dot-red"></span>Severe progressive dyspnoea and tachypnoea</li>
+        <li><span class="dot dot-red"></span>Refractory hypoxaemia (SpO₂ low despite O₂)</li>
+        <li><span class="dot dot-red"></span>Bilateral crackles on auscultation</li>
+        <li><span class="dot dot-red"></span>Cyanosis, use of accessory muscles</li>
+        <li><span class="dot dot-red"></span>Diffuse bilateral infiltrates on CXR / CT</li>
+        <li><span class="dot dot-red"></span>Decreased lung compliance</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-green">🔍</div>
+        <span style="color:#3fb950">Diagnostic Workup</span>
+      </div>
+      <ul class="plain">
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">ABG</strong> — PaO₂/FiO₂ ratio, pH, PaCO₂</li>
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">Chest X-Ray</strong> — bilateral opacities, "white-out"</li>
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">CT Chest</strong> — heterogeneous consolidation (gravity-dependent)</li>
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">Echo / BNP</strong> — exclude cardiogenic pulmonary oedema</li>
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">Cultures / PCR</strong> — identify causative organism</li>
+        <li><span class="dot dot-green"></span><strong style="color:#c9d1d9">BAL</strong> — differential cell count, protein if needed</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- TREATMENT -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">
+      <div class="icon icon-blue">💊</div>
+      <span style="color:#58a6ff">Management Pillars</span>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-title blue">Ventilation Strategy</div>
+        <ul>
+          <li>Lung-protective ventilation (ARDSnet)</li>
+          <li>Tidal volume 6 ml/kg IBW</li>
+          <li>Plateau pressure &lt; 30 cmH₂O</li>
+          <li>Optimal PEEP titration</li>
+          <li>Permissive hypercapnia acceptable</li>
+          <li>Prone positioning ≥ 16 h/day (severe)</li>
+          <li>High-flow nasal cannula (mild–moderate)</li>
+        </ul>
+      </div>
+      <div class="pillar">
+        <div class="pillar-title green">Supportive Care</div>
+        <ul>
+          <li>Conservative fluid strategy</li>
+          <li>Daily spontaneous breathing trials</li>
+          <li>Light sedation (RASS −1 to 0 target)</li>
+          <li>Early mobilisation / physio</li>
+          <li>DVT prophylaxis</li>
+          <li>Stress ulcer prophylaxis</li>
+          <li>Nutritional support (enteral preferred)</li>
+        </ul>
+      </div>
+      <div class="pillar">
+        <div class="pillar-title amber">Adjunctive / Rescue</div>
+        <ul>
+          <li>Neuromuscular blockade (cisatracurium)</li>
+          <li>Inhaled nitric oxide / prostacyclin</li>
+          <li>High-frequency oscillatory ventilation</li>
+          <li>Extracorporeal membrane oxygenation (ECMO)</li>
+          <li>Corticosteroids (selected cases)</li>
+          <li>Treat underlying cause (e.g. antibiotics)</li>
+          <li>Lung recruitment manoeuvres</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLICATIONS + PROGNOSIS -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-red">🚨</div>
+        <span style="color:#f85149">Complications</span>
+      </div>
+      <ul class="plain">
+        <li><span class="dot dot-red"></span>Ventilator-induced lung injury (VILI)</li>
+        <li><span class="dot dot-red"></span>Pneumothorax / barotrauma</li>
+        <li><span class="dot dot-red"></span>Ventilator-associated pneumonia (VAP)</li>
+        <li><span class="dot dot-red"></span>Multi-organ dysfunction syndrome (MODS)</li>
+        <li><span class="dot dot-red"></span>Pulmonary fibrosis (long-term)</li>
+        <li><span class="dot dot-red"></span>ICU-acquired weakness / PTSD</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="icon icon-green">📈</div>
+        <span style="color:#3fb950">Prognosis &amp; Recovery</span>
+      </div>
+      <ul class="plain">
+        <li><span class="dot dot-green"></span>Most survivors extubated within 2–4 weeks</li>
+        <li><span class="dot dot-green"></span>Lung function often returns to near-normal by 6–12 months</li>
+        <li><span class="dot dot-green"></span>Persistent fatigue, weakness, and cognitive issues common</li>
+        <li><span class="dot dot-green"></span>Younger patients and direct lung injury have better outcomes</li>
+        <li><span class="dot dot-purple"></span>Severity of underlying illness is the main mortality driver</li>
+        <li><span class="dot dot-amber"></span>Mortality has improved significantly since lung-protective ventilation</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    ARDS · Acute Respiratory Distress Syndrome · Based on Berlin Definition 2012 &amp; ARDSnet Protocols · For educational purposes only
+  </div>
+
+</div>
+</body>
+</html>
