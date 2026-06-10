@@ -1,0 +1,302 @@
+## Context
+Creates a summary of a haematology patient's medical information from an infectious diseases perspective that I can put into the patient's records.
+It begins with a narrative prose summary and is then followed by structured sections.
+
+# Section 1: Narrative Summary
+Begin with a concise narrative summary of the case written in prose (one to two paragraphs). It should read as a flowing clinical narrative, not bullet points.
+The narrative should give an overview of:
+- Who the patient is and their underlying haematological diagnosis
+- Their transplant / treatment status and where they are in their disease course
+- The main current infectious disease issue(s) prompting review
+- The overall clinical trajectory and current status
+
+Rules
+- Write in prose, not bullet points
+- Do not include laboratory values
+- Keep it concise and readable — a clinician should grasp the gist of the case in a few sentences
+
+Example of a good narrative summary:
+```
+Mr X is a gentleman with multiply relapsed/refractory DLBCL transformed from marginal zone lymphoma, now status post haploidentical allogeneic HSCT (D0 05/12/2025) with his son as donor in a high-risk CMV donor-negative/recipient-positive setting. His post-transplant course has been complicated by recurrent RSV, HHV-6 DNAaemia and presumed GI GvHD. He is currently admitted with CMV reactivation that has broken through Letermovir prophylaxis, without evidence of end-organ disease, and is responding to IV Ganciclovir and CMV Megalotect. His course has also been complicated by a second non-neutropenic fever and a provoked segmental pulmonary embolism for which he is anticoagulated. Overall he remains clinically stable and non-toxic, with CMV viral load now trending down.
+```
+
+# Section 2: Past Medical History
+This section should consist of the patient's Past Medical History. It should be formatted as such:
+```
+1. (Main diagnosis)
+- Describe aetiology of diagnosis
+- Describe how the patient initially presented
+- Describe significant events relating to this diagnosis
+
+[Investigations]
+-
+-
+-
+
+[Treatment]
+-
+-
+-
+
+[Complications]
+-
+-
+-
+```
+
+Rules
+- Do not use bullet points within other bullet points
+- Do not include lab values
+- Formatting of investigation and date should be consistent, for example
+    - CXR (13/3/2026)
+    - PET CT (14/2/2021)
+    - #1 RCHOP (14/1/2026)
+
+Example of a good summary:
+```
+1. Marginal Zone Lymphoma (MZL) transformed to Diffuse Large B-Cell Lymphoma (DLBCL)
+- Initial stage IE MZL of rectum/sigmoid, diagnosed July 2021
+- Incidental finding on rectosigmoid polyp biopsy during colonoscopy for perianal abscess/fistula in ano
+- MALT IPI score 1 (LDH)
+- BMAT negative 2021
+- Surveillance colonoscopies confirmed persistent disease (Sep 2021, Mar 2022, Sep 2022, Mar 2023)
+- Transformed to DLBCL Nov 2023, IPI 1, Stage III
+- Progressive left cervical lymphadenopathy, no B symptoms
+- PET-CT Dec 2023: multiple hypermetabolic supra- and infra-diaphragmatic LNs, FDG-avid R nasopharyngeal soft tissue thickening
+- Histology: L cervical LN - DLBCL 20-30%, G3A FL 70-80%; PNS biopsy - DLBCL
+- 1st relapse Aug 2024 (DFI 4 months post EOT)
+- PET-CT Aug 2024: larger, more FDG-avid L level V cervical nodes (SUVmax 2.1 > 7.3, 1.4x0.6 > 2.5x1.6 cm)
+
+[Investigations]
+- PET-CT Dec 2023: supra/infra-diaphragmatic hypermetabolic LNs
+- PET-CT May 2024 (EOT): DS 3
+- PET-CT Aug 2024: recurrence L cervical nodes
+- PET-CT 13/04/2026: bilateral diffuse GGO with increased FDG avidity, no suspicious LNs
+
+[Treatment]
+- 2 x 2 Gy RT to rectosigmoid region (25-26/04/2023)
+- #1-#6 RCHOP (02/01/2024 - 18/04/2024)
+- Bridging RT to L neck and SCF 30 Gy/10# (30/09/2024 - 11/10/2024)
+- MNC harvest/apheresis for Yescarta (20/09/2024)
+- CAR-T Yescarta infusion (D0 = 19/11/2024), achieved CR post CAR-T
+
+[Complications]
+- Early relapse post RCHOP (DFI 4 months)
+```
+
+# Section 3: Timeline
+The next section should consist of a timeline of events. The timeline should be formatted as a table, with the first column being date and the second column being important events that happened during that date. Follow the following rules
+- Do not use bullet points within other bullet points
+- Each sentence in second column should be separated by ;
+- Do not include citations
+- Output the table at the bottom of the target page.
+- Do not include laboratory values
+
+Example of a good timeline:
+```
+08/04/26: Elective admission for TIL infusion; Started on Acyclovir and Bactrim prophylaxis
+09/04/26: Hypotensive episode — fluid responsive; IV Fludarabine started (planned for 5 days); IV Cyclophosphamide started (planned for 2 days); IV Mesna x 2 days
+10/04/26: Onset of diarrhoea, Type 6-7, multiple episodes
+11/04/26: Ongoing fever; GI PCR +ve for EPEC; C. diff GDH and toxin -ve; Urine culture NBG; Started IV Tazocin
+12/04/2026: Continued febrile; Lymphodepletion chemotherapy held; CMV PCR pending; Escalated to IV Meropenem
+13/04/2026: Afebrile; cultures pending
+```
+
+# Section 4: Counters
+This part summarises current treatment and important information in the form of Treatment followed by start date and end date. For example:
+```
+Anti-infectives
+Augmentin           9/03/26 - 22/3/26
+Vancomycin          26/03/26 - 27/3/26
+Tazocin             26/03/26 - 08/04/26
+Tedizolid           27/03/26 - 08/04/26
+PO Clindamycin      08/04/26 - current
+IV Cefepime         08/04/26 - current
+
+Isavuconazole       25/02/2026 - 29/3/26
+Ambisome            26/03/2026 - current (held today by primary team)
+
+Ivermectin          08/03/2026 - 09/03/26
+
+Cancer treatment
+Avapritinib         25/2/2026 - current
+Venetoclax          30/3/2026 - current
+```
+
+# Section 5: On Clinical Review
+Section includes
+- Patient's important symptoms: positive and negative
+- Examination findings
+
+# Section 6: Objective
+```
+BP: ___ HR: ___ Temp: ___ Sats: ___
+Max temperature: ___
+
+Latest renal panel: #list out in one line, don't include (H) or (L) or lab units#
+CRP trend: #list out in one line, don't include (H) or (L) or lab units For example, CRP 46 (05/04/2026) > 61 (06/04/2026)#
+Procal trend: #list out in one line, don't include (H) or (L) or lab units
+WBC trend: #list out in one line, don't include (H) or (L) or lab units. Also include latest Neutrophil percentage#
+
+Radiology
+#brief description for radiology reports, for example
+- CXR 15/01/2026:nil consolidation or effusion#
+
+Microbiological Investigations
+# summary of microbiological investigations, for example
+- 28/05/26 Staphylococcus aureus (MSSA) <S> Cefazolin cloxacillin <R> ampicillin <I> ciprofloxacin
+- 29/05/26 Staphylococcus aureus (MSSA) <S> Cefazolin
+- 02/06/26 Repeat set sent – pending
+```
+
+# Section 7: Impression
+Summarise the important infectious disease issues in point form, with important information about aetiology, severity, complications, and brief summary of treatment
+
+# Section 8: Suggest
+Give a brief list of sensible suggestions from infectious disease point of view
+
+# Output Format
+The entire ID Haematology Summary should be output into a plain text code box, beginning with the narrative summary in prose, followed by the structured sections.
+Do not include laboratory units
+Use SI units for all laboratory values, and express CD4 counts in ×10⁶/L
+
+# Example of a Good Summary
+```
+Narrative Summary
+Ms Y is a lady with multiply relapsed/refractory DLBCL transformed from marginal zone lymphoma, now status post haploidentical allogeneic HSCT (D0 05/12/2025) in a high-risk CMV donor-negative/recipient-positive setting. Her post-transplant course has been complicated by recurrent RSV, HHV-6 DNAaemia and presumed eosinophilic colitis/GvHD. She is currently admitted with CMV reactivation that broke through Letermovir prophylaxis, without end-organ involvement, and is responding to IV Ganciclovir and CMV Megalotect. Her stay has also been complicated by a second non-neutropenic fever, perioral erosions of unclear aetiology, and a provoked segmental pulmonary embolism for which she is anticoagulated. Overall she remains clinically stable and non-toxic with CMV viral load trending down.
+
+
+Past Medical History
+1. Multiply relapsed/refractory Diffuse Large B-Cell Lymphoma (DLBCL) transformed from Marginal Zone Lymphoma (MZL), s/p haploidentical AlloHSCT
+- B/g stage IV MZL with predominant bone disease (SOD bones, spleen)
+- Recipient B+ CMV IgG+, Donor (son) B+ CMV IgG-
+- Conditioning regime: IV thiotepa/fludarabine/melphalan; TBI 2 Gy
+- Neutrophils engrafted 22/12/2025
+- Also for development of MDS
+
+[Investigations]
+- BMAT (28/11/2025): no recurrence
+- T12 bone biopsy (09/07/2025): low grade B-lymphomatous infiltrate with focal aggregates of large atypical B lymphoid cells
+- Scalp lump excision biopsy (22/05/2023): Transformed DLBCL
+- PET-CT (15/02/2023): PD
+- PET-CT (06/2024): DS 5
+
+[Treatment]
+- 1L R-Benda x6 (28/10/2020 – 22/04/2021), PD in bones
+- 2L #1 O-CHOP 80% (30/06/2021), IT MTX, #4 MO-CHOP (23/07/2021 – 10/09/2021)
+- 3L BTKi: Ibrutinib (not tolerated), switched to Acalabrutinib (22/12/2021)
+- 4L Obi-Lenalidomide x3
+- 5L CAR-T Yescarta (08/08/2023), cx by Grade 2 CRS
+- 6L Glofitamab #1 (10/07/2024) – #12 (17/03/2025)
+- 7L Pola-R-Ven #1 (18/07/2025), #2 (15/08/2025)
+- 8L Haploidentical AlloHSCT D0 = 05/12/2025
+
+[Complications]
+- Neutropenic fever (13–16/12/2025) – multifactorial, GI translocation vs active RSV
+- Presumptive C. difficile diarrhoea – completed 14 days PO Vancomycin
+- HHV-6 DNAaemia (29/12/2025 – 02/01/2026) – received Foscarnet
+- Nosocomial-onset diarrhoea (23/01/2026) – eosinophilic colitis on OGD/colonoscopy, possible GvHD vs EGID; on PO Budesonide
+- Provoked pulmonary embolism (CTPA 19/05/2026); on Apixaban 5mg BD since 16/05/2026, aim 3 months
+- CMV reactivation (current admission)
+
+
+Timeline:
+05/12/25: D0 haploidentical AlloHSCT (conditioning thiotepa/fludarabine/melphalan, TBI 2 Gy)
+13–16/12/25: Neutropenic fever – multifactorial, GI translocation vs active RSV
+22/12/25: Neutrophils engrafted
+29/12/25 – 02/01/26: Rising HHV-6 DNAaemia; received Foscarnet
+23/01/26: Nosocomial-onset diarrhoea; eosinophilic colitis on OGD/colonoscopy; PO Budesonide started
+13/05/26: Admitted from clinic for rising CMV
+14/05/26: EYE review — no CMV retinitis; IVIg given; PO Valganciclovir started; first non-neutropenic fever spike (cultures NBG)
+15/05/26: Switched to IV Ganciclovir 5mg/kg Q12H; CMV Megalotect EOD x7 doses; CMV drug resistance sent
+16/05/26: Apixaban 5mg BD started for provoked PE
+19/05/26: CTPA – tiny filling defect anteromedial segmental PA of LLL, suspicious for acute PE; US DVT negative
+20/05/26: 2nd fever episode; blood cultures sent; IV Tazocin started
+21/05/26: Continued IV Ganciclovir; Tazocin held; reviewed by ID team
+
+
+Counters:
+Anti-infectives
+PO Valganciclovir 900mg BD       14/05/26 – 15/05/26
+IV Ganciclovir 5mg/kg Q12H       15/05/26 – current
+CMV Megalotect 100mL EOD x7      15/05/26 – 27/05/26
+IV Tazocin                       20/05/26 – 21/05/26 (held)
+Co-trimoxazole (prophylaxis)     14/05/26 – current
+Entecavir                        ongoing
+
+Anticoagulation
+Apixaban 5mg BD                  16/05/26 – current (aim 3 months)
+
+GvHD/GI
+PO Budesonide                    29/01/26 – current (tapering)
+
+
+=== ON CLINICAL REVIEW ===
+
+Positive findings:
+- Fever spike yesterday (Tmax 38.1) – did not feel unwell during episode
+- Occasional floaters in vision
+- Perioral redness with mild erosions on lips
+
+Negative findings:
+- No diarrhoea
+- No new respiratory symptoms
+- No visual loss/blurring
+- Eating well; bowels opened
+
+Examination:
+- Alert, comfortable, non-toxic
+- Lips red with mild erosions; oral cavity – no ulcers
+- HS S1S2 normal; lungs clear
+- Abdomen soft, non-tender, bowel sounds present
+- Calves supple, no pedal oedema
+
+
+Objective:
+BP: 113/72   HR: 87   Temp: 36.6   Sats: 95
+Max temperature: 38.1 (20/05/2026)
+
+Latest renal panel: Na 134, K 4.1, Cl 102, HCO3 22.9, Urea 2.6, Cr 47
+CRP trend: 16.2 (20/05/2026)
+Procalcitonin trend: 0.3 (20/05/2026)
+WBC trend: 6.28 (20/05/2026); neutrophil percentage pending
+Haemoglobin: 9.4; Platelets: 87
+
+CMV trend:
+- Not detected (02/03/2026) > 37 (26/03/2026) > 158 (06/04/2026) > 69 (20/04/2026) > 2790 (11/05/2026) > 13400 (14/05/2026) > 5850 (18/05/2026) > pending (21/05/2026)
+
+Radiology
+- CXR (14/05/2026): no consolidation
+- CTPA (19/05/2026): tiny filling defect anteromedial segmental PA of LLL, suspicious for acute PE; no RV strain
+- US DVT (19/05/2026): no DVT
+
+
+Impression:
+1. CMV reactivation without end-organ involvement in CMV D-/R+ haploidentical AlloHSCT recipient (high-risk)
+- Broke through Letermovir prophylaxis
+- No CMV retinitis (EYE review 14/05/2026), no diarrhoea
+- Trending down on IV Ganciclovir and CMV Megalotect; CMV drug resistance pending
+
+2. Non-neutropenic fever (2nd episode 20/05/2026)
+- Clinically unlikely pyogenic process
+- Blood cultures, urine cultures, respiratory swabs negative; CXR clear
+
+3. Perioral erosions with lip redness
+- HSV PCR swab negative (18/05/2026)
+- Aetiology unclear – possible mucocutaneous reaction vs drug-related
+
+4. Provoked pulmonary embolism (LLL segmental)
+- On Apixaban 5mg BD since 16/05/2026, aim 3 months
+
+
+Suggest:
+- Trace serum CMV PCR and pp65 antigen
+- Trace CMV drug resistance result
+- Agree with holding IV Tazocin given low clinical suspicion of bacterial infection
+- Continue IV Ganciclovir 5mg/kg Q12H and CMV Megalotect (last dose 27/05/2026)
+- Monitor CMV PCR twice weekly (Mon/Thurs)
+- Refer to Dermatology for opinion on perioral erosions
+- Monitor renal function given Ganciclovir nephrotoxicity risk
+- Continue Co-trimoxazole PJP prophylaxis and Entecavir
+- Trace blood cultures from 20/05/2026
+```
