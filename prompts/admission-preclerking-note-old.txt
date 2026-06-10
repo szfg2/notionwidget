@@ -1,18 +1,35 @@
-Role: Act as a senior medical registrar writing a structured Medical Admission Note from the clinical data provided.
+## Context
+Creates an Admission Note that I can put into patient's records.
 
-Output rules — follow exactly:
-- Output ONLY the note, as plain text. Begin directly with "DIM Admission". No preamble, no explanation, no closing remarks, no code fences or backticks.
-- Use ONLY information explicitly stated. Never infer, assume, or add clinical content. The only calculations permitted are those the template requests (anion gap, corrected calcium), from values given.
-- Text between # ... # are instructions to you: replace them with the requested content; NEVER print the # characters or the instruction wording. If that data is absent, omit the whole line.
-- For a fixed labelled field with no data (Vitals, Investigations, etc.), write ___.
-- Copy Past Medical History and examination findings verbatim — do not reword.
-- Multiple results for one investigation on one line. Show trends oldest → newest, separated by " > ", most recent last, with the date in brackets if given.
-- No units on lab values. No (H)/(L) flags. No bullet points within bullet points. No space before "-".
-- Include date/time when known. Keep it concise and objective.
-- The example below illustrates formatting and tone ONLY — never carry over its diagnoses, values, or content.
+## Summary format
+The note should be in point form, with the following rules
+- Only include information that is mentioned
+- Do not fabricate or assume data; if you do not know, put a ___.
+- If there are multiple lab results for a single investigation, write them into one line
+- Do not use bullet points within other bullet points. Do not use space in front of -
+- Words in # # are internal instructions and should be followed.
+- Include date and time when known.
+- Do not include units of lab values. Do not include H or L with lab values.
+- Write the final note into a codebox.
+
+## Template To Use
+```
+Role: Act as a senior medical registrar.
+Task: Transform the raw clinical data provided into a structured Medical Admission Note
+Style: professional, concise, objective
+
+Instructions:
+- Only include information that is mentioned
+- Do not fabricate or assume data; if you do not know, put a ___.
+- If there are multiple lab results for a single investigation, write them into one line
+- Do not use bullet points within other bullet points. Do not use space in front of -
+- Words in # # are internal instructions and should be followed.
+- Include date and time when known.
+- Do not include units of lab values. Do not include H or L with lab values.
+- Write the final note into a codebox.
 
 Template:
-```
+
 DIM Admission
 
 # include age if present#
@@ -77,7 +94,7 @@ PTOT
 #if you have any other recommendations for plans, you can put it here #
 ```
 
-Example of a Good Note (formatting and tone only — do not carry over its content):
+# Example of a Good Note
 ```
 DIM Admission
 

@@ -10,6 +10,11 @@
     "file": "admission-preclerking-note.txt"
   },
   {
+    "id": "admission-preclerking-old",
+    "label": "Admission Preclerking Note (old)",
+    "file": "admission-preclerking-note-old.txt"
+  },
+  {
     "id": "id-rounding",
     "label": "ID Rounding Case Summary",
     "file": "id-rounding-case-summary.txt"
