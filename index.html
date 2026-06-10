@@ -206,6 +206,31 @@
   .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
 
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  /* --- keyboard hint --- */
+  .kbd-hint { font-size: 11px; color: var(--faint); margin-left: 10px; }
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  /* --- Ask about this case --- */
+  .ask-card { border-color: var(--border-strong); }
+  .ask-note { font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
+  .thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .thread:empty { display: none; }
+  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user { background: var(--surface-2); border: 1px solid var(--border); }
+  .msg.assistant { background: #14211d; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .msg .who { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .msg.assistant .who { color: var(--accent); }
+  .ask-row { display: flex; gap: 10px; align-items: flex-end; }
+  .ask-row .field { flex: 1 1 auto; min-width: 0; }
+  textarea.ask-input { min-height: 56px; }
+  .ask-error {
+    display: none; color: var(--danger); font-size: 12.5px; margin-bottom: 10px; white-space: pre-wrap;
+  }
 </style>
 </head>
 <body>
@@ -266,6 +291,7 @@
       </div>
       <button class="generate" id="generateBtn" type="button" disabled>Generate</button>
     </div>
+    <div class="kbd-hint">Tip: press <span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate.</div>
   </div>
 
   <!-- ERROR -->
@@ -281,22 +307,54 @@
     <div class="out-foot" id="count"></div>
   </div>
 
+  <!-- ASK ABOUT THIS CASE -->
+  <div class="card ask-card">
+    <div class="out-head">
+      <span class="eyebrow">Ask about this case</span>
+      <button class="ghost-btn" id="askClear" type="button">New conversation</button>
+    </div>
+    <p class="ask-note">Uses whatever is in the patient &amp; clinical boxes above as context. A reasoning aid to support your judgement, not a replacement for it.</p>
+    <div class="thread" id="thread"></div>
+    <div class="ask-error" id="askError"></div>
+    <div class="ask-row">
+      <div class="field">
+        <textarea class="ask-input" id="askInput" placeholder="e.g. What's the likely cause of this patient's hypotension?"></textarea>
+      </div>
+      <button class="generate" id="askBtn" type="button">Ask</button>
+    </div>
+    <div class="kbd-hint">Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.</div>
+  </div>
+
 </div>
 
 <script>
 /* ============================================================== *
  *  CONFIG  —  EDIT THESE                                          *
- *  ▶ DEFAULT_MODEL: change the model here.                        *
+ *  ▶ DEFAULT_MODEL: model for generating NOTES. Change it here.   *
  *      Test cheap with Haiku, then switch to Opus when ready:     *
  *        "claude-haiku-4-5-20251001"  (current default)           *
  *        "claude-opus-4-8"            (production)                *
+ *  ▶ ASK_MODEL: model for the "Ask about this case" box.          *
+ *      Defaults to Opus, independent of the note model above,     *
+ *      because clinical reasoning benefits from the stronger one. *
  * ============================================================== */
 const CONFIG = {
-  DEFAULT_MODEL: "claude-opus-4-8",
+  DEFAULT_MODEL: "claude-sonnet-4-6",
   MAX_TOKENS: 8192,
+  ASK_MODEL: "claude-opus-4-8",
+  ASK_MAX_TOKENS: 2048,
   PROMPTS_INDEX: "prompts/index.json",
   PROMPTS_DIR: "prompts/"
 };
+
+/* Instruction that shapes the "Ask about this case" answers. */
+const ASK_SYSTEM =
+  "You are an experienced physician assisting a clinician at the bedside. " +
+  "Using the case information provided, answer the clinician's question concisely and practically. " +
+  "Where relevant, give a focused differential ranked by likelihood, the discriminating features for each, " +
+  "what would confirm or exclude them, and the immediate steps to consider. " +
+  "Reason only from the information given; explicitly flag important missing data rather than assuming it. " +
+  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.";
 
 /* OPTIONAL — paste your API key here for quick LOCAL testing only (option B).
  * ⚠ If you fill this in, DO NOT commit this file to GitHub — the key would be public.
@@ -314,7 +372,9 @@ const els = {
   clearKey: $("clearKey"), modelTag: $("modelTag"), patient: $("patient"),
   clinical: $("clinical"), docType: $("docType"), generate: $("generateBtn"),
   error: $("error"), output: $("output"), copy: $("copyBtn"), count: $("count"),
-  clearInputs: $("clearInputs")
+  clearInputs: $("clearInputs"),
+  thread: $("thread"), askInput: $("askInput"), askBtn: $("askBtn"),
+  askClear: $("askClear"), askError: $("askError")
 };
 
 let promptIndex = [];
@@ -443,7 +503,7 @@ function setLoading(on) {
     : "Generate";
 }
 
-// Copy
+// Copy — then ready the next patient (keyboard-first loop)
 els.copy.addEventListener("click", async () => {
   if (!els.output.value) return;
   try {
@@ -452,6 +512,109 @@ els.copy.addEventListener("click", async () => {
     setTimeout(() => { els.copy.textContent = "Copy"; els.copy.classList.remove("copied"); }, 1400);
   } catch (e) {
     els.output.select(); document.execCommand("copy");
+  }
+  // Reset for the next patient: clear inputs, reset the Ask conversation, refocus
+  els.patient.value = "";
+  els.clinical.value = "";
+  resetAsk();
+  els.patient.focus();
+});
+
+// ============================================================== //
+//  Keyboard-first loop                                           //
+// ============================================================== //
+function isSubmitCombo(e) { return (e.ctrlKey || e.metaKey) && e.key === "Enter"; }
+
+// Ctrl/Cmd+Enter from either input box generates the note
+[els.patient, els.clinical].forEach(box => {
+  box.addEventListener("keydown", (e) => {
+    if (isSubmitCombo(e)) { e.preventDefault(); if (!els.generate.disabled) els.generate.click(); }
+  });
+});
+// Ctrl/Cmd+Enter in the Ask box sends the question
+els.askInput.addEventListener("keydown", (e) => {
+  if (isSubmitCombo(e)) { e.preventDefault(); if (!els.askBtn.disabled) els.askBtn.click(); }
+});
+
+// ============================================================== //
+//  Ask about this case (multi-turn, grounded in the boxes above) //
+// ============================================================== //
+let askMessages = [];
+
+function showAskError(msg) { els.askError.textContent = msg; els.askError.style.display = "block"; }
+function clearAskError() { els.askError.style.display = "none"; els.askError.textContent = ""; }
+
+function renderThread() {
+  els.thread.innerHTML = "";
+  for (const m of askMessages) {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.role === "user" ? "You" : "Claude";
+    div.appendChild(who);
+    div.appendChild(document.createTextNode(m.content));
+    els.thread.appendChild(div);
+  }
+  els.thread.scrollTop = els.thread.scrollHeight;
+}
+
+function resetAsk() { askMessages = []; renderThread(); clearAskError(); }
+els.askClear.addEventListener("click", () => { resetAsk(); els.askInput.focus(); });
+
+function setAskLoading(on) {
+  els.askBtn.disabled = on;
+  els.askBtn.innerHTML = on ? '<span class="spinner"></span>Asking…' : "Ask";
+}
+
+els.askBtn.addEventListener("click", async () => {
+  clearAskError();
+  const key = els.apiKey.value.trim();
+  const q = els.askInput.value.trim();
+  if (!key) return showAskError("Enter your Anthropic API key first.");
+  if (!q) return showAskError("Type a question first.");
+
+  askMessages.push({ role: "user", content: q });
+  renderThread();
+  els.askInput.value = "";
+  setAskLoading(true);
+
+  // Rebuild case context from the boxes on every send, so it always reflects what's there now
+  const caseContext =
+    "PATIENT DETAILS:\n" + (els.patient.value.trim() || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + (els.clinical.value.trim() || "(none provided)");
+  const system = ASK_SYSTEM + "\n\n--- CASE INFORMATION ---\n" + caseContext;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: CONFIG.ASK_MODEL,
+        max_tokens: CONFIG.ASK_MAX_TOKENS,
+        system: system,
+        messages: askMessages.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    askMessages.push({ role: "assistant", content: text || "(No response.)" });
+    renderThread();
+  } catch (e) {
+    // Roll back the unanswered question so the thread stays valid, and restore it for a retry
+    askMessages.pop();
+    renderThread();
+    els.askInput.value = q;
+    showAskError(e.message || String(e));
+  } finally {
+    setAskLoading(false);
+    els.askInput.focus();
   }
 });
 </script>
