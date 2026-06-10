@@ -1,0 +1,207 @@
+## Context
+Creates an Admission Note that I can put into patient's records.
+
+## Summary format
+The note should be in point form, with the following rules
+- Only include information that is mentioned
+- Do not fabricate or assume data; if you do not know, put a ___.
+- If there are multiple lab results for a single investigation, write them into one line
+- Do not use bullet points within other bullet points. Do not use space in front of -
+- Words in # # are internal instructions and should be followed.
+- Include date and time when known.
+- Do not include units of lab values. Do not include H or L with lab values.
+- Write the final note into a codebox.
+
+## Template To Use
+```
+Role: Act as a senior medical registrar.
+Task: Transform the raw clinical data provided into a structured Medical Admission Note
+Style: professional, concise, objective
+
+Instructions:
+- Only include information that is mentioned
+- Do not fabricate or assume data; if you do not know, put a ___.
+- If there are multiple lab results for a single investigation, write them into one line
+- Do not use bullet points within other bullet points. Do not use space in front of -
+- Words in # # are internal instructions and should be followed.
+- Include date and time when known.
+- Do not include units of lab values. Do not include H or L with lab values.
+- Write the final note into a codebox.
+
+Template:
+
+DIM Admission
+
+# include age if present#
+#include drug allergies if present#
+#Include smoking status#
+#include living circumstances and ambulation status#
+# include occupation#
+
+Past Medical History
+# copy past medical history as stated in the information provided. Do not change any words.#
+
+History of Presenting Complaint
+1.  # summarise in one line presenting complaint, include duration. This is followed by bullet point describing in more detail patient's symptoms#
+
+Objective
+[On Examination]
+# copy and paste exactly the examination findings stated in the information #
+
+[Vitals]
+HR: ___ BP: ___
+RR: ___ Sats: ___
+Temperature: ___
+
+[Investigations]
+ABG: ___
+Trops: ___ #show trend if possible, for example 24 > 23#
+BNP: ___
+Renal panel: __
+Calculate anion gap: __
+Calcium corrected: ___ Magnesium: ___ Phosphate: ___
+LFT: ___
+Lactate: ___
+FBC: ___
+CRP: ___
+
+ECG: ___
+XRs: ___
+
+Assessment
+1.  # Give a diagnosis, with bullet points stating supporting evidence, aetiology, severity, and complications #
+
+Plans
+[Nursing]
+# Recommend vitals monitoring, diet, and frequency of CBG. For example,
+
+Vitals monitoring 4H
+NBM / Allow diet
+CBG TDS for one day then off
+
+#
+
+[Investigations]
+# State investigations that were done in ED and what to trace. Recommend further investigations. For example:
+
+Trace blood cultures sent from ED
+Repeat RP cm
+#
+
+[Management]
+PTOT
+
+#if you have any other recommendations for plans, you can put it here #
+```
+
+# Example of a Good Note
+```
+DIM Admission
+
+93-year-old Chinese female
+NKDA
+Non-smoker
+Living in nursing home (Econ NH)
+Baseline: minimally communicative, only able to make sounds
+On pureed diet
+
+Past Medical History
+1. HTN
+2. HLD
+3. Dementia
+
+History of Presenting Complaint
+1. Decreased level of consciousness and transient desaturation (88% on RA) at nursing home on 30/03/2026 2030H, with subsequent improvement in oxygenation and mental state by morning
+- Patient noted to be lethargic and drowsy at 2030H on 30/03/2026, not responding to name calling
+- 1-2 hours later during vitals check, SpO2 88% on RA
+- By morning of 31/03/2026, patient back on RA and more responsive, back to baseline
+- No fever charted
+- No other infective symptoms noted
+- No surrounding sick contacts
+- No fall
+
+Objective
+[On Examination]
+Alert comfortable
+Not in respiratory distress
+Non toxic
+
+GCS E4V2M5 (11)
+Incomprehensible sounds
+
+MM fair
+
+H S1S2 Nil murmurs
+JVP NE
+L R LZ crepitations
+Abdomen soft non tender
+No guarding/rigidity
+Not distended
+No masses
+Murphy's negative
+Renal punch negative
+BS active
+C supple nil pedal edema
+
+PEARL 3mm
+Able to move both upper limbs
+Unable to cooperate with neurological examination
+
+No cephalohematoma
+No battle's sign
+Chest and pelvic compression negative
+No long bone tenderness/deformity
+No midline tenderness/step deformity
+
+[Vitals]
+HR: 86 (1147H) > 87 (1439H) BP: 116/65 (1147H) > 137/68 (1439H)
+RR: 19 Sats: 100% on RA (1147H) > 95% on RA (1439H)
+Temperature: 36.6
+
+[Investigations]
+Trops: 51
+BNP: 1758
+Renal panel: Na 162, K 4.7, Cl 122, HCO3 23.5, Urea 27.7, Cr 163, eGFR 23, Glucose 21.7
+FBC: Hb 13.4, WBC 12.5, Plt 139, Neut 71%, Lymph 20.7%
+Anion gap: 25
+CBG: 16.3
+
+ECG: NSR no dynamic changes in serial ECG, t wave inversions noted in 2018 ECG
+XRs: CXR R LZ opacities
+
+Assessment
+1. Hyperosmolar hyperglycaemic state (HHS)
+- glucose 21.7, calculated OSM 345, Na 162, CBG 16.3, altered mental state
+- Secondary to possible occult sepsis
+
+Complicated by
+a) acute kidney injury
+- Cr 163, eGFR 23, last RP in 2018
+b) Raised trops likely myocardial injury
+- Trop 51; ECG nil changes
+
+2. Community acquired pneumonia (CURB-1)
+- Supporting evidence: CXR R LZ opacities, transient hypoxia, transient AMS
+- Possible precipitant for HHS
+
+Plans
+[Nursing]
+Vitals monitoring 4H
+NBM
+CBG 2H initially, then adjust frequency based on glucose trends
+
+[Investigations]
+Trace blood cultures sent from ED
+Repeat RP in AM
+Repeat CBG monitoring
+Consider repeat CXR to track resolution
+
+[Management]
+IV Hartmann's for hydration
+IV insulin infusion as per HHS protocol
+IV Ceftriaxone and PO Azithromycin for CAP
+Actrapid 2u SC given (reduced dose due to renal impairment)
+PTOT review
+
+Goals of Care: DNR, no CPR/intubation/life support, prioritize comfort (discussed with son [name/contact redacted] on 31/03/2026)
+```

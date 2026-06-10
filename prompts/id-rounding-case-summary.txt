@@ -1,0 +1,198 @@
+# Purpose
+Summarise an inpatient infectious disease case into a concise, rounding-ready format.
+
+# Instruction
+Summarise this infectious disease case into the template below. Be concise but clinically complete. Prioritise the diagnosis, microbiology, source control, antimicrobial plan, duration, pending results, and today's actionable jobs. Do not invent missing details. If information is absent, write "not documented" or "pending".
+
+# Case summary template
+
+## One-line summary
+- [Age/sex], [ward/bed], admitted under [primary team] for [main syndrome/source], currently on [antimicrobial regimen], with key issue today being [main decision/job].
+
+## Patient identifiers
+- Name / initials:
+- Age / sex:
+- Ward / bed:
+- MRN / hospital number:
+- Primary team:
+- Date of ID review:
+- Day of admission / illness:
+
+## Why ID is involved
+- ID syndrome:
+- Suspected / confirmed source:
+- Main clinical question:
+- Severity: Stable / septic / ICU / ventilated / vasopressors
+
+## Host factors
+- Comorbidities:
+- Immunosuppression: Steroids / biologics / chemo / transplant / HIV / neutropenia / none documented
+- Prosthetic material / devices: Valves / joints / CIED / vascular graft / lines / catheters / drains
+- Renal function: CrCl/eGFR; dialysis status
+- Hepatic function:
+- Drug allergies: Include reaction and PENFAST if relevant
+
+## Clinical trajectory
+- Fever curve:
+- Haemodynamics:
+- Respiratory status:
+- Symptoms / examination:
+- WBC / CRP / PCT trend:
+- Renal / liver trend:
+- Overall trajectory: Improving / static / worsening
+
+## Microbiology
+For each specimen give: Date | Result | Susceptibilities / comments
+- Blood culture:
+- Urine culture:
+- Respiratory sample:
+- Tissue / fluid / pus:
+- Serology / PCR / antigen:
+
+## Source control and imaging
+- Imaging summary: CT / MRI / US / CXR key findings
+- Collection / abscess: Site, size, drainability
+- Procedure performed: Drainage / debridement / line removal / surgery
+- Source control status: Achieved / partial / pending / not possible
+- Repeat imaging needed: Yes / no; timing and reason
+
+## Antimicrobial history
+For each drug give: Dose / route | Start date | Stop date | Indication / comments
+- Current:
+- Prior:
+
+## Current antimicrobial plan
+- Current regimen:
+- Day number: Day *** of therapy; Day *** from source control / culture clearance
+- Renal adjustment needed?:
+- Therapeutic drug monitoring: Vancomycin / aminoglycoside / voriconazole / posaconazole / other
+- De-escalation option:
+- IV-to-oral option:
+- Intended duration:
+- Proposed stop / review date:
+- OPAT suitability: Yes / no; barriers
+
+## Pending items
+For each give: Why it matters | Owner / follow-up
+- Cultures / susceptibilities:
+- Repeat blood cultures:
+- Echo: TTE / TEE; indication
+- Imaging:
+- Procedure / source control:
+- Serology / PCR / antigen:
+- Other consults:
+
+## Today's ID assessment
+- Working diagnosis:
+- Supporting evidence:
+- Features against / uncertainty:
+- Complications to exclude:
+- Infection control issues:
+
+## Today's action list
+List in priority order (Action | Rationale):
+1.
+2.
+3.
+4.
+
+## Disposition and follow-up
+- Discharge antibiotic plan:
+- Monitoring after discharge: FBC / UEC / LFT / CRP / drug levels
+- ID clinic follow-up:
+- OPAT / HITH referral:
+- Infection control / notification:
+- Patient counselling points:
+
+# Syndrome-specific add-ons (include only those relevant to the case)
+
+## Bacteraemia
+- First positive blood culture date:
+- Organism:
+- First negative blood culture date:
+- Presumed source:
+- Repeat blood cultures needed?:
+- Echo needed?: TTE / TEE; reason
+- Metastatic foci assessed?: Spine / joints / eyes / CNS / hardware
+- Duration clock starts from: Culture clearance / source control / other
+
+## Infective endocarditis
+- Valve / device involved:
+- Duke criteria summary:
+- Vegetation size:
+- Embolic phenomena:
+- Heart failure / abscess / conduction issues:
+- Surgical indication?:
+- Planned duration:
+
+## Deep collection / abscess
+- Site and size:
+- Drainage performed?:
+- Drain culture:
+- Drain output:
+- Repeat imaging plan:
+
+## Bone and joint infection
+- Site:
+- Hardware present?:
+- Debridement performed?:
+- Bone / joint cultures:
+- Retention vs removal plan:
+- Oral step-down candidate?:
+
+## Pneumonia
+- Syndrome: CAP / HAP / VAP / aspiration
+- Oxygen / ventilator requirement:
+- Imaging:
+- Sputum quality / culture:
+- MRSA / Pseudomonas risk:
+- De-escalation target:
+
+## UTI / pyelonephritis
+- Complicated features: Obstruction / stone / stent / catheter / prostatitis / abscess
+- Urine culture:
+- Blood culture:
+- Imaging:
+- Catheter / stent plan:
+
+## TB
+- Site: Pulmonary / extrapulmonary
+- Smear / PCR / culture:
+- Drug susceptibility:
+- Treatment start date:
+- Isolation status:
+- Notification / contact tracing:
+
+## HIV / opportunistic infection
+- HIV status: New / known
+- CD4 / viral load:
+- ART regimen / start date:
+- OI diagnosis:
+- OI prophylaxis:
+- Resistance testing:
+
+## Fungal infection
+- Host risk:
+- Site of infection:
+- Histology / culture:
+- Fungal markers: BDG / galactomannan / cryptococcal antigen / other
+- Antifungal and level monitoring:
+- Source control:
+
+# Final output format
+Finish with:
+1. Problem representation: one sentence.
+2. ID impression: diagnosis and likely source.
+3. Microbiology: organism, date, susceptibilities, clearance status.
+4. Antimicrobial plan: drug, dose, route, duration, stop/review date.
+5. Source control: completed vs pending.
+6. Today: three to five concrete jobs.
+7. Pending: results/imaging/procedures to chase.
+
+# Quality check before using on rounds
+- Is there a clear syndrome and source?
+- Are culture dates and clearance dates explicit?
+- Is source control addressed?
+- Is antibiotic duration anchored to a start point?
+- Are pending items assigned to someone?
+- Is today's plan more useful than "continue antibiotics"?
