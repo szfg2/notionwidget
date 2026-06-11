@@ -169,6 +169,8 @@
   button.generate:hover:not(:disabled) { background: var(--accent-strong); }
   button.generate:active:not(:disabled) { transform: translateY(1px); }
   button.generate:disabled { opacity: .5; cursor: not-allowed; }
+  button.generate.is-cancel { background: var(--danger); color: var(--accent-ink); }
+  button.generate.is-cancel:hover:not(:disabled) { background: var(--danger); filter: brightness(1.08); }
 
   .spinner {
     width: 14px; height: 14px;
@@ -404,6 +406,8 @@ const els = {
 };
 
 let promptIndex = [];
+let genController = null;   // in-flight Generate request (for cancel)
+let askController = null;   // in-flight Ask request (for cancel)
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -473,6 +477,9 @@ els.output.addEventListener("input", updateCount);
 
 // Generate
 els.generate.addEventListener("click", async () => {
+  // A click while a request is running cancels it.
+  if (genController) { genController.abort(); return; }
+
   clearError();
   const key = els.apiKey.value.trim();
   const entry = promptIndex.find(p => p.id === els.docType.value);
@@ -482,9 +489,10 @@ els.generate.addEventListener("click", async () => {
   if (!els.patient.value.trim() && !els.clinical.value.trim())
     return showError("Add some patient details or clinical data.");
 
+  genController = new AbortController();
   setLoading(true);
   try {
-    const sysRes = await fetch(CONFIG.PROMPTS_DIR + entry.file, { cache: "no-store" });
+    const sysRes = await fetch(CONFIG.PROMPTS_DIR + entry.file, { cache: "no-store", signal: genController.signal });
     if (!sysRes.ok) throw new Error("Couldn't load prompt file: " + entry.file);
     const systemPrompt = await sysRes.text();
 
@@ -494,6 +502,7 @@ els.generate.addEventListener("click", async () => {
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: genController.signal,
       headers: {
         "content-type": "application/json",
         "x-api-key": key,
@@ -503,7 +512,9 @@ els.generate.addEventListener("click", async () => {
       body: JSON.stringify({
         model: CONFIG.DEFAULT_MODEL,
         max_tokens: CONFIG.MAX_TOKENS,
-        system: systemPrompt,
+        // The template is the large, reusable prefix — cache it so repeat
+        // generations of the same document type are cheaper and faster.
+        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: userMessage }]
       })
     });
@@ -517,17 +528,24 @@ els.generate.addEventListener("click", async () => {
     els.output.value = text || "(No text returned.)";
     updateCount();
   } catch (e) {
-    showError(e.message || String(e));
+    if (e.name === "AbortError") clearError();   // user cancelled — not an error
+    else showError(e.message || String(e));
   } finally {
+    genController = null;
     setLoading(false);
   }
 });
 
 function setLoading(on) {
-  els.generate.disabled = on;
-  els.generate.innerHTML = on
-    ? '<span class="spinner"></span>Generating…'
-    : "Generate";
+  if (on) {
+    els.generate.classList.add("is-cancel");
+    els.generate.innerHTML = '<span class="spinner"></span>Cancel';
+    els.generate.disabled = false;   // stays clickable so it can cancel
+  } else {
+    els.generate.classList.remove("is-cancel");
+    els.generate.innerHTML = "Generate";
+    els.generate.disabled = false;
+  }
 }
 
 // Copy — then ready the next patient (keyboard-first loop)
@@ -597,11 +615,21 @@ function resetAsk() { askMessages = []; renderThread(); clearAskError(); }
 els.askClear.addEventListener("click", () => { resetAsk(); els.askInput.focus(); });
 
 function setAskLoading(on) {
-  els.askBtn.disabled = on;
-  els.askBtn.innerHTML = on ? '<span class="spinner"></span>Asking…' : "Ask";
+  if (on) {
+    els.askBtn.classList.add("is-cancel");
+    els.askBtn.innerHTML = '<span class="spinner"></span>Cancel';
+    els.askBtn.disabled = false;   // stays clickable so it can cancel
+  } else {
+    els.askBtn.classList.remove("is-cancel");
+    els.askBtn.innerHTML = "Ask";
+    els.askBtn.disabled = false;
+  }
 }
 
 els.askBtn.addEventListener("click", async () => {
+  // A click while a request is running cancels it.
+  if (askController) { askController.abort(); return; }
+
   clearAskError();
   const key = els.apiKey.value.trim();
   const q = els.askInput.value.trim();
@@ -611,17 +639,18 @@ els.askBtn.addEventListener("click", async () => {
   askMessages.push({ role: "user", content: q });
   renderThread();
   els.askInput.value = "";
+  askController = new AbortController();
   setAskLoading(true);
 
   // Rebuild case context from the boxes on every send, so it always reflects what's there now
   const caseContext =
     "PATIENT DETAILS:\n" + (els.patient.value.trim() || "(none provided)") +
     "\n\nLATEST CLINICAL DATA:\n" + (els.clinical.value.trim() || "(none provided)");
-  const system = ASK_SYSTEM + "\n\n--- CASE INFORMATION ---\n" + caseContext;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: askController.signal,
       headers: {
         "content-type": "application/json",
         "x-api-key": key,
@@ -631,7 +660,12 @@ els.askBtn.addEventListener("click", async () => {
       body: JSON.stringify({
         model: CONFIG.ASK_MODEL,
         max_tokens: CONFIG.ASK_MAX_TOKENS,
-        system: system,
+        // Static instructions are the reusable prefix → cache them. The per-patient
+        // case context changes, so it goes in a separate, uncached block.
+        system: [
+          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+          { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+        ],
         messages: askMessages.map(m => ({ role: m.role, content: m.content }))
       })
     });
@@ -645,8 +679,9 @@ els.askBtn.addEventListener("click", async () => {
     askMessages.pop();
     renderThread();
     els.askInput.value = q;
-    showAskError(e.message || String(e));
+    if (e.name !== "AbortError") showAskError(e.message || String(e));  // cancel is silent
   } finally {
+    askController = null;
     setAskLoading(false);
     els.askInput.focus();
   }
