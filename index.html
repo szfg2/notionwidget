@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Clinical Document Generator</title>
+<script src="marked.min.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -220,11 +221,32 @@
   .ask-note { font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
   .thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
   .thread:empty { display: none; }
-  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
-  .msg.user { background: var(--surface-2); border: 1px solid var(--border); }
+  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; }
+  .msg.user { background: var(--surface-2); border: 1px solid var(--border); white-space: pre-wrap; }
   .msg.assistant { background: #14211d; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
   .msg .who { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
   .msg.assistant .who { color: var(--accent); }
+
+  /* --- rendered markdown inside assistant replies --- */
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+  .md li { margin: 2px 0; }
+  .md li > ul, .md li > ol { margin: 2px 0; }
+  .md strong { color: var(--text); font-weight: 650; }
+  .md em { color: var(--text); }
+  .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; font-weight: 650; }
+  .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3 { font-size: 14px; } .md h4 { font-size: 13.5px; }
+  .md code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .md pre { background: #161616; border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow-x: auto; margin: 6px 0 8px; }
+  .md pre code { background: none; border: none; padding: 0; }
+  .md a { color: var(--accent-strong); }
+  .md blockquote { margin: 6px 0; padding: 2px 12px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+  .md hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .md table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 12.5px; }
+  .md th, .md td { border: 1px solid var(--border-strong); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .md th { background: var(--surface-2); font-weight: 600; }
   .ask-row { display: flex; gap: 10px; align-items: flex-end; }
   .ask-row .field { flex: 1 1 auto; min-width: 0; }
   textarea.ask-input { min-height: 56px; }
@@ -354,7 +376,11 @@ const ASK_SYSTEM =
   "Where relevant, give a focused differential ranked by likelihood, the discriminating features for each, " +
   "what would confirm or exclude them, and the immediate steps to consider. " +
   "Reason only from the information given; explicitly flag important missing data rather than assuming it. " +
-  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.";
+  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.\n\n" +
+  "FORMAT: Be succinct and summarised. Answer in short bullet points (Markdown '-'), not paragraphs. " +
+  "Lead with the key point; keep each bullet to one line where possible and avoid filler. " +
+  "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
+  "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
 
 /* OPTIONAL — paste your API key here for quick LOCAL testing only (option B).
  * ⚠ If you fill this in, DO NOT commit this file to GitHub — the key would be public.
@@ -408,6 +434,7 @@ els.clearInputs.addEventListener("change", () => {
   if (els.clearInputs.checked) {
     els.patient.value = "";
     els.clinical.value = "";
+    resetAsk();
     els.clearInputs.checked = false;
     els.patient.focus();
   }
@@ -553,7 +580,14 @@ function renderThread() {
     who.className = "who";
     who.textContent = m.role === "user" ? "You" : "Claude";
     div.appendChild(who);
-    div.appendChild(document.createTextNode(m.content));
+    if (m.role === "assistant" && window.marked) {
+      const body = document.createElement("div");
+      body.className = "md";
+      body.innerHTML = marked.parse(m.content, { breaks: true });
+      div.appendChild(body);
+    } else {
+      div.appendChild(document.createTextNode(m.content));
+    }
     els.thread.appendChild(div);
   }
   els.thread.scrollTop = els.thread.scrollHeight;
