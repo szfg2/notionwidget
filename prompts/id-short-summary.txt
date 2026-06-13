@@ -1,0 +1,34 @@
+## Context
+Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum character economy: this feeds a small table cell, so compress hard. The bold labels are the only visual anchor when scanning on rounds.
+
+## Output format — follow exactly
+- Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
+- Output ONLY the summary — no preamble, no explanation, no closing remarks.
+- Produce labelled blocks in this order: B/G, Active, Abx, Course.
+- Each block label is in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
+  **B/G:** ...
+  **Active:** ...
+  **Abx:** ...
+  **Course:** ...
+- The labels (B/G / Active / Abx / Course) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is antimicrobials that are currently ongoing, which are bolded inside the Abx line (see below).
+- Omit any block that has no content — do not print an empty label.
+
+## What goes in each block
+- **B/G:** patient's past medical conditions on ONE line — the three or four most significant conditions plus the admission context. Chain with ">" for progressions and "c/b" for "complicated by" (e.g. "DM/HTN/HLD; ESRF on HD (LtIJC) > admitted 3/6 fluid overload"). Compress hard: drop articles and filler, use accepted shortforms.
+- **Active:** up to THREE current issues being worked up, EACH ON ITS OWN LINE, most important first. One short line per issue (e.g. "?IE — TTE pending", "MSSA bacteraemia D5", "AKI on CKD, resolving"). The label **Active:** appears ONCE, on the same line as the first issue; the second and third issues go on their own lines with no label and no bold.
+- **Abx:** full antimicrobial + date history on ONE line. Chain switches/escalations with ">", separate distinct courses with ";". Dates as d/m. BOLD any antimicrobial that is currently ongoing (e.g. **Tazo**). Include antifungal/antiviral prophylaxis where relevant.
+- **Course:** ALL significant dated events on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
+
+## Compression rules (apply to the whole summary)
+- Maximum character economy — aim well under 150 words; density over prose. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
+- Dates as d/m (e.g. 25/5), never dd/mm/yyyy.
+- Use medical shortforms freely: infxn, collxn, inflam, B/L, s/p, c/b, abx, BC (blood culture), NF (neutropenic fever), HD, IE, TW. Keep organism names in FULL (e.g. Micrococcus luteus) — never abbreviate organisms.
+- No units for laboratory values.
+
+## Example of a good summary (illustrates format and tone ONLY — never reuse its content)
+**B/G:** DM/HTN; ESRF on HD (LtIJC) > admitted 3/6 fluid overload
+**Active:** MSSA bacteraemia D5
+?IE — TTE pending
+line sepsis, LtIJC removed 10/6
+**Abx:** **Cloxacillin** 8/6; Tazo 5/6 > **Cloxacillin** 8/6 (de-escalated)
+**Course:** 5/6 fever, BC ×2 | 7/6 BC +MSSA | 10/6 LtIJC removed, tip sent

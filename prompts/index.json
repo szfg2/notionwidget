@@ -11,6 +11,12 @@
     "rich": true
   },
   {
+    "id": "id-short",
+    "label": "ID Short Summary",
+    "file": "id-short-summary.txt",
+    "rich": true
+  },
+  {
     "id": "admission-preclerking",
     "label": "Admission Preclerking Note",
     "file": "admission-preclerking-note.txt"
