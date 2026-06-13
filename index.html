@@ -210,6 +210,29 @@
 
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
+  /* --- rich (rendered) output, used by document types flagged rich:true --- */
+  .rich-output {
+    min-height: 360px;
+    background: #161616;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    overflow-y: auto;
+    outline: none;
+  }
+  .rich-output:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .rich-output:empty::before {
+    content: attr(data-placeholder);
+    color: var(--faint);
+  }
+
   /* --- keyboard hint --- */
   .kbd-hint { font-size: 11px; color: var(--faint); margin-left: 10px; }
   .kbd {
@@ -328,6 +351,7 @@
       <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
     </div>
     <textarea class="output" id="output" placeholder="The generated document appears here. You can edit it before copying." spellcheck="false"></textarea>
+    <div class="output md rich-output" id="outputRich" contenteditable="true" spellcheck="false" data-placeholder="The generated document appears here. You can edit it before copying." style="display:none"></div>
     <div class="out-foot" id="count"></div>
   </div>
 
@@ -399,7 +423,8 @@ const els = {
   apiKey: $("apiKey"), remember: $("remember"), toggleKey: $("toggleKey"),
   clearKey: $("clearKey"), modelTag: $("modelTag"), patient: $("patient"),
   clinical: $("clinical"), docType: $("docType"), generate: $("generateBtn"),
-  error: $("error"), output: $("output"), copy: $("copyBtn"), count: $("count"),
+  error: $("error"), output: $("output"), outputRich: $("outputRich"),
+  copy: $("copyBtn"), count: $("count"),
   clearInputs: $("clearInputs"),
   thread: $("thread"), askInput: $("askInput"), askBtn: $("askBtn"),
   askClear: $("askClear"), askError: $("askError")
@@ -408,6 +433,7 @@ const els = {
 let promptIndex = [];
 let genController = null;   // in-flight Generate request (for cancel)
 let askController = null;   // in-flight Ask request (for cancel)
+let currentRich = false;    // is the output currently shown as rendered rich text?
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -470,10 +496,27 @@ function showError(msg) { els.error.textContent = msg; els.error.style.display =
 function clearError() { els.error.style.display = "none"; els.error.textContent = ""; }
 
 function updateCount() {
-  const t = els.output.value.trim();
+  const t = (currentRich ? els.outputRich.innerText : els.output.value).trim();
   els.count.textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
 }
 els.output.addEventListener("input", updateCount);
+els.outputRich.addEventListener("input", updateCount);
+
+// Show the result either as plain text (editable textarea) or, for document
+// types flagged rich:true, as rendered rich text with bold preserved.
+function renderOutput(text, rich) {
+  currentRich = rich;
+  if (rich) {
+    els.outputRich.innerHTML = window.marked ? marked.parse(text, { breaks: true }) : text;
+    els.outputRich.style.display = "block";
+    els.output.style.display = "none";
+  } else {
+    els.output.value = text;
+    els.output.style.display = "";
+    els.outputRich.style.display = "none";
+    els.outputRich.innerHTML = "";
+  }
+}
 
 // Generate
 els.generate.addEventListener("click", async () => {
@@ -525,7 +568,7 @@ els.generate.addEventListener("click", async () => {
     }
     const text = (data.content || [])
       .filter(b => b.type === "text").map(b => b.text).join("\n");
-    els.output.value = text || "(No text returned.)";
+    renderOutput(text || "(No text returned.)", !!entry.rich);
     updateCount();
   } catch (e) {
     if (e.name === "AbortError") clearError();   // user cancelled — not an error
@@ -549,14 +592,41 @@ function setLoading(on) {
 }
 
 // Copy — then ready the next patient (keyboard-first loop)
+function flashCopied() {
+  els.copy.textContent = "Copied"; els.copy.classList.add("copied");
+  setTimeout(() => { els.copy.textContent = "Copy"; els.copy.classList.remove("copied"); }, 1400);
+}
+
 els.copy.addEventListener("click", async () => {
-  if (!els.output.value) return;
-  try {
-    await navigator.clipboard.writeText(els.output.value);
-    els.copy.textContent = "Copied"; els.copy.classList.add("copied");
-    setTimeout(() => { els.copy.textContent = "Copy"; els.copy.classList.remove("copied"); }, 1400);
-  } catch (e) {
-    els.output.select(); document.execCommand("copy");
+  if (currentRich) {
+    // Rich mode: put both HTML and plain text on the clipboard so the bold
+    // labels survive a paste into Word, Notion, etc.
+    const html = els.outputRich.innerHTML;
+    const plain = els.outputRich.innerText;
+    if (!plain.trim()) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([plain], { type: "text/plain" })
+      })]);
+      flashCopied();
+    } catch (e) {
+      // Fallback: select the rendered node and let the browser copy rich text
+      const range = document.createRange();
+      range.selectNodeContents(els.outputRich);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      try { document.execCommand("copy"); flashCopied(); } catch (_) {}
+      sel.removeAllRanges();
+    }
+  } else {
+    if (!els.output.value) return;
+    try {
+      await navigator.clipboard.writeText(els.output.value);
+      flashCopied();
+    } catch (e) {
+      els.output.select(); document.execCommand("copy");
+    }
   }
   // Reset for the next patient: clear inputs, reset the Ask conversation, refocus
   els.patient.value = "";

@@ -5,6 +5,12 @@
     "file": "id-haematology-summary.txt"
   },
   {
+    "id": "short-haem",
+    "label": "ID Haematology Short Summary",
+    "file": "short-haematology-summary.txt",
+    "rich": true
+  },
+  {
     "id": "admission-preclerking",
     "label": "Admission Preclerking Note",
     "file": "admission-preclerking-note.txt"

@@ -1,0 +1,35 @@
+## Context
+Create a SHORT summary of a haematology patient to drop into a dense rounding table. Maximum character economy: this feeds a small table cell, so compress hard.
+
+## Output format — follow exactly
+- Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
+- Output ONLY the summary — no preamble, no explanation, no closing remarks.
+- Produce exactly four labelled blocks, each on its own line, in this order: Dx, Active, Abx, Course.
+- Each block starts with its label in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
+  **Dx:** ...
+  **Active:** ...
+  **Abx:** ...
+  **Course:** ...
+- The four labels (Dx/Active/Abx/Course) are the ONLY bold text by default — do not print these four words anywhere else in the summary. The one exception is antimicrobials that are currently ongoing, which are bolded inside the Abx line (see below).
+- Omit any block that has no content (e.g. no active workup, or no antibiotic history) — do not print an empty label.
+
+## What goes in each block
+- **Dx:** primary haematological diagnosis + condensed treatment and conditions on ONE line. Include disease subtype/risk/cytogenetics if relevant, then chain treatment (lines of chemo, transplant, current status) and significant conditions. Use "c/b" for "complicated by" and ">" for transitions/progressions (e.g. dx > induction > relapse > HSCT). Finish with a short list of the three or four most significant past medical conditions. Compress hard — drop articles and filler, use understandable short forms.
+- **Active:** the single current issue being worked up, one short line.
+- **Abx:** full antimicrobial + date history on ONE line. Chain with ">" for switches/escalations, ";" between separate courses. Dates as d/m. BOLD any antimicrobial that is currently ongoing (e.g. **Tazo**). Include antifungal/antiviral prophylaxis here where relevant.
+- **Course:** ALL significant dated events on ONE wrapped line. Separate each dated entry with a space-pipe-space ( | ). Format each as "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings. Include counts (e.g. ANC, plt) where relevant.
+
+## Compression rules
+- Maximum character economy. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
+- Dates as d/m (e.g. 25/5), never dd/mm/yyyy.
+- Use medical shortforms freely: infxn, collxn, inflam, B/L, s/p, c/b, abx, BC (blood culture), neutropenia, NF (neutropenic fever), HSCT, allo/auto, GVHD, indxn (induction), consol (consolidation).
+- Keep organism names in FULL (e.g. Micrococcus luteus) — never abbreviate these.
+- Symbols: ">" for transitions/progressions/switches, " | " as the Course separator, "+"/"−" for positive/negative, "?" prefix for query/suspected.
+- Do not include units for laboratory values.
+- Aim well under 150 words — density over prose. Use understandable medical shortforms throughout.
+
+## Example of a good summary (illustrates format and tone ONLY — never reuse its content)
+**Dx:** AML (NPM1+/FLT3-ITD+, adverse) dx 1/24 > 7+3 indxn 1/24 (CR1) > 2× HiDAC consol > relapse 9/24 > FLAG-Ida > matched-sib allo-HSCT 15/12; c/b grade II skin/gut aGVHD on tapering pred + ciclosporin.
+**Active:** Neutropenic fever, ?line infxn.
+**Abx:** **Tazo** 2/6 (NF); Posaconazole + acyclovir proph ongoing; Mero 4/6 > **Tazo** 6/6 (de-escalated).
+**Course:** 2/6 NF, ANC 0.1 | 2/6 BC ×2 + line tip sent | 3/6 CXR clear, no consolidation | 4/6 BC +coag-neg staph (?contaminant), repeat 4/6 | 5/6 line removed, defervesced | 6/6 ANC recovering 0.6, repeat BC −.
