@@ -15,7 +15,7 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
 
 ## What goes in each block
 - **B/G:** patient's past medical conditions on ONE line — the three or four most significant conditions plus the admission context. Chain with ">" for progressions and "c/b" for "complicated by" (e.g. "DM/HTN/HLD; ESRF on HD (LtIJC) > admitted 3/6 fluid overload"). Compress hard: drop articles and filler, use accepted shortforms.
-- **Active:** up to THREE current issues being worked up, EACH ON ITS OWN LINE, most important first. One short line per issue (e.g. "?IE — TTE pending", "MSSA bacteraemia D5", "AKI on CKD, resolving"). The label **Active:** appears ONCE, on the same line as the first issue; the second and third issues go on their own lines with no label and no bold.
+- **Active:** up to THREE current issues being worked up, most important first, all on ONE line separated by " | " (e.g. "MSSA bacteraemia D5 | ?IE — TTE pending | AKI on CKD, resolving"). The label **Active:** appears ONCE at the start of the line; the issues themselves are not bold.
 - **Abx:** full antimicrobial + date history on ONE line. Chain switches/escalations with ">", separate distinct courses with ";". Dates as d/m. BOLD any antimicrobial that is currently ongoing (e.g. **Tazo**). Include antifungal/antiviral prophylaxis where relevant.
 - **Course:** ALL significant dated events on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
 
@@ -27,8 +27,6 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
 
 ## Example of a good summary (illustrates format and tone ONLY — never reuse its content)
 **B/G:** DM/HTN; ESRF on HD (LtIJC) > admitted 3/6 fluid overload
-**Active:** MSSA bacteraemia D5
-?IE — TTE pending
-line sepsis, LtIJC removed 10/6
+**Active:** MSSA bacteraemia D5 | ?IE — TTE pending | line sepsis, LtIJC removed 10/6
 **Abx:** **Cloxacillin** 8/6; Tazo 5/6 > **Cloxacillin** 8/6 (de-escalated)
 **Course:** 5/6 fever, BC ×2 | 7/6 BC +MSSA | 10/6 LtIJC removed, tip sent
