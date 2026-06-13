@@ -198,13 +198,48 @@
   /* --- output --- */
   .out-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
   .out-head .eyebrow { margin: 0; }
+  .output-wrap {
+    display: flex;
+    align-items: stretch;
+    background: #161616;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .line-nums {
+    padding: 9px 8px 9px 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--faint);
+    text-align: right;
+    user-select: none;
+    white-space: pre;
+    min-width: 36px;
+    border-right: 1px solid var(--border);
+    background: #161616;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
   textarea.output {
     min-height: 360px;
     font-family: var(--mono);
     font-size: 13px;
     line-height: 1.55;
     background: #161616;
-    border-color: var(--border);
+    border: none;
+    border-radius: 0;
+    flex: 1;
+    resize: vertical;
+  }
+  textarea.output:focus {
+    border: none;
+    box-shadow: none;
+  }
+  .output-wrap:focus-within {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
   .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
 
@@ -350,7 +385,10 @@
       <span class="eyebrow">Output</span>
       <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
     </div>
-    <textarea class="output" id="output" placeholder="The generated document appears here. You can edit it before copying." spellcheck="false"></textarea>
+    <div class="output-wrap" id="outputWrap">
+      <div class="line-nums" id="lineNums" aria-hidden="true">1</div>
+      <textarea class="output" id="output" placeholder="The generated document appears here. You can edit it before copying." spellcheck="false"></textarea>
+    </div>
     <div class="output md rich-output" id="outputRich" contenteditable="true" spellcheck="false" data-placeholder="The generated document appears here. You can edit it before copying." style="display:none"></div>
     <div class="out-foot" id="count"></div>
   </div>
@@ -502,6 +540,19 @@ function updateCount() {
 els.output.addEventListener("input", updateCount);
 els.outputRich.addEventListener("input", updateCount);
 
+// Line number gutter
+const lineNums = $("lineNums");
+function updateLineNums() {
+  const lines = els.output.value.split("\n").length;
+  lineNums.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+}
+// Sync gutter scroll with textarea scroll
+els.output.addEventListener("scroll", () => {
+  lineNums.scrollTop = els.output.scrollTop;
+});
+els.output.addEventListener("input", updateLineNums);
+updateLineNums();
+
 // Show the result either as plain text (editable textarea) or, for document
 // types flagged rich:true, as rendered rich text with bold preserved.
 function renderOutput(text, rich) {
@@ -515,6 +566,7 @@ function renderOutput(text, rich) {
     els.output.style.display = "";
     els.outputRich.style.display = "none";
     els.outputRich.innerHTML = "";
+    updateLineNums();
   }
 }
 
@@ -626,13 +678,9 @@ els.copy.addEventListener("click", async () => {
       flashCopied();
     } catch (e) {
       els.output.select(); document.execCommand("copy");
+      flashCopied();
     }
   }
-  // Reset for the next patient: clear inputs, reset the Ask conversation, refocus
-  els.patient.value = "";
-  els.clinical.value = "";
-  resetAsk();
-  els.patient.focus();
 });
 
 // ============================================================== //
