@@ -655,6 +655,31 @@ function noteTextToHtml(text) {
   return esc;
 }
 
+// From pasted HTML, return the set of trimmed lines that are FULLY bold
+// (e.g. section headers). We bold whole lines rather than inline fragments
+// because it is robust against substring collisions and matches how these
+// notes use bold. The plain-text clipboard supplies the exact layout (tabs).
+function boldLineSet(root) {
+  const segs = collectSegments(root);
+  const set = new Set();
+  let lineText = "", hasInk = false, hasNonBoldInk = false;
+  const flush = () => {
+    const t = lineText.trim();
+    if (t && hasInk && !hasNonBoldInk) set.add(t);
+    lineText = ""; hasInk = false; hasNonBoldInk = false;
+  };
+  for (const s of segs) {
+    const parts = s.text.split("\n");
+    for (let i = 0; i < parts.length; i++) {
+      if (i > 0) flush();
+      lineText += parts[i];
+      if (/\S/.test(parts[i])) { hasInk = true; if (!s.bold) hasNonBoldInk = true; }
+    }
+  }
+  flush();
+  return set;
+}
+
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function safeDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
@@ -730,15 +755,30 @@ els.tabUpdate.addEventListener("click", () => setMode("update"));
   box.addEventListener("paste", (e) => {
     e.preventDefault();
     const cd = e.clipboardData || window.clipboardData;
+    const plain = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
     const html = cd ? cd.getData("text/html") : "";
     let noteText;
-    if (html) {
-      // Parse as a full document so Word/SCM's <head><style> lands in <head>,
-      // not the body — then serialise only the body's visible content.
+    if (plain) {
+      // Layout comes from the plain-text clipboard — it always carries the real
+      // tab characters on every line (Word/SCM HTML mangles leading tabs).
+      // Bold is recovered from the HTML by matching whole bold lines.
+      let boldLines = null;
+      if (html) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        boldLines = boldLineSet(doc.body || doc.documentElement);
+      }
+      noteText = plain.split("\n").map(line => {
+        if (!boldLines || !boldLines.size) return line;
+        const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);   // keep leading/trailing whitespace
+        const core = m ? m[2] : line;
+        return (core && boldLines.has(core)) ? (m[1] + "**" + core + "**" + m[3]) : line;
+      }).join("\n");
+    } else if (html) {
+      // No plain text available (rare) — fall back to serialising the HTML.
       const doc = new DOMParser().parseFromString(html, "text/html");
       noteText = htmlToNoteText(doc.body || doc.documentElement);
     } else {
-      noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n/g, "\n");
+      noteText = "";
     }
     // Insert as clean HTML so bold shows and tabs/newlines are kept literal.
     document.execCommand("insertHTML", false, noteTextToHtml(noteText));
