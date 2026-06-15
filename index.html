@@ -715,6 +715,70 @@ function serializeLiveRoot(root) {
     return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
 }
 
+// Analyse pasted HTML (in a style-scoped shadow root so the source app's CSS
+// classes resolve and the page is not polluted). Returns which trimmed lines are
+// fully BOLD and which are paragraph-INDENTED (ribbon "Increase Indent"), with a
+// tab count. Layout/tabs themselves come from the plain-text clipboard, which is
+// the only place Word keeps real tab characters (it renders field tabs as empty
+// mso-tab spans in HTML).
+function analyzePastedHtml(html) {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;left:-99999px;top:0;width:1200px;visibility:hidden";
+  const sh = host.attachShadow({ mode: "open" });
+  sh.innerHTML = html;
+  document.body.appendChild(host);
+  try {
+    const segs = [];
+    const endsNL = () => segs.length && /\n$/.test(segs[segs.length - 1].text);
+    const tabsOf = (el) => {
+      const cs = getComputedStyle(el);
+      const ml = (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.paddingLeft) || 0);
+      const ti = parseFloat(cs.textIndent) || 0;
+      return Math.round((ml > 1 ? ml : Math.max(0, ti)) / 48);
+    };
+    (function walk(node, bold, tabs) {
+      for (const c of node.childNodes) {
+        if (c.nodeType === Node.TEXT_NODE) {
+          if (/[\r\n]/.test(c.nodeValue) && /^\s*$/.test(c.nodeValue)) continue;
+          const pe = c.parentElement;
+          const w = pe ? getComputedStyle(pe).fontWeight : "400";
+          const b = bold || w === "bold" || w === "bolder" || parseInt(w, 10) >= 600;
+          segs.push({ text: c.nodeValue, bold: b, tabs });
+        } else if (c.nodeType === Node.ELEMENT_NODE) {
+          const tag = c.tagName.toLowerCase();
+          if (SKIP_RE.test(tag)) continue;
+          if (tag === "br") { segs.push({ text: "\n", bold: false, tabs: 0 }); continue; }
+          const isBlock = BLOCK_RE.test(tag);
+          let t = tabs;
+          if (isBlock) { t = tabsOf(c) || tabs; if (segs.length && !endsNL()) segs.push({ text: "\n", bold: false, tabs: 0 }); }
+          walk(c, bold, t);
+          if (isBlock && !endsNL()) segs.push({ text: "\n", bold: false, tabs: 0 });
+        }
+      }
+    })(sh, false, 0);
+    const bold = new Set(), indent = new Map();
+    let lineText = "", lineBoldInk = true, lineHasInk = false, lineTabs = 0;
+    const flush = () => {
+      const t = lineText.trim();
+      if (t) { if (lineHasInk && lineBoldInk) bold.add(t); if (lineTabs > 0 && !indent.has(t)) indent.set(t, lineTabs); }
+      lineText = ""; lineBoldInk = true; lineHasInk = false; lineTabs = 0;
+    };
+    for (const s of segs) {
+      const parts = s.text.split("\n");
+      for (let i = 0; i < parts.length; i++) {
+        if (i > 0) flush();
+        lineText += parts[i];
+        if (s.tabs > lineTabs) lineTabs = s.tabs;
+        if (/\S/.test(parts[i])) { lineHasInk = true; if (!s.bold) lineBoldInk = false; }
+      }
+    }
+    flush();
+    return { bold, indent };
+  } finally {
+    host.remove();
+  }
+}
+
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function safeDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
@@ -784,15 +848,6 @@ els.tabUpdate.addEventListener("click", () => setMode("update"));
 //  monospace text with literal tabs and **bold**, stripping the   //
 //  Word/SCM font junk.                                            //
 // ============================================================== //
-function placeCaretEnd(el) {
-  el.focus();
-  const r = document.createRange();
-  r.selectNodeContents(el);
-  r.collapse(false);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(r);
-}
 [els.prevNote, els.wardNote].forEach(box => {
   box.addEventListener("keydown", (e) => {
     if (e.key === "Tab") {
@@ -800,13 +855,31 @@ function placeCaretEnd(el) {
       document.execCommand("insertText", false, "\t");
     }
   });
-  // Let the native paste land (rich), then normalise on the next tick.
-  box.addEventListener("paste", () => {
-    setTimeout(() => {
-      const noteText = serializeLiveRoot(box);
-      box.innerHTML = noteTextToHtml(noteText);
-      placeCaretEnd(box);
-    }, 0);
+  box.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const plain = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
+    const html = cd ? cd.getData("text/html") : "";
+    let noteText;
+    if (plain) {
+      // Layout (every real tab) comes from plain text. Bold + ribbon-indent
+      // are recovered from the HTML and overlaid by matching whole lines.
+      let info = { bold: new Set(), indent: new Map() };
+      if (html) { try { info = analyzePastedHtml(html); } catch (_) {} }
+      noteText = plain.split("\n").map(line => {
+        const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);
+        let lead = m[1], core = m[2], trail = m[3];
+        if (core) {
+          if (!lead && info.indent.has(core)) lead = "\t".repeat(info.indent.get(core));
+          if (info.bold.has(core)) core = "**" + core + "**";
+        }
+        return lead + core + trail;
+      }).join("\n");
+    } else {
+      noteText = "";
+    }
+    // Insert as clean monospace HTML: bold shows, tabs/newlines kept literal.
+    document.execCommand("insertHTML", false, noteTextToHtml(noteText));
   });
 });
 
