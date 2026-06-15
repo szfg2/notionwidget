@@ -313,6 +313,68 @@
   .ask-error {
     display: none; color: var(--danger); font-size: 12.5px; margin-bottom: 10px; white-space: pre-wrap;
   }
+
+  /* --- mode switcher (Generate new | Update existing) --- */
+  .mode-tabs { display: flex; gap: 6px; margin: 0 0 18px; }
+  .mode-tab {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 550;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+
+  /* --- rich (contenteditable) input boxes for Update mode --- */
+  /* monospace + pre-wrap so tab columns line up exactly like Word/SCM */
+  .rich-input {
+    min-height: 150px;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    tab-size: 8;
+    -moz-tab-size: 8;
+    outline: none;
+    overflow-y: auto;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .rich-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .rich-input:empty::before {
+    content: attr(data-placeholder);
+    color: var(--faint);
+  }
+  .rich-input strong { color: var(--text); font-weight: 700; }
+
+  /* monospace, tab-preserving variant of the rich output (used in Update mode) */
+  .rich-output.mono {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    tab-size: 8;
+    -moz-tab-size: 8;
+  }
+  .rich-output.mono strong { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -346,34 +408,60 @@
     </div>
   </div>
 
+  <!-- MODE SWITCHER -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabGenerate" type="button">Generate new</button>
+    <button class="mode-tab" id="tabUpdate" type="button">Update existing</button>
+  </div>
+
   <!-- CLEAR INPUTS -->
   <div class="util-row">
-    <label class="check"><input type="checkbox" id="clearInputs" /> Clear patient &amp; clinical boxes</label>
+    <label class="check"><input type="checkbox" id="clearInputs" /> Clear input boxes</label>
   </div>
 
-  <!-- PATIENT DETAILS -->
-  <div class="card">
-    <span class="eyebrow">Patient medical details</span>
-    <textarea class="input-box" id="patient" placeholder="Background, diagnosis, history, treatment course…"></textarea>
-  </div>
-  <p class="deid"><span class="dot"></span><span>De-identify before sending — remove name, NRIC, MRN, address, and date of birth.</span></p>
+  <!-- =========================  GENERATE-NEW MODE  ========================= -->
+  <div id="genMode">
+    <!-- PATIENT DETAILS -->
+    <div class="card">
+      <span class="eyebrow">Patient medical details</span>
+      <textarea class="input-box" id="patient" placeholder="Background, diagnosis, history, treatment course…"></textarea>
+    </div>
+    <p class="deid"><span class="dot"></span><span>De-identify before sending — remove name, NRIC, MRN, address, and date of birth.</span></p>
 
-  <!-- CLINICAL DATA -->
-  <div class="card">
-    <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
-    <textarea class="input-box" id="clinical" placeholder="Vitals, renal panel, CRP/procalcitonin trends, micro, imaging…"></textarea>
+    <!-- CLINICAL DATA -->
+    <div class="card">
+      <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
+      <textarea class="input-box" id="clinical" placeholder="Vitals, renal panel, CRP/procalcitonin trends, micro, imaging…"></textarea>
+    </div>
+  </div>
+
+  <!-- =========================  UPDATE-EXISTING MODE  ========================= -->
+  <div id="updMode" style="display:none">
+    <!-- PREVIOUS REVIEW NOTE -->
+    <div class="card">
+      <span class="eyebrow">Previous review note</span>
+      <div class="rich-input" id="prevNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the existing review note here. Formatting, bold, tabs and indentation are preserved."></div>
+    </div>
+
+    <!-- LATEST WARD ROUND NOTE -->
+    <div class="card">
+      <span class="eyebrow">Latest ward round note</span>
+      <div class="rich-input" id="wardNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the newest ward round note here. The updated review note will merge this in."></div>
+    </div>
+    <p class="deid"><span class="dot"></span><span>De-identify before sending — remove name, NRIC, MRN, address, and date of birth.</span></p>
   </div>
 
   <!-- DOCUMENT TYPE + GENERATE -->
   <div class="card">
     <div class="gen-row">
-      <div class="field">
+      <div class="field" id="docTypeField">
         <label class="lbl" for="docType">Document type</label>
         <select id="docType"><option value="">Loading templates…</option></select>
       </div>
       <button class="generate" id="generateBtn" type="button" disabled>Generate</button>
     </div>
-    <div class="kbd-hint">Tip: press <span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate.</div>
+    <div class="kbd-hint" id="genHint">Tip: press <span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate.</div>
+    <div class="kbd-hint" id="updHint" style="display:none">Updates the previous note with the ward round note, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
   </div>
 
   <!-- ERROR -->
@@ -430,7 +518,11 @@ const CONFIG = {
   ASK_MODEL: "claude-opus-4-8",
   ASK_MAX_TOKENS: 2048,
   PROMPTS_INDEX: "prompts/index.json",
-  PROMPTS_DIR: "prompts/"
+  PROMPTS_DIR: "prompts/",
+  // "Update existing" mode uses this single fixed template (not shown in the
+  // dropdown). It merges the ward round note into the previous review note.
+  UPDATE_PROMPT_FILE: "update-review-note.txt",
+  UPDATE_MAX_TOKENS: 16384
 };
 
 /* Instruction that shapes the "Ask about this case" answers. */
@@ -465,13 +557,103 @@ const els = {
   copy: $("copyBtn"), count: $("count"),
   clearInputs: $("clearInputs"),
   thread: $("thread"), askInput: $("askInput"), askBtn: $("askBtn"),
-  askClear: $("askClear"), askError: $("askError")
+  askClear: $("askClear"), askError: $("askError"),
+  // mode switcher + update-mode boxes
+  tabGenerate: $("tabGenerate"), tabUpdate: $("tabUpdate"),
+  genMode: $("genMode"), updMode: $("updMode"),
+  prevNote: $("prevNote"), wardNote: $("wardNote"),
+  docTypeField: $("docTypeField"), genHint: $("genHint"), updHint: $("updHint")
 };
 
 let promptIndex = [];
 let genController = null;   // in-flight Generate request (for cancel)
 let askController = null;   // in-flight Ask request (for cancel)
 let currentRich = false;    // is the output currently shown as rendered rich text?
+let mode = "generate";      // "generate" | "update"
+
+/* ============================================================== *
+ *  Rich-text <-> note-text conversion (Update mode)              *
+ *  The model only handles text, so the contenteditable boxes are *
+ *  serialised to plain text that keeps LITERAL TABS + newlines    *
+ *  and wraps bold runs in **double asterisks**. Markdown is NOT   *
+ *  used because a leading tab would be read as a code block and   *
+ *  destroy the column alignment.                                  *
+ * ============================================================== */
+
+// Treat an element as bold if it's <b>/<strong> or has a bold font-weight.
+function isBoldEl(el) {
+  const tag = el.tagName.toLowerCase();
+  if (tag === "b" || tag === "strong") return true;
+  const fw = (el.style && el.style.fontWeight) || "";
+  if (fw === "bold" || fw === "bolder") return true;
+  const n = parseInt(fw, 10);
+  return !isNaN(n) && n >= 600;
+}
+const BLOCK_RE = /^(div|p|li|tr|h[1-6]|ul|ol|table|tbody|thead|blockquote|section|article|pre|figure)$/;
+// Non-content elements (Word/SCM clipboard dumps a <style> block, etc.) — skip entirely.
+const SKIP_RE = /^(style|script|head|meta|link|title|noscript|o:p|xml)$/;
+
+// DOM -> [{text, bold}] segments, preserving tabs/newlines.
+function collectSegments(root) {
+  const segs = [];
+  const endsNL = () => segs.length && /\n$/.test(segs[segs.length - 1].text);
+  (function walk(node, bold) {
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        // Drop inter-tag formatting whitespace (the newlines/indentation Word and
+        // SCM put BETWEEN <p> tags). Meaningful breaks come from block/<br> logic,
+        // so this prevents a blank line appearing between every entry.
+        if (/[\r\n]/.test(child.nodeValue) && /^\s*$/.test(child.nodeValue)) continue;
+        // normalise non-breaking spaces; keep tabs and newlines as-is
+        segs.push({ text: child.nodeValue.replace(/ /g, " "), bold });
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const tag = child.tagName.toLowerCase();
+        if (SKIP_RE.test(tag)) continue;          // drop Word/SCM <style>, <head> junk
+        if (tag === "br") { segs.push({ text: "\n", bold: false }); continue; }
+        const isBlock = BLOCK_RE.test(tag);
+        if (isBlock && segs.length && !endsNL()) segs.push({ text: "\n", bold: false });
+        walk(child, bold || isBoldEl(child));
+        if (isBlock && !endsNL()) segs.push({ text: "\n", bold: false });
+      }
+    }
+  })(root, false);
+  return segs;
+}
+
+// Serialise a contenteditable element to note-text (tabs + ** bold **).
+function htmlToNoteText(root) {
+  const segs = collectSegments(root);
+  // coalesce adjacent segments with the same bold flag
+  const merged = [];
+  for (const s of segs) {
+    const last = merged[merged.length - 1];
+    if (last && last.bold === s.bold) last.text += s.text;
+    else merged.push({ text: s.text, bold: s.bold });
+  }
+  let out = "";
+  for (const s of merged) {
+    if (s.bold) {
+      // only wrap the non-whitespace core so we never emit "** **"
+      const m = s.text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      if (m && m[2]) out += m[1] + "**" + m[2] + "**" + m[3];
+      else out += s.text;
+    } else {
+      out += s.text;
+    }
+  }
+  // tidy: strip trailing spaces per line, collapse 3+ blank lines to 2
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
+}
+
+// note-text (tabs + ** bold **) -> safe HTML for display/copy.
+// Tabs & newlines are kept literal and shown via white-space:pre-wrap.
+function noteTextToHtml(text) {
+  let esc = String(text)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // bold: **...** on a single line, non-greedy, must contain a non-space char
+  esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
+  return esc;
+}
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -497,15 +679,70 @@ els.clearKey.addEventListener("click", () => {
   els.apiKey.value = ""; safeDel(STORE_KEY); els.apiKey.focus();
 });
 
-// Clear both input boxes when the checkbox is ticked, then reset it so it's reusable
+// Clear the active mode's input boxes when the checkbox is ticked, then reset it
 els.clearInputs.addEventListener("change", () => {
   if (els.clearInputs.checked) {
-    els.patient.value = "";
-    els.clinical.value = "";
+    if (mode === "update") {
+      els.prevNote.innerHTML = "";
+      els.wardNote.innerHTML = "";
+      els.prevNote.focus();
+    } else {
+      els.patient.value = "";
+      els.clinical.value = "";
+      els.patient.focus();
+    }
     resetAsk();
     els.clearInputs.checked = false;
-    els.patient.focus();
   }
+});
+
+// ============================================================== //
+//  Mode switcher (Generate new | Update existing)                //
+// ============================================================== //
+function setMode(m) {
+  mode = m;
+  const upd = m === "update";
+  els.tabUpdate.classList.toggle("active", upd);
+  els.tabGenerate.classList.toggle("active", !upd);
+  els.updMode.style.display = upd ? "" : "none";
+  els.genMode.style.display = upd ? "none" : "";
+  els.docTypeField.style.display = upd ? "none" : "";
+  els.updHint.style.display = upd ? "" : "none";
+  els.genHint.style.display = upd ? "none" : "";
+  // In update mode the fixed template is always available, so Generate is enabled.
+  els.generate.disabled = upd ? false : (promptIndex.length === 0);
+  (upd ? els.prevNote : els.patient).focus();
+}
+els.tabGenerate.addEventListener("click", () => setMode("generate"));
+els.tabUpdate.addEventListener("click", () => setMode("update"));
+
+// ============================================================== //
+//  Rich input boxes: Tab inserts a real tab; paste is sanitised  //
+//  to clean tab + bold text (no Word/SCM markup pollution).      //
+// ============================================================== //
+[els.prevNote, els.wardNote].forEach(box => {
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      document.execCommand("insertText", false, "\t");
+    }
+  });
+  box.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const html = cd ? cd.getData("text/html") : "";
+    let noteText;
+    if (html) {
+      // Parse as a full document so Word/SCM's <head><style> lands in <head>,
+      // not the body — then serialise only the body's visible content.
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      noteText = htmlToNoteText(doc.body || doc.documentElement);
+    } else {
+      noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n/g, "\n");
+    }
+    // Insert as clean HTML so bold shows and tabs/newlines are kept literal.
+    document.execCommand("insertHTML", false, noteTextToHtml(noteText));
+  });
 });
 
 // Load prompt templates
@@ -522,10 +759,10 @@ async function loadPrompts() {
       opt.textContent = p.label;
       els.docType.appendChild(opt);
     }
-    els.generate.disabled = false;
+    if (mode !== "update") els.generate.disabled = false;
   } catch (e) {
     els.docType.innerHTML = '<option value="">No templates yet — add prompts/index.json</option>';
-    els.generate.disabled = true;
+    if (mode !== "update") els.generate.disabled = true;
   }
 }
 loadPrompts();
@@ -553,12 +790,21 @@ els.output.addEventListener("scroll", () => {
 els.output.addEventListener("input", updateLineNums);
 updateLineNums();
 
-// Show the result either as plain text (editable textarea) or, for document
-// types flagged rich:true, as rendered rich text with bold preserved.
-function renderOutput(text, rich) {
+// Show the result in one of three styles:
+//   "plain" — editable monospace textarea (default generated notes)
+//   "md"    — rendered Markdown (document types flagged rich:true)
+//   "mono"  — tab-preserving monospace rich text with **bold** (Update mode)
+// "md" and "mono" both use the contenteditable rich box so Copy carries HTML.
+function renderOutput(text, style) {
+  const rich = style === "md" || style === "mono";
   currentRich = rich;
   if (rich) {
-    els.outputRich.innerHTML = window.marked ? marked.parse(text, { breaks: true }) : text;
+    els.outputRich.classList.toggle("mono", style === "mono");
+    if (style === "mono") {
+      els.outputRich.innerHTML = noteTextToHtml(text);
+    } else {
+      els.outputRich.innerHTML = window.marked ? marked.parse(text, { breaks: true }) : text;
+    }
     els.outputRich.style.display = "block";
     els.output.style.display = "none";
   } else {
@@ -566,6 +812,7 @@ function renderOutput(text, rich) {
     els.output.style.display = "";
     els.outputRich.style.display = "none";
     els.outputRich.innerHTML = "";
+    els.outputRich.classList.remove("mono");
     updateLineNums();
   }
 }
@@ -577,23 +824,42 @@ els.generate.addEventListener("click", async () => {
 
   clearError();
   const key = els.apiKey.value.trim();
-  const entry = promptIndex.find(p => p.id === els.docType.value);
-
   if (!key) return showError("Enter your Anthropic API key first.");
-  if (!entry) return showError("Choose a document type.");
-  if (!els.patient.value.trim() && !els.clinical.value.trim())
-    return showError("Add some patient details or clinical data.");
+
+  const isUpdate = mode === "update";
+
+  // Per-mode setup: which prompt file, the user message, token budget, output style.
+  let promptFile, userMessage, maxTokens, renderRich;
+  if (isUpdate) {
+    const prev = htmlToNoteText(els.prevNote).trim();
+    const ward = htmlToNoteText(els.wardNote).trim();
+    if (!prev) return showError("Paste the previous review note first.");
+    if (!ward) return showError("Paste the latest ward round note first.");
+    promptFile = CONFIG.UPDATE_PROMPT_FILE;
+    userMessage =
+      "PREVIOUS REVIEW NOTE:\n" + prev +
+      "\n\nLATEST WARD ROUND NOTE:\n" + ward;
+    maxTokens = CONFIG.UPDATE_MAX_TOKENS;
+    renderRich = "mono";   // tab-preserving monospace render
+  } else {
+    const entry = promptIndex.find(p => p.id === els.docType.value);
+    if (!entry) return showError("Choose a document type.");
+    if (!els.patient.value.trim() && !els.clinical.value.trim())
+      return showError("Add some patient details or clinical data.");
+    promptFile = entry.file;
+    userMessage =
+      "PATIENT DETAILS:\n" + els.patient.value.trim() +
+      "\n\nLATEST CLINICAL DATA:\n" + els.clinical.value.trim();
+    maxTokens = CONFIG.MAX_TOKENS;
+    renderRich = entry.rich ? "md" : "plain";
+  }
 
   genController = new AbortController();
   setLoading(true);
   try {
-    const sysRes = await fetch(CONFIG.PROMPTS_DIR + entry.file, { cache: "no-store", signal: genController.signal });
-    if (!sysRes.ok) throw new Error("Couldn't load prompt file: " + entry.file);
+    const sysRes = await fetch(CONFIG.PROMPTS_DIR + promptFile, { cache: "no-store", signal: genController.signal });
+    if (!sysRes.ok) throw new Error("Couldn't load prompt file: " + promptFile);
     const systemPrompt = await sysRes.text();
-
-    const userMessage =
-      "PATIENT DETAILS:\n" + els.patient.value.trim() +
-      "\n\nLATEST CLINICAL DATA:\n" + els.clinical.value.trim();
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -606,7 +872,7 @@ els.generate.addEventListener("click", async () => {
       },
       body: JSON.stringify({
         model: CONFIG.DEFAULT_MODEL,
-        max_tokens: CONFIG.MAX_TOKENS,
+        max_tokens: maxTokens,
         // The template is the large, reusable prefix — cache it so repeat
         // generations of the same document type are cheaper and faster.
         system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
@@ -620,7 +886,7 @@ els.generate.addEventListener("click", async () => {
     }
     const text = (data.content || [])
       .filter(b => b.type === "text").map(b => b.text).join("\n");
-    renderOutput(text || "(No text returned.)", !!entry.rich);
+    renderOutput(text || "(No text returned.)", renderRich);
     updateCount();
   } catch (e) {
     if (e.name === "AbortError") clearError();   // user cancelled — not an error
@@ -688,8 +954,8 @@ els.copy.addEventListener("click", async () => {
 // ============================================================== //
 function isSubmitCombo(e) { return (e.ctrlKey || e.metaKey) && e.key === "Enter"; }
 
-// Ctrl/Cmd+Enter from either input box generates the note
-[els.patient, els.clinical].forEach(box => {
+// Ctrl/Cmd+Enter from any input box generates the note
+[els.patient, els.clinical, els.prevNote, els.wardNote].forEach(box => {
   box.addEventListener("keydown", (e) => {
     if (isSubmitCombo(e)) { e.preventDefault(); if (!els.generate.disabled) els.generate.click(); }
   });
