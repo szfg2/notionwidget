@@ -841,10 +841,11 @@ els.tabGenerate.addEventListener("click", () => setMode("generate"));
 els.tabUpdate.addEventListener("click", () => setMode("update"));
 
 // ============================================================== //
-//  Rich-text input boxes (contenteditable).                      //
-//  Paste keeps the source's formatting natively (bold,           //
-//  indentation, etc.) — no interception. Tab inserts a real tab. //
-//  The formatting is read back at generate time (serializeLiveRoot).//
+//  Input boxes — IMPROVED HYBRID paste.                          //
+//  Layout (every real tab) comes from the plain-text clipboard.  //
+//  Bold (incl. Word style-class bold) and ribbon paragraph       //
+//  indents are read from the HTML via computed styles and        //
+//  overlaid onto the matching lines. Tab inserts a real tab.     //
 // ============================================================== //
 [els.prevNote, els.wardNote].forEach(box => {
   box.addEventListener("keydown", (e) => {
@@ -852,6 +853,30 @@ els.tabUpdate.addEventListener("click", () => setMode("update"));
       e.preventDefault();
       document.execCommand("insertText", false, "\t");
     }
+  });
+  box.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const plain = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
+    const html = cd ? cd.getData("text/html") : "";
+    let noteText;
+    if (plain) {
+      let info = { bold: new Set(), indent: new Map() };
+      if (html) { try { info = analyzePastedHtml(html); } catch (_) {} }
+      noteText = plain.split("\n").map(line => {
+        const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);
+        let lead = m[1], core = m[2], trail = m[3];
+        if (core) {
+          if (!lead && info.indent.has(core)) lead = "\t".repeat(info.indent.get(core));
+          if (info.bold.has(core)) core = "**" + core + "**";
+        }
+        return lead + core + trail;
+      }).join("\n");
+    } else {
+      noteText = "";
+    }
+    // Insert as clean monospace HTML: bold shows, tabs/newlines kept literal.
+    document.execCommand("insertHTML", false, noteTextToHtml(noteText));
   });
 });
 
@@ -941,8 +966,8 @@ els.generate.addEventListener("click", async () => {
   // Per-mode setup: which prompt file, the user message, token budget, output style.
   let promptFile, userMessage, maxTokens, renderRich;
   if (isUpdate) {
-    const prev = serializeLiveRoot(els.prevNote).trim();
-    const ward = serializeLiveRoot(els.wardNote).trim();
+    const prev = htmlToNoteText(els.prevNote).trim();
+    const ward = htmlToNoteText(els.wardNote).trim();
     if (!prev) return showError("Paste the previous review note first.");
     if (!ward) return showError("Paste the latest ward round note first.");
     promptFile = CONFIG.UPDATE_PROMPT_FILE;
