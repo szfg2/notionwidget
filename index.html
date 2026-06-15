@@ -1029,7 +1029,11 @@ els.copy.addEventListener("click", async () => {
   if (currentRich) {
     // Rich mode: put both HTML and plain text on the clipboard so the bold
     // labels survive a paste into Word, Notion, etc.
-    const html = els.outputRich.innerHTML;
+    // Word collapses literal "\n" in HTML into spaces, so convert newlines to
+    // <br> and wrap in white-space:pre-wrap so line breaks AND tab alignment
+    // survive the paste.
+    const inner = els.outputRich.innerHTML.replace(/\r?\n/g, "<br>");
+    const html = '<div style="white-space:pre-wrap">' + inner + "</div>";
     const plain = els.outputRich.innerText;
     if (!plain.trim()) return;
     try {
