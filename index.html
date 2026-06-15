@@ -662,20 +662,12 @@ function pxToTabs(px) {
   return n > 0 ? "\t".repeat(n) : "";
 }
 
-// Robustly extract note-text from pasted HTML by RENDERING it (with the source
-// app's own <style> rules) inside a scoped shadow root, then reading the
-// computed styles. This catches:
-//   • bold defined via CSS classes (not just inline <b>/<strong>)
-//   • paragraph indentation from the ribbon "Increase Indent" (margin-left),
-//     which carries no character and is invisible to plain text.
-// Literal tab characters (Ctrl+Tab) live in the text nodes and are kept as-is.
-function noteTextFromRenderedHtml(html) {
-  const host = document.createElement("div");
-  host.style.cssText = "position:absolute;left:-99999px;top:0;width:900px;visibility:hidden";
-  const shadow = host.attachShadow({ mode: "open" });
-  shadow.innerHTML = html;            // Word/SCM <style> applies, scoped to the shadow
-  document.body.appendChild(host);
-  try {
+// Serialise a LIVE, rendered element to note-text by reading COMPUTED styles.
+// Run on the box right after a native paste to capture what the browser
+// actually rendered: bold via computed font-weight (inline OR class-based),
+// ribbon paragraph indent via computed margin-left -> tabs, and literal
+// Ctrl+Tab tab characters (kept as-is from the text nodes).
+function serializeLiveRoot(root) {
     const segs = [];
     const endsNL = () => segs.length && /\n$/.test(segs[segs.length - 1].text);
     const indentOf = (el) => {
@@ -705,7 +697,7 @@ function noteTextFromRenderedHtml(html) {
           if (isBlock && !endsNL()) segs.push({ text: "\n", bold: false });
         }
       }
-    })(shadow);
+    })(root);
     // coalesce same-bold runs, then emit with ** around bold cores
     const merged = [];
     for (const s of segs) {
@@ -721,9 +713,6 @@ function noteTextFromRenderedHtml(html) {
       } else out += s.text;
     }
     return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
-  } finally {
-    host.remove();
-  }
 }
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -788,9 +777,22 @@ els.tabGenerate.addEventListener("click", () => setMode("generate"));
 els.tabUpdate.addEventListener("click", () => setMode("update"));
 
 // ============================================================== //
-//  Rich input boxes: Tab inserts a real tab; paste is sanitised  //
-//  to clean tab + bold text (no Word/SCM markup pollution).      //
+//  Rich input boxes (contenteditable).                           //
+//  Tab inserts a real tab. On paste we let the browser do its     //
+//  NATIVE rich paste (so bold + indentation are rendered), then   //
+//  normalise the live box: read computed styles -> clean          //
+//  monospace text with literal tabs and **bold**, stripping the   //
+//  Word/SCM font junk.                                            //
 // ============================================================== //
+function placeCaretEnd(el) {
+  el.focus();
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  r.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
 [els.prevNote, els.wardNote].forEach(box => {
   box.addEventListener("keydown", (e) => {
     if (e.key === "Tab") {
@@ -798,24 +800,13 @@ els.tabUpdate.addEventListener("click", () => setMode("update"));
       document.execCommand("insertText", false, "\t");
     }
   });
-  box.addEventListener("paste", (e) => {
-    e.preventDefault();
-    const cd = e.clipboardData || window.clipboardData;
-    const html = cd ? cd.getData("text/html") : "";
-    let noteText;
-    if (html) {
-      // Render the HTML with its own styles so bold (incl. class-based) and
-      // ribbon paragraph-indents are captured, not just literal tab characters.
-      try {
-        noteText = noteTextFromRenderedHtml(html);
-      } catch (err) {
-        noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
-      }
-    } else {
-      noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
-    }
-    // Insert as clean HTML so bold shows and tabs/newlines are kept literal.
-    document.execCommand("insertHTML", false, noteTextToHtml(noteText));
+  // Let the native paste land (rich), then normalise on the next tick.
+  box.addEventListener("paste", () => {
+    setTimeout(() => {
+      const noteText = serializeLiveRoot(box);
+      box.innerHTML = noteTextToHtml(noteText);
+      placeCaretEnd(box);
+    }, 0);
   });
 });
 
