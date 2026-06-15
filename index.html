@@ -655,29 +655,75 @@ function noteTextToHtml(text) {
   return esc;
 }
 
-// From pasted HTML, return the set of trimmed lines that are FULLY bold
-// (e.g. section headers). We bold whole lines rather than inline fragments
-// because it is robust against substring collisions and matches how these
-// notes use bold. The plain-text clipboard supplies the exact layout (tabs).
-function boldLineSet(root) {
-  const segs = collectSegments(root);
-  const set = new Set();
-  let lineText = "", hasInk = false, hasNonBoldInk = false;
-  const flush = () => {
-    const t = lineText.trim();
-    if (t && hasInk && !hasNonBoldInk) set.add(t);
-    lineText = ""; hasInk = false; hasNonBoldInk = false;
-  };
-  for (const s of segs) {
-    const parts = s.text.split("\n");
-    for (let i = 0; i < parts.length; i++) {
-      if (i > 0) flush();
-      lineText += parts[i];
-      if (/\S/.test(parts[i])) { hasInk = true; if (!s.bold) hasNonBoldInk = true; }
+// Convert a left-indent in px to tab characters. Word's default indent step is
+// 0.5 inch = 48px @96dpi, which we treat as one tab.
+function pxToTabs(px) {
+  const n = Math.round((px || 0) / 48);
+  return n > 0 ? "\t".repeat(n) : "";
+}
+
+// Robustly extract note-text from pasted HTML by RENDERING it (with the source
+// app's own <style> rules) inside a scoped shadow root, then reading the
+// computed styles. This catches:
+//   • bold defined via CSS classes (not just inline <b>/<strong>)
+//   • paragraph indentation from the ribbon "Increase Indent" (margin-left),
+//     which carries no character and is invisible to plain text.
+// Literal tab characters (Ctrl+Tab) live in the text nodes and are kept as-is.
+function noteTextFromRenderedHtml(html) {
+  const host = document.createElement("div");
+  host.style.cssText = "position:absolute;left:-99999px;top:0;width:900px;visibility:hidden";
+  const shadow = host.attachShadow({ mode: "open" });
+  shadow.innerHTML = html;            // Word/SCM <style> applies, scoped to the shadow
+  document.body.appendChild(host);
+  try {
+    const segs = [];
+    const endsNL = () => segs.length && /\n$/.test(segs[segs.length - 1].text);
+    const indentOf = (el) => {
+      const cs = getComputedStyle(el);
+      const ml = (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.paddingLeft) || 0);
+      const ti = parseFloat(cs.textIndent) || 0;
+      return pxToTabs(ml > 1 ? ml : Math.max(0, ti));
+    };
+    (function walk(node) {
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          if (/[\r\n]/.test(child.nodeValue) && /^\s*$/.test(child.nodeValue)) continue;
+          const w = child.parentElement ? getComputedStyle(child.parentElement).fontWeight : "400";
+          const bold = w === "bold" || w === "bolder" || (parseInt(w, 10) >= 600);
+          segs.push({ text: child.nodeValue.replace(/ /g, " "), bold });
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const tag = child.tagName.toLowerCase();
+          if (SKIP_RE.test(tag)) continue;
+          if (tag === "br") { segs.push({ text: "\n", bold: false }); continue; }
+          const isBlock = BLOCK_RE.test(tag);
+          if (isBlock) {
+            if (segs.length && !endsNL()) segs.push({ text: "\n", bold: false });
+            const ind = indentOf(child);
+            if (ind) segs.push({ text: ind, bold: false });
+          }
+          walk(child);
+          if (isBlock && !endsNL()) segs.push({ text: "\n", bold: false });
+        }
+      }
+    })(shadow);
+    // coalesce same-bold runs, then emit with ** around bold cores
+    const merged = [];
+    for (const s of segs) {
+      const last = merged[merged.length - 1];
+      if (last && last.bold === s.bold) last.text += s.text;
+      else merged.push({ text: s.text, bold: s.bold });
     }
+    let out = "";
+    for (const s of merged) {
+      if (s.bold) {
+        const m = s.text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+        out += (m && m[2]) ? (m[1] + "**" + m[2] + "**" + m[3]) : s.text;
+      } else out += s.text;
+    }
+    return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
+  } finally {
+    host.remove();
   }
-  flush();
-  return set;
 }
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -755,30 +801,18 @@ els.tabUpdate.addEventListener("click", () => setMode("update"));
   box.addEventListener("paste", (e) => {
     e.preventDefault();
     const cd = e.clipboardData || window.clipboardData;
-    const plain = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
     const html = cd ? cd.getData("text/html") : "";
     let noteText;
-    if (plain) {
-      // Layout comes from the plain-text clipboard — it always carries the real
-      // tab characters on every line (Word/SCM HTML mangles leading tabs).
-      // Bold is recovered from the HTML by matching whole bold lines.
-      let boldLines = null;
-      if (html) {
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        boldLines = boldLineSet(doc.body || doc.documentElement);
+    if (html) {
+      // Render the HTML with its own styles so bold (incl. class-based) and
+      // ribbon paragraph-indents are captured, not just literal tab characters.
+      try {
+        noteText = noteTextFromRenderedHtml(html);
+      } catch (err) {
+        noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
       }
-      noteText = plain.split("\n").map(line => {
-        if (!boldLines || !boldLines.size) return line;
-        const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);   // keep leading/trailing whitespace
-        const core = m ? m[2] : line;
-        return (core && boldLines.has(core)) ? (m[1] + "**" + core + "**" + m[3]) : line;
-      }).join("\n");
-    } else if (html) {
-      // No plain text available (rare) — fall back to serialising the HTML.
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      noteText = htmlToNoteText(doc.body || doc.documentElement);
     } else {
-      noteText = "";
+      noteText = (cd ? cd.getData("text/plain") : "").replace(/\r\n?/g, "\n");
     }
     // Insert as clean HTML so bold shows and tabs/newlines are kept literal.
     document.execCommand("insertHTML", false, noteTextToHtml(noteText));
