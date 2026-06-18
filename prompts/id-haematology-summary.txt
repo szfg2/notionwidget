@@ -13,7 +13,8 @@ The narrative should give an overview of:
 Rules
 - Write in prose, not bullet points
 - Do not include laboratory values
-- Keep it concise and readable — a clinician should grasp the gist of the case in a few sentences
+- Keep it concise and readable, so a clinician can grasp the gist of the case in a few sentences
+- Do not use em dashes anywhere in the output
 
 Example of a good narrative summary:
 ```
@@ -90,45 +91,26 @@ The next section should consist of a timeline of events. The timeline should be 
 - Each sentence in second column should be separated by ;
 - Do not include citations
 - Output the table at the bottom of the target page.
-- Do not include laboratory values
+- Do not use the | character anywhere in the timeline; use the date followed by a colon format shown below
+- Do not include laboratory values, except for CRP, procalcitonin (procal) and total white (TW/WBC), which should be filled in where available for that date
+- Use the word "started" rather than "commenced"
 
 Example of a good timeline:
 ```
-08/04/26: Elective admission for TIL infusion; Started on Acyclovir and Bactrim prophylaxis
-09/04/26: Hypotensive episode — fluid responsive; IV Fludarabine started (planned for 5 days); IV Cyclophosphamide started (planned for 2 days); IV Mesna x 2 days
-10/04/26: Onset of diarrhoea, Type 6-7, multiple episodes
-11/04/26: Ongoing fever; GI PCR +ve for EPEC; C. diff GDH and toxin -ve; Urine culture NBG; Started IV Tazocin
-12/04/2026: Continued febrile; Lymphodepletion chemotherapy held; CMV PCR pending; Escalated to IV Meropenem
-13/04/2026: Afebrile; cultures pending
+08/04/26: Elective admission for TIL infusion; Started on Acyclovir and Bactrim prophylaxis; CRP 12; procal 0.2; TW 4.1
+09/04/26: Hypotensive episode, fluid responsive; IV Fludarabine started (planned for 5 days); IV Cyclophosphamide started (planned for 2 days); IV Mesna x 2 days
+10/04/26: Onset of diarrhoea, Type 6-7, multiple episodes; CRP 38; procal 0.4
+11/04/26: Ongoing fever; GI PCR +ve for EPEC; C. diff GDH and toxin -ve; Urine culture NBG; Started IV Tazocin; CRP 61; procal 0.9; TW 2.3
+12/04/2026: Continued febrile; Lymphodepletion chemotherapy held; CMV PCR pending; Escalated to IV Meropenem; CRP 72; TW 1.8
+13/04/2026: Afebrile; cultures pending; CRP 45; procal 0.5; TW 2.6
 ```
 
-# Section 4: Counters
-This part summarises current treatment and important information in the form of Treatment followed by start date and end date. For example:
-```
-Anti-infectives
-Augmentin           9/03/26 - 22/3/26
-Vancomycin          26/03/26 - 27/3/26
-Tazocin             26/03/26 - 08/04/26
-Tedizolid           27/03/26 - 08/04/26
-PO Clindamycin      08/04/26 - current
-IV Cefepime         08/04/26 - current
-
-Isavuconazole       25/02/2026 - 29/3/26
-Ambisome            26/03/2026 - current (held today by primary team)
-
-Ivermectin          08/03/2026 - 09/03/26
-
-Cancer treatment
-Avapritinib         25/2/2026 - current
-Venetoclax          30/3/2026 - current
-```
-
-# Section 5: On Clinical Review
+# Section 4: On Clinical Review
 Section includes
 - Patient's important symptoms: positive and negative
 - Examination findings
 
-# Section 6: Objective
+# Section 5: Objective
 ```
 BP: ___ HR: ___ Temp: ___ Sats: ___
 Max temperature: ___
@@ -149,8 +131,40 @@ Microbiological Investigations
 - 02/06/26 Repeat set sent – pending
 ```
 
+# Section 6: Counters
+This part summarises current treatment and important information in the form of Treatment followed by start date and end date. For example:
+```
+Anti-infectives
+Augmentin           9/03/26 - 22/3/26
+Vancomycin          26/03/26 - 27/3/26
+Tazocin             26/03/26 - 08/04/26
+Tedizolid           27/03/26 - 08/04/26
+PO Clindamycin      08/04/26 - current
+IV Cefepime         08/04/26 - current
+
+Isavuconazole       25/02/2026 - 29/3/26
+Ambisome            26/03/2026 - current (held today by primary team)
+
+Ivermectin          08/03/2026 - 09/03/26
+
+Cancer treatment
+Avapritinib         25/2/2026 - current
+Venetoclax          30/3/2026 - current
+```
+
 # Section 7: Impression
-Summarise the important infectious disease issues in point form, with important information about aetiology, severity, complications, and brief summary of treatment
+For each infectious disease issue, write a short clinical narrative that explains the reasoning behind the diagnosis rather than restating numbers and investigation results. Each point should convey:
+- What the working diagnosis is and why it is the leading explanation
+- The clinical reasoning that supports it, including the host/immune context and how the picture fits together
+- What has been considered and argued against, and the degree of diagnostic certainty
+- The reasoning behind the current management approach and how the patient is responding
+
+Rules
+- Focus on clinical thoughts and interpretation, not on listing laboratory values, culture results, or radiology findings (those already appear in the Objective section)
+- Avoid copying and pasting investigations; refer to them only briefly when they directly support the reasoning
+- Keep each issue to a few sentences of clear clinical reasoning
+- Do not use em dashes
+- Use the word "started" rather than "commenced"
 
 # Section 8: Suggest
 Give a brief list of sensible suggestions from infectious disease point of view
@@ -202,33 +216,17 @@ Past Medical History
 
 Timeline:
 05/12/25: D0 haploidentical AlloHSCT (conditioning thiotepa/fludarabine/melphalan, TBI 2 Gy)
-13–16/12/25: Neutropenic fever – multifactorial, GI translocation vs active RSV
-22/12/25: Neutrophils engrafted
-29/12/25 – 02/01/26: Rising HHV-6 DNAaemia; received Foscarnet
+13/12/25 to 16/12/25: Neutropenic fever, multifactorial, GI translocation vs active RSV; CRP 88; procal 1.2; TW 0.4
+22/12/25: Neutrophils engrafted; CRP 31; TW 1.6
+29/12/25 to 02/01/26: Rising HHV-6 DNAaemia; received Foscarnet; CRP 24
 23/01/26: Nosocomial-onset diarrhoea; eosinophilic colitis on OGD/colonoscopy; PO Budesonide started
-13/05/26: Admitted from clinic for rising CMV
-14/05/26: EYE review — no CMV retinitis; IVIg given; PO Valganciclovir started; first non-neutropenic fever spike (cultures NBG)
+13/05/26: Admitted from clinic for rising CMV; CRP 14; procal 0.2; TW 5.8
+14/05/26: EYE review, no CMV retinitis; IVIg given; PO Valganciclovir started; first non-neutropenic fever spike (cultures NBG); CRP 19; procal 0.3; TW 6.1
 15/05/26: Switched to IV Ganciclovir 5mg/kg Q12H; CMV Megalotect EOD x7 doses; CMV drug resistance sent
 16/05/26: Apixaban 5mg BD started for provoked PE
-19/05/26: CTPA – tiny filling defect anteromedial segmental PA of LLL, suspicious for acute PE; US DVT negative
-20/05/26: 2nd fever episode; blood cultures sent; IV Tazocin started
+19/05/26: CTPA showed tiny filling defect anteromedial segmental PA of LLL, suspicious for acute PE; US DVT negative
+20/05/26: 2nd fever episode; blood cultures sent; IV Tazocin started; CRP 16.2; procal 0.3; TW 6.28
 21/05/26: Continued IV Ganciclovir; Tazocin held; reviewed by ID team
-
-
-Counters:
-Anti-infectives
-PO Valganciclovir 900mg BD       14/05/26 – 15/05/26
-IV Ganciclovir 5mg/kg Q12H       15/05/26 – current
-CMV Megalotect 100mL EOD x7      15/05/26 – 27/05/26
-IV Tazocin                       20/05/26 – 21/05/26 (held)
-Co-trimoxazole (prophylaxis)     14/05/26 – current
-Entecavir                        ongoing
-
-Anticoagulation
-Apixaban 5mg BD                  16/05/26 – current (aim 3 months)
-
-GvHD/GI
-PO Budesonide                    29/01/26 – current (tapering)
 
 
 === ON CLINICAL REVIEW ===
@@ -271,22 +269,34 @@ Radiology
 - US DVT (19/05/2026): no DVT
 
 
+Counters:
+Anti-infectives
+PO Valganciclovir 900mg BD       14/05/26 – 15/05/26
+IV Ganciclovir 5mg/kg Q12H       15/05/26 – current
+CMV Megalotect 100mL EOD x7      15/05/26 – 27/05/26
+IV Tazocin                       20/05/26 – 21/05/26 (held)
+Co-trimoxazole (prophylaxis)     14/05/26 – current
+Entecavir                        ongoing
+
+Anticoagulation
+Apixaban 5mg BD                  16/05/26 – current (aim 3 months)
+
+GvHD/GI
+PO Budesonide                    29/01/26 – current (tapering)
+
+
 Impression:
-1. CMV reactivation without end-organ involvement in CMV D-/R+ haploidentical AlloHSCT recipient (high-risk)
-- Broke through Letermovir prophylaxis
-- No CMV retinitis (EYE review 14/05/2026), no diarrhoea
-- Trending down on IV Ganciclovir and CMV Megalotect; CMV drug resistance pending
+1. CMV reactivation without end-organ involvement
+This is the leading issue and is unsurprising given his high-risk CMV D-/R+ status after haploidentical transplant, where the donor cannot transfer CMV-specific T-cell immunity and reactivation rates are high. The fact that it has broken through Letermovir prophylaxis raises the question of resistance, though the more likely explanation at this stage is the expected loss of prophylactic efficacy in a heavily immunosuppressed host rather than true resistance. Reassuringly there is no evidence of tissue-invasive disease, with a clear eye review and no GI symptoms, so this remains an asymptomatic viraemia. His viral load is now falling on Ganciclovir and Megalotect, which supports the current approach while resistance testing is awaited to guide whether a switch in agent will be needed.
 
-2. Non-neutropenic fever (2nd episode 20/05/2026)
-- Clinically unlikely pyogenic process
-- Blood cultures, urine cultures, respiratory swabs negative; CXR clear
+2. Recurrent non-neutropenic fever
+The pattern of isolated, self-limiting fever spikes in a well-looking, non-toxic patient with a negative septic screen makes a bacterial source unlikely, and the timing fits far better with his active CMV viraemia as the driver. This reasoning is what justifies stepping down antibacterial therapy rather than escalating it, and his clinical stability throughout supports a watchful approach while the CMV is treated.
 
-3. Perioral erosions with lip redness
-- HSV PCR swab negative (18/05/2026)
-- Aetiology unclear – possible mucocutaneous reaction vs drug-related
+3. Perioral erosions
+These are of uncertain cause in a complex host where the differential spans HSV reactivation, a mucocutaneous drug reaction, and GvHD. HSV has been argued against on a negative swab, leaving a drug or GvHD-related process more likely, and the lesions are mild and localised rather than progressive. The plan is observation with a dermatology opinion rather than empirical treatment, given the diagnostic uncertainty and absence of systemic features.
 
-4. Provoked pulmonary embolism (LLL segmental)
-- On Apixaban 5mg BD since 16/05/2026, aim 3 months
+4. Provoked segmental pulmonary embolism
+A provoked event in the context of malignancy and prolonged inpatient stay, with no right heart strain to suggest a high-risk PE. The reasoning favours a standard time-limited course of anticoagulation, balanced against his thrombocytopenia, which will need ongoing review.
 
 
 Suggest:
