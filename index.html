@@ -464,6 +464,13 @@
     <div class="kbd-hint" id="updHint" style="display:none">Updates the previous note with the ward round note, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
   </div>
 
+  <!-- FREE-TEXT TEMPLATE (shown only when "Free text" is chosen) -->
+  <div class="card" id="freeTextCard" style="display:none">
+    <span class="eyebrow">Custom instructions &amp; template</span>
+    <p class="ask-note">Paste your own instructions and/or template here. This becomes the system prompt — the patient &amp; clinical boxes above are sent as the input it works from.</p>
+    <textarea class="input-box" id="freeText" style="min-height:200px" placeholder="e.g. You are a clinical scribe. Produce a discharge summary using EXACTLY this template, filling each field from the data provided:&#10;&#10;Diagnosis: …&#10;Course: …&#10;Medications on discharge: …&#10;Follow-up: …"></textarea>
+  </div>
+
   <!-- ERROR -->
   <div class="error" id="error"></div>
 
@@ -562,8 +569,12 @@ const els = {
   tabGenerate: $("tabGenerate"), tabUpdate: $("tabUpdate"),
   genMode: $("genMode"), updMode: $("updMode"),
   prevNote: $("prevNote"), wardNote: $("wardNote"),
-  docTypeField: $("docTypeField"), genHint: $("genHint"), updHint: $("updHint")
+  docTypeField: $("docTypeField"), genHint: $("genHint"), updHint: $("updHint"),
+  freeTextCard: $("freeTextCard"), freeText: $("freeText")
 };
+
+// Sentinel option value for the "paste your own template" mode.
+const FREE_TEXT_ID = "__freetext__";
 
 let promptIndex = [];
 let genController = null;   // in-flight Generate request (for cancel)
@@ -834,7 +845,8 @@ function setMode(m) {
   els.updHint.style.display = upd ? "" : "none";
   els.genHint.style.display = upd ? "none" : "";
   // In update mode the fixed template is always available, so Generate is enabled.
-  els.generate.disabled = upd ? false : (promptIndex.length === 0);
+  els.generate.disabled = false;   // free text is always available, so never disable
+  if (typeof syncFreeText === "function") syncFreeText();
   (upd ? els.prevNote : els.patient).focus();
 }
 els.tabGenerate.addEventListener("click", () => setMode("generate"));
@@ -894,12 +906,32 @@ async function loadPrompts() {
       opt.textContent = p.label;
       els.docType.appendChild(opt);
     }
+    addFreeTextOption();
     if (mode !== "update") els.generate.disabled = false;
   } catch (e) {
-    els.docType.innerHTML = '<option value="">No templates yet — add prompts/index.json</option>';
-    if (mode !== "update") els.generate.disabled = true;
+    els.docType.innerHTML = "";
+    addFreeTextOption();
+    // Even with no template file, free text still works, so keep Generate enabled.
+    if (mode !== "update") els.generate.disabled = false;
   }
+  syncFreeText();
 }
+
+// Append the "Free text" choice to the dropdown (after any loaded templates).
+function addFreeTextOption() {
+  const opt = document.createElement("option");
+  opt.value = FREE_TEXT_ID;
+  opt.textContent = "Free text — paste your own template…";
+  els.docType.appendChild(opt);
+}
+
+// Show/hide the custom-template card based on the current selection.
+function syncFreeText() {
+  const on = mode !== "update" && els.docType.value === FREE_TEXT_ID;
+  els.freeTextCard.style.display = on ? "" : "none";
+}
+els.docType.addEventListener("change", syncFreeText);
+
 loadPrompts();
 
 function showError(msg) { els.error.textContent = msg; els.error.style.display = "block"; }
@@ -964,7 +996,9 @@ els.generate.addEventListener("click", async () => {
   const isUpdate = mode === "update";
 
   // Per-mode setup: which prompt file, the user message, token budget, output style.
-  let promptFile, userMessage, maxTokens, renderRich;
+  // inlineSystem, when set, is used directly as the system prompt (Free text mode)
+  // and no template file is fetched.
+  let promptFile, userMessage, maxTokens, renderRich, inlineSystem = null;
   if (isUpdate) {
     const prev = htmlToNoteText(els.prevNote).trim();
     const ward = htmlToNoteText(els.wardNote).trim();
@@ -976,6 +1010,17 @@ els.generate.addEventListener("click", async () => {
       "\n\nLATEST WARD ROUND NOTE:\n" + ward;
     maxTokens = CONFIG.UPDATE_MAX_TOKENS;
     renderRich = "mono";   // tab-preserving monospace render
+  } else if (els.docType.value === FREE_TEXT_ID) {
+    const tmpl = els.freeText.value.trim();
+    if (!tmpl) return showError("Paste your instructions or template first.");
+    if (!els.patient.value.trim() && !els.clinical.value.trim())
+      return showError("Add some patient details or clinical data.");
+    inlineSystem = tmpl;
+    userMessage =
+      "PATIENT DETAILS:\n" + els.patient.value.trim() +
+      "\n\nLATEST CLINICAL DATA:\n" + els.clinical.value.trim();
+    maxTokens = CONFIG.MAX_TOKENS;
+    renderRich = "md";   // render Markdown so custom-formatted output looks right
   } else {
     const entry = promptIndex.find(p => p.id === els.docType.value);
     if (!entry) return showError("Choose a document type.");
@@ -992,9 +1037,14 @@ els.generate.addEventListener("click", async () => {
   genController = new AbortController();
   setLoading(true);
   try {
-    const sysRes = await fetch(CONFIG.PROMPTS_DIR + promptFile, { cache: "no-store", signal: genController.signal });
-    if (!sysRes.ok) throw new Error("Couldn't load prompt file: " + promptFile);
-    const systemPrompt = await sysRes.text();
+    let systemPrompt;
+    if (inlineSystem != null) {
+      systemPrompt = inlineSystem;   // Free text — use the pasted template directly
+    } else {
+      const sysRes = await fetch(CONFIG.PROMPTS_DIR + promptFile, { cache: "no-store", signal: genController.signal });
+      if (!sysRes.ok) throw new Error("Couldn't load prompt file: " + promptFile);
+      systemPrompt = await sysRes.text();
+    }
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
