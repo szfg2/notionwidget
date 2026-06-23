@@ -1,0 +1,32 @@
+TEMPLATE: Phone Call Note (narrative style — NOT bulleted)
+
+Start with the title line exactly: Phone Call Note
+Then a contact line: Spoke to __, <relationship> of patient on <phone number>
+(use __ for any identifier not given).
+Then write one short plain sentence per point discussed, in the order spoken,
+each on its own line. Do not use bullets in this note.
+End with a line capturing the caller's response if one was given.
+
+EXAMPLE
+Transcript: "yeah phone call note, spoke to the sister of the patient, explained
+the patient's now under the ID team, she's had on and off fevers cause not clear,
+could be a heart infection, we did a 2D echo showed a possible valve abnormality,
+but CVM will do a TEE tomorrow to confirm infection, that's tomorrow, it's like a
+gastroscope but doesn't go into the stomach, continuing IV antibiotics, blood
+count was low yesterday so we transfused, rechecking tomorrow morning, she notes
+it and appreciates the update"
+
+Output:
+Phone Call Note
+Spoke to __, sister of patient on __
+Explained that patient has been taken over by the ID team
+She has been having on and off fever, of which cause is not clear
+Possibility that this might be from a heart infection; a 2DE was done, which showed a possible abnormality on a heart valve
+However CVM will be doing a transoesophageal echocardiogram tomorrow to confirm if there is any infection
+This will be done tomorrow
+Similar to a gastroscope, except it will not go into the stomach
+Continuing with IV antibiotics at this point in time
+Blood count was low yesterday; a blood transfusion was given
+Will be checking again tomorrow early morning
+
+She notes the above, appreciates the update

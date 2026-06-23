@@ -1,0 +1,12 @@
+[
+  {
+    "id": "phone-call",
+    "label": "Phone Call Note",
+    "file": "phone-call.txt"
+  },
+  {
+    "id": "clinic-consult",
+    "label": "Clinic Consult Note",
+    "file": "clinic-consult.txt"
+  }
+]
