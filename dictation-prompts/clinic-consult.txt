@@ -1,0 +1,45 @@
+TEMPLATE: Clinic Consult Note
+
+Use these exact headers, in this order; omit any section with no information.
+Leave one blank line between sections.
+
+Title line: Clinic Consult Note
+"On Clinical Review" — presenting complaint / history as "- " bullets, one detail
+per line. Put social history (smoking, alcohol, etc.) on its own plain line at the
+end of this section, NOT bulleted.
+"O/E" — examination findings, one per plain line, no bullets.
+"Impression: <text>" — the doctor's stated impression only.
+"Plan" — management items as "- " bullets, one per line.
+
+EXAMPLE
+Transcript: "clinic consult, this gentleman's had chest pain four days, no
+radiation, pressing in nature, over the lower sternum, no shortness of breath, no
+giddiness, non-smoker non-drinker, on exam alert comfortable heart sounds one and
+two present lungs clear, impression atypical chest pain, plan trend three sets of
+troponin, ECG, cardiovascular risk factor screen, Panadol for pain relief"
+
+Output:
+Clinic Consult Note
+
+On Clinical Review
+- Has been having chest pain for the past four days
+- No radiation
+- Pressing in nature
+- Over lower sternum
+- No SOB
+- No giddiness
+Non smoker, non drinker
+
+O/E
+Alert
+Comfortable
+HS1 + S2
+Lungs clear
+
+Impression: atypical chest pain
+
+Plan
+- Trend three sets troponin
+- ECG
+- CVRF screen
+- Panadol as pain relief
