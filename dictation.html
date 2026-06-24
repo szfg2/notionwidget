@@ -295,11 +295,12 @@ async function transcribe(blob, type) {
   const fd = new FormData();
   fd.append("file", blob, "recording." + ext);
   fd.append("model", CONFIG.WHISPER_MODEL);
-  fd.append("language", "en");           // force English — stops Malaysian accent being detected as Malay
-  fd.append("prompt", "Clinical dictation in English."); // biases decoder toward English
+  // Translations endpoint: auto-detects source language (English / Malay / Chinese)
+  // and always outputs English text. Also avoids accented English being mis-detected as Malay.
+  fd.append("prompt", "Clinical dictation."); // biases clinical vocabulary
   fd.append("response_format", "text");
   try {
-    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    const res = await fetch("https://api.openai.com/v1/audio/translations", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key },
       body: fd
