@@ -29,6 +29,7 @@
   {
     "id": "id-rounding",
     "label": "ID Rounding Case Summary",
-    "file": "id-rounding-case-summary.txt"
+    "file": "id-rounding-case-summary.txt",
+    "rich": true
   }
 ]
