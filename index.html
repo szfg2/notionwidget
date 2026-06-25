@@ -437,16 +437,16 @@
 
   <!-- =========================  UPDATE-EXISTING MODE  ========================= -->
   <div id="updMode" style="display:none">
-    <!-- PREVIOUS REVIEW NOTE -->
+    <!-- BASE NOTE TO UPDATE -->
     <div class="card">
-      <span class="eyebrow">Previous review note</span>
-      <div class="rich-input" id="prevNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the existing review note here. Formatting, bold, tabs and indentation are preserved."></div>
+      <span class="eyebrow">Note to update (e.g. ward round note)</span>
+      <div class="rich-input" id="prevNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the note you want to bring up to date (e.g. yesterday's ward round note). Formatting, bold, tabs and indentation are preserved."></div>
     </div>
 
-    <!-- LATEST WARD ROUND NOTE -->
+    <!-- LATEST EVENTS -->
     <div class="card">
-      <span class="eyebrow">Latest ward round note</span>
-      <div class="rich-input" id="wardNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the newest ward round note here. The updated review note will merge this in."></div>
+      <span class="eyebrow">Latest events</span>
+      <div class="rich-input" id="wardNote" contenteditable="true" spellcheck="false" data-placeholder="Paste everything that has happened since: on-call/overnight notes, new vitals &amp; I/O, lab &amp; micro results, imaging, specialist reviews. These get merged into the note above."></div>
     </div>
     <p class="deid"><span class="dot"></span><span>De-identify before sending — remove name, NRIC, MRN, address, and date of birth.</span></p>
   </div>
@@ -461,7 +461,7 @@
       <button class="generate" id="generateBtn" type="button" disabled>Generate</button>
     </div>
     <div class="kbd-hint" id="genHint">Tip: press <span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate.</div>
-    <div class="kbd-hint" id="updHint" style="display:none">Updates the previous note with the ward round note, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
+    <div class="kbd-hint" id="updHint" style="display:none">Merges the latest events into the note above to produce today's note, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
   </div>
 
   <!-- FREE-TEXT TEMPLATE (shown only when "Free text" is chosen) -->
@@ -527,7 +527,7 @@ const CONFIG = {
   PROMPTS_INDEX: "prompts/index.json",
   PROMPTS_DIR: "prompts/",
   // "Update existing" mode uses this single fixed template (not shown in the
-  // dropdown). It merges the ward round note into the previous review note.
+  // dropdown). It merges the latest events into the note to update.
   UPDATE_PROMPT_FILE: "update-review-note.txt",
   UPDATE_MAX_TOKENS: 16384
 };
@@ -1002,12 +1002,12 @@ els.generate.addEventListener("click", async () => {
   if (isUpdate) {
     const prev = htmlToNoteText(els.prevNote).trim();
     const ward = htmlToNoteText(els.wardNote).trim();
-    if (!prev) return showError("Paste the previous review note first.");
-    if (!ward) return showError("Paste the latest ward round note first.");
+    if (!prev) return showError("Paste the note you want to update first.");
+    if (!ward) return showError("Paste the latest events first.");
     promptFile = CONFIG.UPDATE_PROMPT_FILE;
     userMessage =
-      "PREVIOUS REVIEW NOTE:\n" + prev +
-      "\n\nLATEST WARD ROUND NOTE:\n" + ward;
+      "NOTE TO UPDATE:\n" + prev +
+      "\n\nLATEST EVENTS:\n" + ward;
     maxTokens = CONFIG.UPDATE_MAX_TOKENS;
     renderRich = "mono";   // tab-preserving monospace render
   } else if (els.docType.value === FREE_TEXT_ID) {
