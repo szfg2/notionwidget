@@ -131,6 +131,7 @@
     <div class="row" style="margin-top:10px">
       <button id="copyBtn">Copy</button>
       <button id="saveBtn">Save to GitHub</button>
+      <button id="clearBtn">Clear all</button>
       <span class="status" id="genMsg" style="margin-top:0"></span>
     </div>
     <div class="err" id="err"></div>
@@ -456,6 +457,45 @@ $("saveBtn").addEventListener("click", async () => {
     showErr("Save failed: " + (e.message || e));
   } finally {
     btn.disabled = false; btn.textContent = "Save to GitHub";
+  }
+});
+
+/* ============================================================ *
+ *  Clear all — empties transcript, generated note, synced file *
+ * ============================================================ */
+$("clearBtn").addEventListener("click", async () => {
+  clearErr();
+  if (!confirm("Clear the transcript, the generated note, and the saved note on GitHub? This can't be undone.")) return;
+  // Local boxes first.
+  $("transcript").value = "";
+  $("output").value = "";
+  setRecMsg("");
+  setGenMsg("");
+
+  // Then empty the synced file on GitHub, if it's configured and exists.
+  const c = ghCfg();
+  if (!c.token || !c.owner || !c.repo) { $("genMsg").textContent = "Cleared ✓ (no GitHub file configured)."; return; }
+  const btn = $("clearBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:#666;border-top-color:transparent"></span>Clearing…';
+  try {
+    let sha = null;
+    try { sha = (await getNoteMeta()).sha; } catch (e) {}   // current sha needed to overwrite
+    if (sha) {
+      const body = { message: "Clear dictation note", content: "", branch: c.branch, sha };
+      const res = await fetch(ghContentsUrl(c), {
+        method: "PUT",
+        headers: Object.assign({ "Authorization": "Bearer " + c.token }, ghHeaders(c)),
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
+    }
+    $("savedMsg").textContent = "Cleared ✓";
+    setGenMsg("Cleared ✓ — saved note emptied on your other devices too.");
+  } catch (e) {
+    showErr("Clear failed (local boxes still cleared): " + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = "Clear all";
   }
 });
 
