@@ -46,6 +46,9 @@ The specific behaviours below cover the common cases and take priority where the
 4. VITALS, INTAKE/OUTPUT, BOWELS, SUGARS
    When the latest events provide new vitals (BP, HR, Temp, RR, Sats), replace the ENTIRE vitals block in the note with the new readings — do not merge the old readings back in. Treat the intake/output block, the bowels (BO) entry, and the capillary blood sugar readings the same way: when new values are provided, the corresponding block is replaced wholesale by the latest values. Keep the note's existing layout and labels for each block.
 
+5. EXIT NOTES / EXIT ROUNDS
+   An exit note/round is an end-of-day summary of the patient's progress that records what has been done and what still needs to be done. When the latest events contain one, treat its outstanding actions as authoritative for the plan: every task it lists as still to be done MUST appear in the PLANS / SUGGESTIONS of the updated note, mapped to the relevant issue in the existing plan style. Fold its progress/done items into the relevant issues, and drop plans the exit note shows are already completed.
+
 GENERAL
 - TIMELINE / chronology: append new dated events since the last entry, keeping the existing date format and tab alignment. Do not alter earlier entries.
 - Where the issues list distinguishes active from quiescent/passive issues, place genuinely new issues at the BOTTOM of the active issues (preserving the existing numbering order), and move resolved issues to the quiescent/passive section if that is the note's convention.
