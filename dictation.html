@@ -64,6 +64,9 @@
   .savedlist li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
   .savedlist a { color: var(--accent); cursor: pointer; text-decoration: none; word-break: break-all; }
   .copied { color: var(--ok) !important; border-color: var(--ok) !important; }
+  .autosave-row { display: flex; align-items: center; gap: 7px; }
+  .autosave-row input[type=checkbox] { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: var(--ok); }
+  .autosave-row label { font-size: 13px; color: var(--ink); margin: 0; cursor: pointer; user-select: none; }
 </style>
 </head>
 <body>
@@ -132,6 +135,10 @@
       <button id="copyBtn">Copy</button>
       <button id="saveBtn">Save to GitHub</button>
       <button id="clearBtn">Clear all</button>
+      <div class="autosave-row">
+        <input type="checkbox" id="autosaveToggle" checked>
+        <label for="autosaveToggle">Autosave to GitHub</label>
+      </div>
       <span class="status" id="genMsg" style="margin-top:0"></span>
     </div>
     <div class="err" id="err"></div>
@@ -169,7 +176,8 @@ const K = {
   ghOwner: "dictation_gh_owner",
   ghRepo: "dictation_gh_repo",
   ghBranch: "dictation_gh_branch",
-  ghPath: "dictation_gh_path"
+  ghPath: "dictation_gh_path",
+  autosave: "dictation_autosave"
 };
 
 const $ = (id) => document.getElementById(id);
@@ -187,9 +195,14 @@ function loadSettings() {
   $("ghRepo").value    = get(K.ghRepo)  || "notionwidget";
   $("ghBranch").value  = get(K.ghBranch) || "main";
   $("ghPath").value    = get(K.ghPath)  || "dictation-note.txt";
+  // Autosave defaults to true unless explicitly set to "0"
+  $("autosaveToggle").checked = get(K.autosave) !== "0";
   // Open settings automatically if the essential keys are missing.
   if (!get(K.claude) || !get(K.openai)) $("settingsBox").open = true;
 }
+$("autosaveToggle").addEventListener("change", () => {
+  set(K.autosave, $("autosaveToggle").checked ? "1" : "0");
+});
 $("saveSettings").addEventListener("click", () => {
   set(K.claude, $("claudeKey").value.trim());
   set(K.openai, $("openaiKey").value.trim());
@@ -374,8 +387,13 @@ $("genBtn").addEventListener("click", async () => {
     const data = await res.json();
     if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
     const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
-    $("output").value = text.trim() || "(No text returned.)";
-    setGenMsg("Done ✓");
+    const generated = text.trim() || "(No text returned.)";
+    $("output").value = generated;
+    if ($("autosaveToggle").checked) {
+      await saveToGitHub(generated);
+    } else {
+      setGenMsg("Done ✓");
+    }
   } catch (e) {
     showErr("Generation failed: " + (e.message || e));
   } finally {
@@ -428,19 +446,16 @@ async function getNoteMeta() {
   return { sha: data.sha, content };
 }
 
-$("saveBtn").addEventListener("click", async () => {
-  clearErr();
-  const text = $("output").value.trim();
-  if (!text) { showErr("Nothing to save — generate a note first."); return; }
+async function saveToGitHub(text) {
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
-    showErr("Set your GitHub token, owner and repo in Settings to save."); $("settingsBox").open = true; return;
+    showErr("Set your GitHub token, owner and repo in Settings to save."); $("settingsBox").open = true; return false;
   }
   const btn = $("saveBtn");
   btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:#666;border-top-color:transparent"></span>Saving…';
   try {
     let sha = null;
-    try { sha = (await getNoteMeta()).sha; } catch (e) {}   // need current sha to overwrite
+    try { sha = (await getNoteMeta()).sha; } catch (e) {}
     const body = { message: "Update dictation note", content: b64utf8(text), branch: c.branch };
     if (sha) body.sha = sha;
     const res = await fetch(ghContentsUrl(c), {
@@ -453,11 +468,20 @@ $("saveBtn").addEventListener("click", async () => {
     const t = new Date();
     setGenMsg("Saved ✓ " + String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0") + " — will appear on your other devices.");
     $("savedMsg").textContent = "Saved ✓";
+    return true;
   } catch (e) {
     showErr("Save failed: " + (e.message || e));
+    return false;
   } finally {
     btn.disabled = false; btn.textContent = "Save to GitHub";
   }
+}
+
+$("saveBtn").addEventListener("click", async () => {
+  clearErr();
+  const text = $("output").value.trim();
+  if (!text) { showErr("Nothing to save — generate a note first."); return; }
+  await saveToGitHub(text);
 });
 
 /* ============================================================ *
