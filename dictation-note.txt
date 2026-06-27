@@ -1,18 +1,15 @@
 Phone Call Note
-Spoke to patient and son at bedside on __
-Dr. Piong explained that both the heart and liver are currently failing.
-Early discharge is not advised at this time.
-It is best for the patient to complete the current course of treatment and go home after appropriate monitoring.
-The patient is at very high risk of demise otherwise.
-Home leave was strongly advised against, even for a couple of hours.
-There is a high risk that the patient may deteriorate in the community, demise, or have an acute heart failure episode, which would result in inability to be treated in hospital.
-Patient and son understand the above.
-However, the patient remains keen on taking a few hours out to have a meal at a nearby Chinatown restaurant.
-They understand the risk of sudden deterioration or demise in the community and accept this risk.
-They are still keen on going out despite the risks being reiterated.
-Dr. Piong discussed with Dr. Jin regarding the above.
-Both agreed that a mutual understanding has been reached regarding the inherent risks, and that the medical team is strongly not advising for home leave.
-However, as the patient and family understand and accept the risks, home leave form can be signed.
-Patient and family were updated and the risks were reiterated once more.
-They remained keen for home leave.
-Home leave signed.
+Spoke to __, patient on __
+
+Patient was frustrated at the antibiotics given.
+She states that when she receives IV meropenem, she develops giddiness and chest discomfort.
+She also states that if home leave is only for two hours, she does not want to go anymore.
+Explained that the medical team, in conjunction with the family, have already come to an understanding that if she wants to go and accepts the risk, she can sign the form and the family will supervise her during home leave.
+If she is not keen for home leave, she can stay in the ward.
+If she is keen for home leave, she is to sign the home leave form.
+Will update the on-call team regarding the case for them to review the patient if she goes on home leave or returns.
+
+Also spoke to __, son of patient (JJ), and __, husband of patient on __
+Explained that a family conference is being arranged on Monday to further plan for ongoing treatment and to establish a ceiling of care.
+Husband is not free to attend.
+Patient's son and daughter will try to attend towards the end of Monday.
