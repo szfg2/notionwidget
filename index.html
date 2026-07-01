@@ -437,16 +437,16 @@
 
   <!-- =========================  UPDATE-EXISTING MODE  ========================= -->
   <div id="updMode" style="display:none">
-    <!-- BASE NOTE TO UPDATE -->
+    <!-- CURRENT ISSUES & PLANS -->
     <div class="card">
-      <span class="eyebrow">Note to update (e.g. ward round note)</span>
-      <div class="rich-input" id="prevNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the note you want to bring up to date (e.g. yesterday's ward round note). Formatting, bold, tabs and indentation are preserved."></div>
+      <span class="eyebrow">Current issues, progress &amp; plans</span>
+      <div class="rich-input" id="prevNote" contenteditable="true" spellcheck="false" data-placeholder="Paste the current Issues &amp; Progress list and the Plan section (e.g. the Impression and Plan blocks). Formatting, bold, tabs and indentation are preserved."></div>
     </div>
 
-    <!-- LATEST EVENTS -->
+    <!-- LATEST UPDATES -->
     <div class="card">
-      <span class="eyebrow">Latest events</span>
-      <div class="rich-input" id="wardNote" contenteditable="true" spellcheck="false" data-placeholder="Paste everything that has happened since: on-call/overnight notes, new vitals &amp; I/O, lab &amp; micro results, imaging, specialist reviews. These get merged into the note above."></div>
+      <span class="eyebrow">Latest updates, entries &amp; reviews</span>
+      <div class="rich-input" id="wardNote" contenteditable="true" spellcheck="false" data-placeholder="Paste everything since: new results, procedure reports, specialist &amp; exit-round reviews, new plans. These get folded into the issues &amp; plans above (vitals/overnight blocks are used only for their consequences)."></div>
     </div>
     <p class="deid"><span class="dot"></span><span>De-identify before sending — remove name, NRIC, MRN, address, and date of birth.</span></p>
   </div>
@@ -461,7 +461,7 @@
       <button class="generate" id="generateBtn" type="button" disabled>Generate</button>
     </div>
     <div class="kbd-hint" id="genHint">Tip: press <span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate.</div>
-    <div class="kbd-hint" id="updHint" style="display:none">Merges the latest events into the note above to produce today's note, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
+    <div class="kbd-hint" id="updHint" style="display:none">Folds the latest updates into the issues &amp; plans above — de-conflicting and grouping related plans, preserving structure, tabs and bold. Press <span class="kbd">Ctrl/⌘ + Enter</span> from either box.</div>
   </div>
 
   <!-- FREE-TEXT TEMPLATE (shown only when "Free text" is chosen) -->
