@@ -22,6 +22,11 @@
     "file": "admission-preclerking-note.txt"
   },
   {
+    "id": "id-admission",
+    "label": "ID Admission Note",
+    "file": "id-admission-note.txt"
+  },
+  {
     "id": "admission-preclerking-old",
     "label": "Admission Preclerking Note (old)",
     "file": "admission-preclerking-note-old.txt"
