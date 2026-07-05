@@ -1,5 +1,16 @@
 [
   {
+    "id": "ward-round-short",
+    "label": "Ward Round Short Summary",
+    "file": "ward-round-short-summary.txt",
+    "rich": true
+  },
+  {
+    "id": "resp-blue-letter",
+    "label": "Respiratory Blue Letter Reply",
+    "file": "respiratory-blue-letter-reply.txt"
+  },
+  {
     "id": "id-haem",
     "label": "ID Haematology Summary",
     "file": "id-haematology-summary.txt"
