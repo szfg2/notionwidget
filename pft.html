@@ -108,8 +108,26 @@
 <div class="wrap">
   <header class="app">
     <h1>PFT Interpreter</h1>
-    <p class="sub">Enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score). Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live. Runs entirely in your browser — no data leaves this page. <a href="index.html">Document Generator →</a> · <a href="dictation.html">Dictation →</a></p>
+    <p class="sub">Enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score), or paste the raw report below to auto-fill. Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live — that logic runs entirely in your browser. <a href="index.html">Document Generator →</a> · <a href="dictation.html">Dictation →</a></p>
   </header>
+
+  <!-- 0 · PASTE / AUTO-FILL -->
+  <div class="card">
+    <span class="eyebrow">0 · Paste report (auto-fill with Claude)</span>
+    <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to Anthropic's API — the fields and interpretation stay in your browser.</p>
+    <div class="field" style="margin-top:10px">
+      <label class="lbl">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
+      <input type="password" id="api_key" placeholder="sk-ant-..." autocomplete="off">
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label class="lbl">Raw report text</label>
+      <textarea id="paste_in" placeholder="Paste the full PFT report here…" style="width:100%; background:var(--surface-2); color:var(--text); border:1px solid var(--border-strong); border-radius:8px; padding:11px; font-family:var(--mono); font-size:13px; line-height:1.55; resize:vertical; min-height:120px;"></textarea>
+    </div>
+    <div class="btnrow">
+      <button id="fillBtn" class="primary">Auto-fill from report</button>
+      <span class="pill" id="fill_msg"></span>
+    </div>
+  </div>
 
   <!-- 1 · SPIROMETRY -->
   <div class="card">
@@ -537,12 +555,156 @@ $("copyBtn").addEventListener("click", async () => {
 // Clear
 $("clearBtn").addEventListener("click", () => {
   document.querySelectorAll("input").forEach(el => {
-    if (el.type === "checkbox") el.checked = false; else el.value = "";
+    if (el.type === "checkbox") el.checked = false;
+    else if (el.id !== "api_key") el.value = "";  // keep the saved key
   });
   document.querySelectorAll("select").forEach(el => { el.selectedIndex = 0; });
   $("bp_mch_fields").style.display = "none";
   $("bp_sal_fields").style.display = "none";
   render();
+});
+
+/* ============================================================
+   Paste → Claude extraction → auto-fill the form above
+   Claude ONLY extracts values into fields; the interpretation
+   is still produced locally by build() / render().
+   ============================================================ */
+
+// Persist the API key locally so it isn't re-entered each time.
+const savedKey = localStorage.getItem("anthropic_api_key");
+if (savedKey) $("api_key").value = savedKey;
+$("api_key").addEventListener("change", () => {
+  const v = $("api_key").value.trim();
+  if (v) localStorage.setItem("anthropic_api_key", v);
+  else localStorage.removeItem("anthropic_api_key");
+});
+
+// The set of fillable field IDs, grouped so the extraction prompt is explicit.
+const FIELD_GUIDE = `
+Numeric fields (return a number, or omit the key if absent):
+- Spirometry FEV1: fev1_act (L), fev1_lln (L), fev1_z (z-score)
+- Spirometry FVC: fvc_act (L), fvc_lln (L), fvc_z (z-score)
+- Spirometry FEV1/FVC ratio: ratio_act (%), ratio_lln (%), ratio_z (z-score)
+- Supine diaphragm study: fvc_sit (sitting FVC, L), fvc_sup (supine FVC, L)
+- Bronchodilator FEV1: bdr_fev1_pre (L), bdr_fev1_post (L), bdr_fev1_pred (L)
+- Bronchodilator FVC: bdr_fvc_pre (L), bdr_fvc_post (L), bdr_fvc_pred (L)
+- Diffusion: dlco_act, dlco_lln, dlco_z
+- Lung volumes TLC: tlc_act, tlc_lln, tlc_uln, tlc_z
+- Lung volumes RV/RV-TLC: rv_act, rv_uln, rvtlc_act (%), rvtlc_uln (%)
+- Methacholine: mch_drop (max FEV1 drop %), mch_pd20 (PD20 if reached)
+- Hypertonic saline: sal_drop (max FEV1 drop %), sal_vol (saline volume at drop, mL)
+- Exercise: ex_drop (max FEV1 drop %)
+- Respiratory muscle: mip_act, mip_lln, mep_act, mep_lln, mvv_act, mvv_lln
+- FeNO: feno (ppb)
+
+Boolean fields (return true only if clearly stated, otherwise omit):
+- dlco_corr: true if the DLCO value is corrected for Hb (false/omit if uncorrected)
+- mch_diluent: true if FEV1 dropped >20% after diluent and methacholine was not given
+- ex_terminated: true if the exercise test was terminated early / patient could not continue
+
+Selection fields (return one of the listed string values, or omit):
+- fvloop (flow-volume loop pattern): "insp" (truncated inspiratory limb / variable extrathoracic),
+    "both" (truncated both limbs / fixed airway obstruction),
+    "exp" (truncated expiratory limb / variable intrathoracic),
+    "biphasic" (biphasic both limbs / unilateral mainstem obstruction)
+- bp_type (bronchoprovocation test performed): "mch" (methacholine), "sal" (hypertonic saline)
+`.trim();
+
+const EXTRACT_SYSTEM = `You are a data-extraction assistant for a pulmonary function test (PFT) report interpreter.
+Read the pasted PFT report and extract only the numeric and categorical values into the exact field keys below.
+
+${FIELD_GUIDE}
+
+Rules:
+- Output ONLY a single JSON object. No prose, no markdown, no code fences.
+- Include a key only when the value is genuinely present in the report; omit anything not reported.
+- Numbers must be plain numbers (e.g. 2.34, 78, -1.9) with no units or symbols.
+- Do NOT invent, estimate, or interpret. Never compute a value the report does not state. Extraction only.`;
+
+// Apply an extracted {id: value} object to the form, then recompute.
+function applyExtracted(obj) {
+  let filled = 0;
+  for (const [id, val] of Object.entries(obj)) {
+    const el = $(id);
+    if (!el) continue;
+    if (el.type === "checkbox") {
+      el.checked = val === true || val === "true";
+    } else if (el.tagName === "SELECT") {
+      el.value = String(val);
+    } else {
+      if (val === null || val === undefined || val === "") continue;
+      el.value = String(val);
+    }
+    filled++;
+  }
+  // Reveal the correct bronchoprovocation sub-fields for the chosen test.
+  const bp = $("bp_type").value;
+  $("bp_mch_fields").style.display = bp === "mch" ? "" : "none";
+  $("bp_sal_fields").style.display = bp === "sal" ? "" : "none";
+  render();
+  return filled;
+}
+
+function setFillMsg(text, isError) {
+  const m = $("fill_msg");
+  m.textContent = text;
+  m.style.color = isError ? "var(--danger)" : "var(--muted)";
+}
+
+$("fillBtn").addEventListener("click", async () => {
+  const key = $("api_key").value.trim();
+  const report = $("paste_in").value.trim();
+  if (!key) { setFillMsg("Enter your Anthropic API key first.", true); return; }
+  if (!report) { setFillMsg("Paste a report to extract.", true); return; }
+  localStorage.setItem("anthropic_api_key", key);
+
+  const btn = $("fillBtn");
+  btn.disabled = true;
+  setFillMsg("Extracting…", false);
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-8",
+        max_tokens: 2000,
+        system: EXTRACT_SYSTEM,
+        messages: [{ role: "user", content: report }]
+      })
+    });
+
+    if (!res.ok) {
+      let detail = res.status + " " + res.statusText;
+      try { const e = await res.json(); if (e.error && e.error.message) detail = e.error.message; } catch (_) {}
+      setFillMsg("API error: " + detail, true);
+      return;
+    }
+
+    const data = await res.json();
+    const textBlock = (data.content || []).find(b => b.type === "text");
+    let raw = textBlock ? textBlock.text.trim() : "";
+    // Strip any accidental code fences, then isolate the JSON object.
+    raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1) { setFillMsg("Could not read a result from the model.", true); return; }
+
+    let obj;
+    try { obj = JSON.parse(raw.slice(start, end + 1)); }
+    catch (_) { setFillMsg("Model returned invalid JSON — try again.", true); return; }
+
+    const n = applyExtracted(obj);
+    setFillMsg(n ? ("Filled " + n + " field" + (n === 1 ? "" : "s") + " — review, then copy below.") : "No recognisable values found in the report.", n === 0);
+  } catch (err) {
+    setFillMsg("Request failed: " + (err && err.message ? err.message : err), true);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 render();
