@@ -198,7 +198,7 @@
     </div>
     <div class="checkrow">
       <input type="checkbox" id="dlco_corr">
-      <label for="dlco_corr">Value is corrected for Hb (else "uncorrected")</label>
+      <label for="dlco_corr">Value is corrected for Hb (default: uncorrected — used to grade severity)</label>
     </div>
   </div>
 
@@ -453,6 +453,7 @@ function build() {
   const fev1Low = haveSpiro && fev1 < fev1Lln;
   const fvcLow = haveSpiro && fvc < fvcLln;
   const ratioLow = haveSpiro && ratio < ratioLln;   // obstruction present
+  const spiroNormal = haveSpiro && !ratioLow && !fev1Low && !fvcLow;
 
   /* ---- lung volumes facts (needed by spirometry branch) ---- */
   const tlc = num("tlc_act"), tlcLln = num("tlc_lln"), tlcUln = num("tlc_uln"), tlcZ = num("tlc_z");
@@ -483,7 +484,11 @@ function build() {
       }
       // If lung volumes ARE provided, the pattern is resolved in the Lung volumes section below.
     } else {
-      lines.push("Spirometry is within normal limits.");
+      // Spirometry WNL. When lung volumes reveal restriction, the finding is
+      // reported as one combined sentence in the Lung volumes section below.
+      if (!(haveLV && tlcLow)) {
+        lines.push("Spirometry is within normal limits.");
+      }
     }
   }
 
@@ -550,7 +555,11 @@ function build() {
     } else if (tlcLow) {
       const sev = grade(tlcZ) || "mild";
       const type = rvtlcHigh ? "complex" : "simple";
-      lines.push("There is " + sev + " " + type + " restriction.");
+      if (spiroNormal) {
+        lines.push("Normal spirometry but lung volumes show " + sev + " " + type + " restriction.");
+      } else {
+        lines.push("There is " + sev + " " + type + " restriction.");
+      }
     } else if (!ratioLow && (fev1Low || fvcLow)) {
       // ratio normal, TLC normal/high, reduced FEV1/FVC → non-specific
       const sev = grade(fev1Z) || "mild";
@@ -705,7 +714,7 @@ Numeric fields (return a number, or omit the key if absent):
 - Supine diaphragm study: fvc_sit (sitting FVC, L), fvc_sup (supine FVC, L)
 - Bronchodilator FEV1: bdr_fev1_pre (L), bdr_fev1_post (L), bdr_fev1_pred (L)
 - Bronchodilator FVC: bdr_fvc_pre (L), bdr_fvc_post (L), bdr_fvc_pred (L)
-- Diffusion: dlco_act, dlco_lln, dlco_z
+- Diffusion — use the UNCORRECTED-for-Hb DLCO to grade severity; only fall back to the Hb-corrected/adjusted value if the report gives no uncorrected DLCO: dlco_act, dlco_lln, dlco_z
 - Lung volumes TLC: tlc_act, tlc_lln, tlc_uln, tlc_z
 - Lung volumes RV/RV-TLC: rv_act, rv_uln, rvtlc_act (%), rvtlc_uln (%)
 - Methacholine: mch_drop (max FEV1 drop %), mch_pd20 (PD20 if reached)
@@ -715,7 +724,7 @@ Numeric fields (return a number, or omit the key if absent):
 - FeNO: feno (ppb)
 
 Boolean fields (return true only if clearly stated, otherwise omit):
-- dlco_corr: true if the DLCO value is corrected for Hb (false/omit if uncorrected)
+- dlco_corr: default false (uncorrected). Set true ONLY when the DLCO you extracted is the Hb-corrected/adjusted value (i.e. no uncorrected value was reported)
 - mch_diluent: true if FEV1 dropped >20% after diluent and methacholine was not given
 - ex_terminated: true if the exercise test was terminated early / patient could not continue
 
