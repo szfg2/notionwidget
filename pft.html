@@ -102,6 +102,19 @@
   button.primary:hover { background: var(--accent-strong); }
   button.copied { border-color: var(--accent); color: var(--accent); }
   .pill { font-size: 12px; color: var(--muted); }
+
+  /* Flow-volume loop reference */
+  .fvl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 12px; }
+  @media (max-width: 560px) { .fvl-grid { grid-template-columns: 1fr; } }
+  .fvl { margin: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .fvl svg { width: 100%; height: auto; display: block; }
+  .fvl svg .loop { fill: rgba(95,184,160,.12); stroke: var(--accent-strong); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .fvl svg .axis { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; }
+  .fvl svg .lbl { fill: var(--faint); font-size: 9px; font-family: var(--sans); }
+  .fvl figcaption { margin-top: 8px; }
+  .fvl figcaption strong { display: block; font-size: 13px; color: var(--text); margin-bottom: 3px; }
+  .fvl figcaption span { display: block; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .fvl figcaption .tag { display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -300,6 +313,110 @@
         <button id="clearBtn">Clear all</button>
         <span class="pill" id="msg"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- REFERENCE · FLOW-VOLUME LOOPS -->
+  <div class="card" style="margin-top:24px">
+    <span class="eyebrow">Reference · Flow-volume loop patterns</span>
+    <p class="hint" style="margin-top:0">Expiration is above the zero-flow line, inspiration below; volume runs TLC (left) → RV (right). The four upper-airway patterns correspond to the options in the Flow-volume loop selector above.</p>
+    <div class="fvl-grid">
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Normal flow-volume loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,24 Q120,55 180,80 Q100,138 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Normal</strong>
+          <span>Rapid rise to peak expiratory flow with a near-linear descent; rounded, symmetric inspiratory limb. Full volume.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Obstructive flow-volume loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L48,42 Q80,78 180,80 Q100,134 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Obstructive (small-airway)</strong>
+          <span>Reduced peak flow with a scooped (concave) expiratory limb. Airflow obstruction — e.g. COPD or asthma. Severity comes from spirometry, not the loop selector.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Restrictive flow-volume loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M70,80 L90,22 Q135,52 160,80 Q118,130 70,80 Z"/>
+          <text class="lbl" x="52" y="94">TLC</text>
+          <text class="lbl" x="164" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Restrictive</strong>
+          <span>Preserved contour but narrow — reduced volumes with a relatively tall, peaked loop. Suggests a restrictive process; confirm with lung volumes.</span>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Variable extrathoracic obstruction">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,24 Q120,55 180,80 L168,116 L40,116 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Truncated inspiratory limb</strong>
+          <span>Flattened inspiratory limb, normal expiration → variable extrathoracic obstruction (e.g. vocal cord dysfunction, extrathoracic tracheal lesion).</span>
+          <em class="tag">Selector: variable extrathoracic</em>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fixed airway obstruction">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,40 L166,40 L180,80 L168,116 L40,116 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Truncated both limbs</strong>
+          <span>Plateau of both the expiratory and inspiratory limbs → fixed airway obstruction (e.g. tracheal stenosis, large goitre).</span>
+          <em class="tag">Selector: fixed airway obstruction</em>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Variable intrathoracic obstruction">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,40 L166,40 L180,80 Q100,134 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Truncated expiratory limb</strong>
+          <span>Flattened expiratory limb, normal inspiration → variable intrathoracic (central) obstruction (e.g. tracheomalacia, lower tracheal tumour).</span>
+          <em class="tag">Selector: variable intrathoracic</em>
+        </figcaption>
+      </figure>
+
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Biphasic loop, unilateral mainstem obstruction">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L42,30 L68,58 L95,34 Q140,60 180,80 L150,120 L112,94 L78,122 Q46,104 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text>
+          <text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption>
+          <strong>Biphasic both limbs</strong>
+          <span>Biphasic / notched limbs on both phases → suggests unilateral mainstem bronchus obstruction.</span>
+          <em class="tag">Selector: unilateral mainstem</em>
+        </figcaption>
+      </figure>
+
     </div>
   </div>
 </div>
@@ -623,6 +740,14 @@ Rules:
 
 // Apply an extracted {id: value} object to the form, then recompute.
 function applyExtracted(obj) {
+  // Clear the previous PFT's data first so nothing carries over between reports
+  // (keep the saved API key; the pasted text is a textarea and is untouched).
+  document.querySelectorAll("input").forEach(el => {
+    if (el.type === "checkbox") el.checked = false;
+    else if (el.id !== "api_key") el.value = "";
+  });
+  document.querySelectorAll("select").forEach(el => { el.selectedIndex = 0; });
+
   let filled = 0;
   for (const [id, val] of Object.entries(obj)) {
     const el = $(id);

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulmonary Function Test Reporting Guide — SGH / SKH</title>
+<style>
+  :root{
+    --bg:#191919;
+    --panel:#202020;
+    --panel2:#252525;
+    --line:#333;
+    --line2:#3d3d3d;
+    --txt:#e8e8e8;
+    --muted:#9a9a9a;
+    --dim:#6f6f6f;
+    --accent:#4aa3df;     /* obstruction / primary */
+    --green:#5bbf7b;       /* normal */
+    --amber:#e0b64a;       /* mild */
+    --orange:#e08a3c;      /* moderate */
+    --red:#e0625b;         /* severe */
+    --violet:#a98be0;      /* restriction */
+    --teal:#4ec9b0;        /* diffusion */
+    --pink:#e07ba8;        /* provocation */
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:1040px;margin:0 auto;}
+  header.top{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px;}
+  h1{font-size:26px;margin:0 0 6px;font-weight:650;letter-spacing:.2px;}
+  .sub{color:var(--muted);font-size:14px;}
+  .tag{display:inline-block;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--dim);border:1px solid var(--line2);border-radius:4px;padding:2px 8px;margin-top:10px;}
+
+  h2{font-size:19px;margin:38px 0 4px;font-weight:600;display:flex;align-items:center;gap:10px;}
+  h2 .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .sectnote{color:var(--muted);font-size:13px;margin:0 0 16px;}
+
+  /* legend / key concepts */
+  .keygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0 8px;}
+  .keycard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .keycard h3{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--txt);}
+  .keycard p{margin:0;font-size:13px;color:var(--muted);}
+  .keycard code{font-family:var(--mono);color:var(--accent);font-size:12.5px;}
+
+  .sevbar{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin:6px 0 2px;font-size:12px;}
+  .sevbar div{padding:8px 6px;text-align:center;color:#111;font-weight:600;}
+  .sevbar .s0{background:var(--green);}
+  .sevbar .s1{background:var(--amber);}
+  .sevbar .s2{background:var(--orange);}
+  .sevbar .s3{background:var(--red);}
+  .sevbar small{display:block;font-weight:500;font-size:10.5px;opacity:.8;}
+
+  /* cards */
+  .domain{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 20px 8px;margin-bottom:14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;
+    letter-spacing:.4px;padding:12px 10px 8px;border-bottom:1px solid var(--line2);}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .phrase{color:var(--txt);}
+  .crit{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:pre-line;}
+  .crit b{color:var(--teal);font-weight:600;}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;
+    color:#111;margin-right:6px;vertical-align:1px;}
+  .p-norm{background:var(--green);}
+  .p-mild{background:var(--amber);}
+  .p-mod{background:var(--orange);}
+  .p-sev{background:var(--red);}
+  .p-info{background:#5a6b7a;color:#eaeaea;}
+  .p-pos{background:var(--pink);}
+
+  /* flow */
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:14px 0;}
+  .flow ol{margin:0;padding-left:0;list-style:none;counter-reset:step;}
+  .flow li{position:relative;padding:0 0 16px 40px;counter-increment:step;}
+  .flow li:before{content:counter(step);position:absolute;left:0;top:0;
+    width:26px;height:26px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);
+    color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;}
+  .flow li:not(:last-child):after{content:'';position:absolute;left:13px;top:28px;bottom:2px;width:1px;background:var(--line2);}
+  .flow b{color:var(--txt);}
+  .flow .r{color:var(--muted);font-size:13px;}
+  .flow code{font-family:var(--mono);color:var(--accent);font-size:12.5px;}
+
+  .callout{border-left:3px solid var(--amber);background:rgba(224,182,74,.07);
+    padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:13px;color:#dcd2b8;}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);font-size:12px;}
+  a{color:var(--accent);}
+  @media(max-width:640px){
+    .crit{font-size:11px;}
+    td,th{padding-left:6px;padding-right:6px;}
+    body{padding:20px 12px 60px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Pulmonary Function Test — Reporting &amp; Interpretation Guide</h1>
+  <div class="sub">SGH / SKH standardized reporting phrases mapped to interpretation criteria &middot; GLI reference equations, ERS/ATS 2022</div>
+  <span class="tag">Updated 21 Jan 2026 · Registrar / Consultant reference</span>
+</header>
+
+<!-- ======================= KEY CONCEPTS ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Grading conventions</h2>
+<p class="sectnote">Severity across spirometry (FEV<sub>1</sub>), DLCO and lung volumes (TLC) is graded on the <b>z-score</b> of the relevant index against GLI reference values. LLN = lower limit of normal (z = &minus;1.64, 5th centile); ULN = upper limit of normal (z = +1.64).</p>
+
+<div class="sevbar">
+  <div class="s0" style="flex:1.64">Normal<small>z &gt; &minus;1.64 (&gt; LLN)</small></div>
+  <div class="s1" style="flex:.86">Mild<small>&minus;1.64 to &minus;2.5</small></div>
+  <div class="s2" style="flex:1.5">Moderate<small>&minus;2.51 to &minus;4</small></div>
+  <div class="s3" style="flex:1">Severe<small>&lt; &minus;4</small></div>
+</div>
+
+<div class="keygrid">
+  <div class="keycard"><h3>Obstruction</h3><p>Defined by <code>FEV1/FVC &lt; LLN</code>. Severity is then graded on the <code>FEV1 z-score</code>.</p></div>
+  <div class="keycard"><h3>Restriction</h3><p>Reduced <code>TLC &lt; LLN</code> on lung volumes. Severity graded on the <code>TLC z-score</code>. Cannot be diagnosed from spirometry alone.</p></div>
+  <div class="keycard"><h3>Bronchodilator response</h3><p>ERS/ATS 2022: significant if change in <code>FEV1 and/or FVC &gt; 10%</code> of predicted after 400&micro;g salbutamol.</p></div>
+  <div class="keycard"><h3>Bronchodilator on oscillometry</h3><p>Significant if <b>any one</b>: R5 &minus;32%, X5 +44%, or AX &minus;65%.</p></div>
+</div>
+
+<!-- ======================= INTERPRETATION FLOW ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Interpretation algorithm</h2>
+<p class="sectnote">Start from the FEV<sub>1</sub>/FVC ratio, then bring in lung volumes and DLCO to resolve the pattern.</p>
+<div class="flow">
+  <ol>
+    <li><b>Is FEV<sub>1</sub>/FVC &lt; LLN?</b> <span class="r">If <b>yes</b> → obstructive process. Grade severity on FEV<sub>1</sub> z-score. Check RV/TLC for air-trapping and TLC for a co-existing restrictive (mixed) defect.</span></li>
+    <li><b>FEV<sub>1</sub>/FVC ≥ LLN with low FEV<sub>1</sub> and/or FVC?</b> <span class="r">Non-obstructive reduction — do <b>not</b> call restriction on spirometry alone. Report <code>PRISm</code> and recommend DLCO + lung volumes.</span></li>
+    <li><b>Add lung volumes (TLC).</b> <span class="r">TLC &lt; LLN with normal RV/TLC → <b>simple restriction</b>. TLC &lt; LLN with high RV/TLC → <b>complex restriction</b>. TLC normal despite low FEV<sub>1</sub>/FVC → <b>non-specific ventilatory impairment (NSVI)</b>.</span></li>
+    <li><b>Add DLCO.</b> <span class="r">Grade on z-score; report severity from the <b>uncorrected</b> value. Helps separate parenchymal (low DLCO) from extra-parenchymal restriction and vascular disease.</span></li>
+    <li><b>Inspect the flow-volume loop.</b> <span class="r">Limb truncation localizes upper-airway obstruction (see FV loop table).</span></li>
+    <li><b>Confirm bronchodilator responsiveness / provocation as indicated.</b> <span class="r">BD response, methacholine/saline challenge, exercise, FeNO for the asthma phenotype.</span></li>
+  </ol>
+</div>
+<div class="callout">If spirometry is normal but TLC is reduced, report as: <i>"Normal spirometry but lung volumes show mild/moderate/severe simple/complex restriction."</i></div>
+
+<!-- ======================= SPIROMETRY ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Spirometry</h2>
+<div class="domain">
+<table>
+<tr><th style="width:56%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Spirometry is within normal limits</td><td class="crit">Normal FEV1, FVC and FEV1/FVC</td></tr>
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild airflow obstruction</td><td class="crit"><b>FEV1/FVC &lt; LLN</b>
+FEV1 z &minus;1.64 to &minus;2.5
+(FEV1/FVC &lt; LLN with FEV1 &gt; LLN → still mild)</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate airflow obstruction</td><td class="crit"><b>FEV1/FVC &lt; LLN</b>
+FEV1 z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe airflow obstruction</td><td class="crit"><b>FEV1/FVC &lt; LLN</b>
+FEV1 z &lt; &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-info">PRISm</span>Preserved ratio impaired spirometry — evaluate further with DLCO and lung volumes</td><td class="crit">FEV1/FVC &gt; LLN
+FEV1 and/or FVC &lt; LLN
+No lung volumes available</td></tr>
+<tr><td class="phrase"><span class="pill p-info">?Restrict</span>Possible underlying restrictive ventilatory impairment — evaluate further with DLCO and lung volumes</td><td class="crit">FEV1/FVC &gt; LLN
+FVC &lt; LLN  (or FEV1 and FVC &lt; LLN)
+No lung volumes available</td></tr>
+<tr><td class="phrase"><span class="pill p-pos">Supine</span>FVC dropped ≥15% sitting→supine, suggestive of diaphragmatic weakness — correlate clinically</td><td class="crit">Drop in FVC ≥15% from sitting to supine</td></tr>
+<tr><td class="phrase"><span class="pill p-norm">Supine</span>No significant drop in FVC sitting→supine</td><td class="crit">Drop in FVC &lt;15% sitting to supine</td></tr>
+</table>
+</div>
+
+<!-- ======================= BRONCHODILATOR ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Bronchodilator response</h2>
+<div class="domain">
+<table>
+<tr><th style="width:56%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Neg</span>No significant bronchodilator response to 400mcg inhaled salbutamol</td><td class="crit">Change in FEV1 and/or FVC ≤ 10%
+(ERS/ATS 2022)</td></tr>
+<tr><td class="phrase"><span class="pill p-pos">Pos</span>Significant bronchodilator response to 400mcg inhaled salbutamol</td><td class="crit">Change in FEV1 and/or FVC &gt; 10%
+(ERS/ATS 2022)</td></tr>
+</table>
+</div>
+
+<!-- ======================= DIFFUSION ======================= -->
+<h2><span class="dot" style="background:var(--teal)"></span>Diffusion studies (DLCO)</h2>
+<p class="sectnote">Report severity based on the <b>uncorrected</b> DLCO value. State whether corrected/uncorrected for Hb.</p>
+<div class="domain">
+<table>
+<tr><th style="width:56%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Normal DLCO corrected/uncorrected for Hb</td><td class="crit">DLCO &gt; LLN</td></tr>
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>DLCO mildly reduced</td><td class="crit">DLCO &lt; LLN
+DLCO z &minus;1.64 to &minus;2.5</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>DLCO moderately reduced</td><td class="crit">DLCO &lt; LLN
+DLCO z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>DLCO severely reduced</td><td class="crit">DLCO &lt; LLN
+DLCO z &lt; &minus;4</td></tr>
+</table>
+</div>
+
+<!-- ======================= FV LOOP ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Flow-volume loop</h2>
+<p class="sectnote">Limb truncation localizes upper-airway obstruction. All phrases end "…please correlate clinically."</p>
+<div class="domain">
+<table>
+<tr><th style="width:56%">Report phrase</th><th>Suggests</th></tr>
+<tr><td class="phrase">Truncation of the <b>inspiratory</b> limb</td><td class="crit">Variable <b>extrathoracic</b> obstruction</td></tr>
+<tr><td class="phrase">Truncation of the <b>expiratory</b> limb</td><td class="crit">Variable <b>intrathoracic</b> obstruction</td></tr>
+<tr><td class="phrase">Truncation of <b>both</b> limbs</td><td class="crit"><b>Fixed</b> airway obstruction</td></tr>
+<tr><td class="phrase"><b>Biphasic</b> pattern in both limbs</td><td class="crit">Unilateral mainstem bronchus obstruction</td></tr>
+</table>
+</div>
+
+<!-- ======================= LUNG VOLUMES ======================= -->
+<h2><span class="dot" style="background:var(--violet)"></span>Lung volumes</h2>
+<p class="sectnote">TLC defines restriction; RV/TLC distinguishes simple from complex and flags air-trapping/hyperinflation. Severity graded on TLC z-score (FEV<sub>1</sub> z-score for mixed defects).</p>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Lung volumes within normal limits</td><td class="crit">Normal TLC, RV and RV/TLC</td></tr>
+
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild simple restriction</td><td class="crit"><b>TLC &lt; LLN, RV/TLC &lt; ULN</b>
+TLC z &minus;1.64 to &minus;2.5</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate simple restriction</td><td class="crit">TLC &lt; LLN, RV/TLC &lt; ULN
+TLC z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe simple restriction</td><td class="crit">TLC &lt; LLN, RV/TLC &lt; ULN
+TLC z &lt; &minus;4</td></tr>
+
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild complex restriction</td><td class="crit"><b>TLC &lt; LLN, RV/TLC &gt; ULN</b>
+TLC z &minus;1.64 to &minus;2.5</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate complex restriction</td><td class="crit">TLC &lt; LLN, RV/TLC &gt; ULN
+TLC z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe complex restriction</td><td class="crit">TLC &lt; LLN, RV/TLC &gt; ULN
+TLC z &lt; &minus;4</td></tr>
+
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild mixed obstructive &amp; restrictive impairment</td><td class="crit"><b>FEV1/FVC &lt; LLN, TLC &lt; LLN</b>
+FEV1 z &minus;1.64 to &minus;2.5</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate mixed impairment</td><td class="crit">FEV1/FVC &lt; LLN, TLC &lt; LLN
+FEV1 z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe mixed impairment</td><td class="crit">FEV1/FVC &lt; LLN, TLC &lt; LLN
+FEV1 z &lt; &minus;4</td></tr>
+
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild non-specific ventilatory impairment</td><td class="crit"><b>FEV1/FVC &gt; LLN, TLC &gt; LLN</b>
+FEV1 and/or FVC &lt; LLN
+FEV1 z &minus;1.64 to &minus;2.5</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate NSVI</td><td class="crit">FEV1/FVC &gt; LLN, TLC &gt; LLN
+FEV1 and/or FVC &lt; LLN
+FEV1 z &minus;2.51 to &minus;4</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe NSVI</td><td class="crit">FEV1/FVC &gt; LLN, TLC &gt; LLN
+FEV1 and/or FVC &lt; LLN
+FEV1 z &lt; &minus;4</td></tr>
+
+<tr><td class="phrase"><span class="pill p-info">Trap</span>Air-trapping</td><td class="crit">FEV1/FVC &lt; LLN
+RV and/or RV/TLC &gt; ULN</td></tr>
+<tr><td class="phrase"><span class="pill p-info">Hyper</span>Hyperinflation</td><td class="crit">TLC &gt; ULN and RV/TLC &gt; ULN</td></tr>
+<tr><td class="phrase"><span class="pill p-info">Both</span>Air-trapping and hyperinflation</td><td class="crit">FEV1/FVC &lt; LLN
+TLC, RV and RV/TLC &gt; ULN</td></tr>
+</table>
+</div>
+
+<!-- ======================= BRONCHOPROVOCATION ======================= -->
+<h2><span class="dot" style="background:var(--pink)"></span>Bronchoprovocation tests</h2>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><b>Methacholine</b> — no airway hyperresponsiveness</td><td class="crit">Drop in FEV1 &lt; 20% with 400µg methacholine</td></tr>
+<tr><td class="phrase"><span class="pill p-info">Borderline</span>Methacholine — borderline AHR</td><td class="crit">PD20 101 – 400</td></tr>
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Methacholine — mild AHR</td><td class="crit">PD20 26 – 100</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Methacholine — moderate AHR</td><td class="crit">PD20 7 – 25</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Marked</span>Methacholine — marked AHR</td><td class="crit">PD20 ≤ 6</td></tr>
+<tr><td class="phrase">Significant decrease after diluent — methacholine not given</td><td class="crit">Drop in FEV1 &gt; 20% after diluent step</td></tr>
+<tr><td class="phrase"><b>Hypertonic saline</b> — no AHR</td><td class="crit">Drop in FEV1 &lt; 15%</td></tr>
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Hypertonic saline — mild AHR</td><td class="crit">FEV1 drop ≥ 15% and &gt; 6 ml saline</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Hypertonic saline — moderate AHR</td><td class="crit">FEV1 drop ≥ 15% and 2.1 – 6 ml saline</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Hypertonic saline — severe AHR</td><td class="crit">FEV1 drop ≥ 15% and ≤ 2 ml saline</td></tr>
+</table>
+</div>
+
+<!-- ======================= EXERCISE ======================= -->
+<h2><span class="dot" style="background:var(--pink)"></span>Exercise challenge test (EIB)</h2>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria (fall in FEV1)</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Neg</span>No evidence of exercise-induced bronchoconstriction</td><td class="crit">Drop in FEV1 &lt; 10%</td></tr>
+<tr><td class="phrase"><span class="pill p-mild">Mild</span>Mild EIB</td><td class="crit">Drop 10% to &lt; 25%</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Mod</span>Moderate EIB</td><td class="crit">Drop 25% to &lt; 50%</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Sev</span>Severe EIB</td><td class="crit">Drop ≥ 50%</td></tr>
+<tr><td class="phrase"><span class="pill p-info">Aborted</span>Test terminated early — patient unable to continue</td><td class="crit">—</td></tr>
+</table>
+</div>
+
+<!-- ======================= RESP MUSCLE ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Respiratory muscle strength</h2>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Maximal respiratory pressures within normal limits</td><td class="crit">Normal MIP / MEP</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Reduced</span>Maximal respiratory pressures lower than expected — correlate for respiratory muscle weakness</td><td class="crit">Reduced MIP and/or MEP
+(ideally &lt; LLN or &lt; 80% pred)</td></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Normal MVV</td><td class="crit">MVV &gt; LLN</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">Reduced</span>Reduced MVV</td><td class="crit">MVV &lt; LLN</td></tr>
+</table>
+</div>
+
+<!-- ======================= FeNO ======================= -->
+<h2><span class="dot" style="background:var(--teal)"></span>FeNO</h2>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria (ppb)</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Low</span>Low FeNO</td><td class="crit">FeNO &lt; 25</td></tr>
+<tr><td class="phrase"><span class="pill p-mod">Interm</span>Intermediate FeNO</td><td class="crit">FeNO 25 – 50</td></tr>
+<tr><td class="phrase"><span class="pill p-sev">High</span>High FeNO</td><td class="crit">FeNO &gt; 50</td></tr>
+</table>
+</div>
+
+<!-- ======================= OSCILLOMETRY ======================= -->
+<h2><span class="dot" style="background:var(--accent)"></span>Oscillometry</h2>
+<div class="domain">
+<table>
+<tr><th style="width:52%">Report phrase</th><th>Criteria</th></tr>
+<tr><td class="phrase"><span class="pill p-norm">Normal</span>Oscillometry within normal limits</td><td class="crit">Normal R5, X5, AX and R5-19</td></tr>
+<tr><td class="phrase"><span class="pill p-info">↑R</span>Increased respiratory system resistance</td><td class="crit">R5 &gt; ULN</td></tr>
+<tr><td class="phrase"><span class="pill p-info">Inhomog</span>Increased frequency dependence of resistance (R5-19) — possible ventilatory inhomogeneity</td><td class="crit">R5-19 &gt; 0.8</td></tr>
+<tr><td class="phrase"><span class="pill p-info">↓X</span>Increased reactance</td><td class="crit">X5 &lt; LLN and/or AX &gt; 8</td></tr>
+<tr><td class="phrase"><span class="pill p-pos">BD+</span>Significant bronchodilator response on oscillometry</td><td class="crit">Any ONE: R5 &minus;32%, X5 +44%, AX &minus;65%</td></tr>
+<tr><td class="phrase"><span class="pill p-norm">BD−</span>No significant bronchodilator response on oscillometry</td><td class="crit">None of: R5 &minus;32%, X5 +44%, AX &minus;65%</td></tr>
+</table>
+</div>
+
+<footer>
+  Generated from <i>"Updated SGH SKH Pulmonary Reporting Guide 210126"</i> (Edited Version). Reporting phrases and thresholds are institutional standards for lab reporting — always interpret in clinical context. Severity bands use GLI z-scores; BD response, methacholine and provocation criteria follow ERS/ATS 2022.
+</footer>
+
+</div>
+</body>
+</html>
