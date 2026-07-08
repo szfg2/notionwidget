@@ -202,6 +202,21 @@
   }
   .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
 
+  /* ask about this case */
+  .ask-card { border-color: var(--border-strong); }
+  .ask-note { font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
+  .thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .thread:empty { display: none; }
+  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; }
+  .msg.user { background: var(--surface-2); border: 1px solid var(--border); white-space: pre-wrap; }
+  .msg.assistant { background: #14211d; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .msg .who { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .msg.assistant .who { color: var(--accent); }
+  .ask-row { display: flex; gap: 10px; align-items: flex-end; }
+  .ask-row .field { flex: 1 1 auto; min-width: 0; }
+  textarea.ask-input { min-height: 56px; }
+  .ask-error { display: none; color: var(--danger); font-size: 12.5px; margin-bottom: 10px; white-space: pre-wrap; }
+
   /* reading topics — rendered markdown */
   .rich-output {
     background: #161616;
@@ -396,6 +411,24 @@
       <div class="rich-output md" id="topicsOut" style="display:none"></div>
     </div>
 
+    <!-- ASK ABOUT THIS CASE -->
+    <div class="card ask-card">
+      <div class="out-head">
+        <span class="eyebrow">Ask about this case</span>
+        <button class="ghost-btn" id="askClear" type="button">New conversation</button>
+      </div>
+      <p class="ask-note">Uses the case details and the generated blue letter as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.</p>
+      <div class="thread" id="thread"></div>
+      <div class="ask-error" id="askError"></div>
+      <div class="ask-row">
+        <div class="field">
+          <textarea class="ask-input" id="askInput" placeholder="e.g. What would make you drain this effusion now rather than observe?"></textarea>
+        </div>
+        <button class="generate" id="askBtn" type="button">Ask</button>
+      </div>
+      <div class="kbd-hint">Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.</div>
+    </div>
+
   </div>
 
   <!-- =========================  PREVIOUS PATIENTS  ========================= -->
@@ -437,13 +470,28 @@ const CONFIG = {
   MODEL: "claude-sonnet-4-6",
   LETTER_MAX_TOKENS: 8192,
   SUMMARY_MAX_TOKENS: 2048,
-  // Reading topics use the stronger model, same as the "Ask about this case"
-  // box in index.html, because teaching quality benefits from it.
+  // Reading topics + Ask use the stronger model, same as the "Ask about this
+  // case" box in index.html, because clinical reasoning benefits from it.
   TOPICS_MODEL: "claude-opus-4-8",
   TOPICS_MAX_TOKENS: 2048,
+  ASK_MODEL: "claude-opus-4-8",
+  ASK_MAX_TOKENS: 2048,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
 };
+
+/* Instruction that shapes the "Ask about this case" answers (matches index.html). */
+const ASK_SYSTEM =
+  "You are an experienced physician assisting a clinician at the bedside. " +
+  "Using the case information provided, answer the clinician's question concisely and practically. " +
+  "Where relevant, give a focused differential ranked by likelihood, the discriminating features for each, " +
+  "what would confirm or exclude them, and the immediate steps to consider. " +
+  "Reason only from the information given; explicitly flag important missing data rather than assuming it. " +
+  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.\n\n" +
+  "FORMAT: Be succinct and summarised. Answer in short bullet points (Markdown '-'), not paragraphs. " +
+  "Lead with the key point; keep each bullet to one line where possible and avoid filler. " +
+  "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
+  "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
 
 /* Instruction that shapes the "Suggest reading topics" output. */
 const TOPICS_SYSTEM =
@@ -773,6 +821,121 @@ $("topicsBtn").addEventListener("click", async () => {
     btn.classList.remove("is-cancel");
     btn.innerHTML = "Suggest reading topics";
   }
+});
+
+/* ============================================================== *
+ *  Ask about this case (multi-turn, grounded in the case boxes)  *
+ * ============================================================== */
+let askMessages = [];
+let askController = null;
+
+function showAskError(msg) { $("askError").textContent = msg; $("askError").style.display = "block"; }
+function clearAskError() { $("askError").style.display = "none"; $("askError").textContent = ""; }
+
+function renderThread() {
+  const thread = $("thread");
+  thread.innerHTML = "";
+  for (const m of askMessages) {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.role === "user" ? "You" : "Claude";
+    div.appendChild(who);
+    if (m.role === "assistant" && window.marked) {
+      const body = document.createElement("div");
+      body.className = "md";
+      body.innerHTML = marked.parse(m.content, { breaks: true });
+      div.appendChild(body);
+    } else {
+      div.appendChild(document.createTextNode(m.content));
+    }
+    thread.appendChild(div);
+  }
+  thread.scrollTop = thread.scrollHeight;
+}
+
+$("askClear").addEventListener("click", () => {
+  askMessages = []; renderThread(); clearAskError(); $("askInput").focus();
+});
+
+function setAskLoading(on) {
+  const btn = $("askBtn");
+  if (on) {
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+  } else {
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Ask";
+  }
+}
+
+$("askBtn").addEventListener("click", async () => {
+  if (askController) { askController.abort(); return; }
+
+  clearAskError();
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  const q = $("askInput").value.trim();
+  if (!key) { $("settingsBox").open = true; return showAskError("Add your Claude (Anthropic) API key in Settings first."); }
+  if (!q) return showAskError("Type a question first.");
+
+  askMessages.push({ role: "user", content: q });
+  renderThread();
+  $("askInput").value = "";
+  askController = new AbortController();
+  setAskLoading(true);
+
+  // Rebuild case context on every send so it reflects what's there now.
+  // De-identified content only — name/location are never sent.
+  const letter = $("output").value.trim();
+  const caseContext =
+    "PATIENT DETAILS:\n" + ($("pastMedical").value.trim() || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + ($("clinical").value.trim() || "(none provided)") +
+    (letter ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + letter : "");
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: askController.signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: CONFIG.ASK_MODEL,
+        max_tokens: CONFIG.ASK_MAX_TOKENS,
+        // Static instructions are the reusable prefix → cache them. The per-patient
+        // case context changes, so it goes in a separate, uncached block.
+        system: [
+          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+          { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+        ],
+        messages: askMessages.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    askMessages.push({ role: "assistant", content: text || "(No response.)" });
+    renderThread();
+  } catch (e) {
+    // Roll back the unanswered question so the thread stays valid, and restore it for a retry
+    askMessages.pop();
+    renderThread();
+    $("askInput").value = q;
+    if (e.name !== "AbortError") showAskError(e.message || String(e));  // cancel is silent
+  } finally {
+    askController = null;
+    setAskLoading(false);
+    $("askInput").focus();
+  }
+});
+
+// Ctrl/Cmd+Enter in the Ask box sends the question
+$("askInput").addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("askBtn").click(); }
 });
 
 /* ============================================================== *
