@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Respiratory Blue Letters</title>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --danger-bg: #2a1d18;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.app { margin-bottom: 22px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .sub a { color: var(--accent-strong); }
+
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 7px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+  input[type="password"], input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  input:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  textarea.input-box { min-height: 92px; }
+
+  .row2 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row2 .field { flex: 1 1 220px; min-width: 0; }
+
+  .hint { font-size: 12px; color: var(--faint); margin-top: 5px; }
+
+  .ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: color .12s, border-color .12s;
+    white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+  .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  /* settings */
+  details.settings summary { cursor: pointer; font-size: 13px; color: var(--accent-strong); list-style: none; user-select: none; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .settings-grid { margin-top: 12px; }
+  .settings-grid label.lbl { margin-top: 10px; }
+  .pill { font-size: 12px; color: var(--muted); }
+
+  /* de-id reminder */
+  .deid {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12.5px; color: var(--warn);
+    margin: -4px 2px 12px;
+  }
+  .deid .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+
+  /* tabs */
+  .mode-tabs { display: flex; gap: 6px; margin: 0 0 18px; }
+  .mode-tab {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 550;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+
+  /* generate button */
+  button.generate {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    height: 38px;
+    display: inline-flex; align-items: center; gap: 9px;
+    transition: background .12s ease, transform .06s ease;
+    white-space: nowrap;
+  }
+  button.generate:hover:not(:disabled) { background: var(--accent-strong); }
+  button.generate:active:not(:disabled) { transform: translateY(1px); }
+  button.generate:disabled { opacity: .5; cursor: not-allowed; }
+  button.generate.is-cancel { background: var(--danger); color: var(--accent-ink); }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  .spinner.grey { border-color: color-mix(in srgb, var(--muted) 35%, transparent); border-top-color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .gen-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+  .status.ok { color: var(--accent); }
+
+  .kbd-hint { font-size: 11px; color: var(--faint); }
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  .error {
+    display: none;
+    background: var(--danger-bg);
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+  }
+
+  /* output */
+  .out-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .out-head .eyebrow { margin: 0; }
+  textarea.output {
+    min-height: 360px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: #161616;
+  }
+  .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
+
+  /* previous patients table */
+  .table-scroll { overflow-x: auto; }
+  table.patients {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .patients th, .patients td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .patients th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .patients td.loc { white-space: nowrap; font-weight: 600; }
+  .patients td.name { white-space: nowrap; }
+  .patients td.summary { min-width: 320px; line-height: 1.45; }
+  .patients td.summary strong { color: var(--accent-strong); font-weight: 650; }
+  .patients td.jobs { min-width: 200px; }
+  .patients td.actions { white-space: nowrap; }
+  .patients textarea.jobbox {
+    min-height: 72px;
+    font-size: 13px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+  }
+  .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
+  .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
+  .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
+
+  tr.letter-row td {
+    background: #161616;
+    padding: 12px 14px;
+  }
+  .letter-pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 8px 0 0;
+    color: var(--text);
+  }
+  .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <h1>Respiratory Blue Letters</h1>
+    <p class="sub">Generate blue letter replies and keep a synced list of referred patients. <a href="index.html">Document Generator →</a> <a href="dictation.html">Dictation →</a></p>
+  </header>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <details class="settings" id="settingsBox">
+      <summary>⚙ Settings &amp; keys (set once per device — shared with your other pages)</summary>
+      <div class="settings-grid">
+        <label class="lbl">Anthropic (Claude) API key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with index.html and dictation.html (stored as <code>cdg_api_key</code>) — if you've used those pages, it's already filled.</div>
+
+        <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
+        <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with dictation.html, along with owner / repo / branch below.</div>
+
+        <div class="row2" style="margin-top:6px">
+          <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
+          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="notionwidget"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
+          <div class="field"><label class="lbl">Patient list file</label><input type="text" id="ghPath" placeholder="resblue-patients.json"></div>
+        </div>
+        <div class="hint">Keys live only in this browser (localStorage). The patient list is saved to the repo above as one JSON file shared across your devices. ⚠ In a <b>public</b> repo that file is publicly readable — use bed numbers / initials only, never real identifiers.</div>
+        <div class="gen-row" style="margin-top:10px">
+          <button class="ghost-btn" id="saveSettings" type="button">Save settings</button>
+          <span class="pill" id="settingsSaved"></span>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- TABS -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
+    <button class="mode-tab" id="tabPrev" type="button">Previous Patients</button>
+  </div>
+
+  <!-- =========================  CREATE NEW PATIENT  ========================= -->
+  <div id="createTab">
+
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label class="lbl" for="ptLocation">Location</label>
+          <input type="text" id="ptLocation" placeholder="e.g. W46 Bed 12" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="ptName">Name (bed / initials only)</label>
+          <input type="text" id="ptName" placeholder="e.g. TSH or 12A-34" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint">Location and name are only stored in your GitHub patient list — they are never sent to Claude.</div>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Past medical details</span>
+      <textarea class="input-box" id="pastMedical" placeholder="Background, respiratory history, PFTs, imaging, other PMH, referral reason…"></textarea>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
+      <textarea class="input-box" id="clinical" placeholder="Vitals, oxygen requirements, bloods, micro, imaging this admission…"></textarea>
+    </div>
+
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere.</span></p>
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="generate" id="generateBtn" type="button">Generate</button>
+        <span class="status" id="genStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the blue letter reply + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+    </div>
+
+    <div class="error" id="error"></div>
+
+    <div class="card">
+      <div class="out-head">
+        <span class="eyebrow">Blue letter reply</span>
+        <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+      </div>
+      <textarea class="output" id="output" placeholder="The generated blue letter reply appears here. You can edit it before copying." spellcheck="false"></textarea>
+      <div class="out-foot" id="count"></div>
+    </div>
+
+  </div>
+
+  <!-- =========================  PREVIOUS PATIENTS  ========================= -->
+  <div id="prevTab" style="display:none">
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <span class="status" id="listStatus"></span>
+      </div>
+      <div class="error" id="listError" style="margin:10px 0 0"></div>
+      <div class="table-scroll" style="margin-top:12px">
+        <table class="patients">
+          <thead>
+            <tr>
+              <th style="width:1%">Location</th>
+              <th style="width:1%">Name</th>
+              <th>Summarised history</th>
+              <th style="width:24%">Job list</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="ptBody"></tbody>
+        </table>
+        <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a blue letter reply in the Create New Patient tab and it will appear here.</div>
+      </div>
+      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. The list syncs across all your devices.</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* ============================================================== *
+ *  CONFIG                                                        *
+ * ============================================================== */
+const CONFIG = {
+  MODEL: "claude-sonnet-4-6",
+  LETTER_MAX_TOKENS: 8192,
+  SUMMARY_MAX_TOKENS: 2048,
+  LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
+  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
+};
+
+/* localStorage keys — Claude + GitHub settings shared with the other pages */
+const K = {
+  claude: "cdg_api_key",              // shared with index.html + dictation.html
+  ghToken: "dictation_gh_token",      // shared with dictation.html
+  ghOwner: "dictation_gh_owner",
+  ghRepo: "dictation_gh_repo",
+  ghBranch: "dictation_gh_branch",
+  path: "resblue_gh_path"             // this page's own file
+};
+
+const $ = (id) => document.getElementById(id);
+function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+let patients = [];          // local cache of the synced list (newest first)
+let genController = null;   // in-flight generate (for cancel)
+const jobTimers = new Map();
+
+/* ============================================================== *
+ *  Settings                                                      *
+ * ============================================================== */
+function loadSettings() {
+  $("claudeKey").value = get(K.claude);
+  $("ghToken").value = get(K.ghToken);
+  $("ghOwner").value = get(K.ghOwner) || "szfg2";
+  $("ghRepo").value = get(K.ghRepo) || "notionwidget";
+  $("ghBranch").value = get(K.ghBranch) || "main";
+  $("ghPath").value = get(K.path) || "resblue-patients.json";
+  if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
+}
+$("saveSettings").addEventListener("click", () => {
+  set(K.claude, $("claudeKey").value.trim());
+  set(K.ghToken, $("ghToken").value.trim());
+  set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
+  set(K.ghRepo, $("ghRepo").value.trim() || "notionwidget");
+  set(K.ghBranch, $("ghBranch").value.trim() || "main");
+  set(K.path, $("ghPath").value.trim() || "resblue-patients.json");
+  $("settingsSaved").textContent = "Saved ✓";
+  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1500);
+});
+
+/* ============================================================== *
+ *  Tabs                                                          *
+ * ============================================================== */
+function setTab(t) {
+  const prev = t === "prev";
+  $("tabPrev").classList.toggle("active", prev);
+  $("tabCreate").classList.toggle("active", !prev);
+  $("prevTab").style.display = prev ? "" : "none";
+  $("createTab").style.display = prev ? "none" : "";
+  if (prev && get(K.ghToken)) loadPatients(true);
+}
+$("tabCreate").addEventListener("click", () => setTab("create"));
+$("tabPrev").addEventListener("click", () => setTab("prev"));
+
+/* ============================================================== *
+ *  Helpers                                                       *
+ * ============================================================== */
+function showError(msg) { $("error").textContent = msg; $("error").style.display = "block"; }
+function clearError() { $("error").style.display = "none"; $("error").textContent = ""; }
+function showListError(msg) { $("listError").textContent = msg; $("listError").style.display = "block"; }
+function clearListError() { $("listError").style.display = "none"; $("listError").textContent = ""; }
+function setGenStatus(msg, ok) {
+  const el = $("genStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function setListStatus(msg, ok) {
+  const el = $("listStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+// **bold** + newlines -> safe HTML (matches the ward-round summary format)
+function summaryHtml(s) {
+  let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
+  return esc.replace(/\n/g, "<br>");
+}
+function updateCount() {
+  const t = $("output").value.trim();
+  $("count").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
+}
+$("output").addEventListener("input", updateCount);
+
+/* ============================================================== *
+ *  Claude API                                                    *
+ * ============================================================== */
+async function callClaude(key, system, userMessage, maxTokens, signal) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: CONFIG.MODEL,
+      max_tokens: maxTokens,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userMessage }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+}
+
+/* ============================================================== *
+ *  GitHub sync (single shared JSON file, sha-based overwrite)    *
+ * ============================================================== */
+function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+function ghCfg() {
+  return {
+    token: get(K.ghToken),
+    owner: get(K.ghOwner) || "szfg2",
+    repo: get(K.ghRepo) || "notionwidget",
+    branch: get(K.ghBranch) || "main",
+    path: (get(K.path) || "resblue-patients.json").replace(/^\/|\/$/g, "")
+  };
+}
+function ghUrl(c) { return "https://api.github.com/repos/" + c.owner + "/" + c.repo + "/contents/" + encodeURI(c.path); }
+function ghHeaders(c) {
+  const h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  if (c.token) h["Authorization"] = "Bearer " + c.token;
+  return h;
+}
+// Fetch the remote list. Returns { sha, list } — sha null if the file doesn't exist yet.
+async function getRemote() {
+  const c = ghCfg();
+  const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
+  if (res.status === 404) return { sha: null, list: [] };
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
+  let list = [];
+  try {
+    const text = decodeURIComponent(escape(atob((data.content || "").replace(/\n/g, ""))));
+    list = text.trim() ? JSON.parse(text) : [];
+    if (!Array.isArray(list)) list = [];
+  } catch (e) { list = []; }
+  return { sha: data.sha, list };
+}
+async function putRemote(list, sha, message) {
+  const c = ghCfg();
+  const body = { message, content: b64utf8(JSON.stringify(list, null, 2)), branch: c.branch };
+  if (sha) body.sha = sha;
+  const res = await fetch(ghUrl(c), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { const err = new Error(data.message || ("HTTP " + res.status)); err.status = res.status; throw err; }
+}
+// Fetch latest, apply mutator, save. Retries once with a fresh sha on conflict,
+// so a save from another device in between doesn't get clobbered or fail.
+async function mutateRemote(mutator, message) {
+  const c = ghCfg();
+  if (!c.token) throw new Error("Set your GitHub token in Settings first.");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { sha, list } = await getRemote();
+    const next = mutator(list);
+    try {
+      await putRemote(next, sha, message);
+      patients = next;
+      return;
+    } catch (e) {
+      if (attempt === 0 && (e.status === 409 || e.status === 422)) continue;
+      throw e;
+    }
+  }
+}
+
+/* ============================================================== *
+ *  Generate — letter + summary in parallel, then save            *
+ * ============================================================== */
+$("generateBtn").addEventListener("click", async () => {
+  if (genController) { genController.abort(); return; }
+
+  clearError();
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  if (!key) { $("settingsBox").open = true; return showError("Add your Claude (Anthropic) API key in Settings first."); }
+
+  const location = $("ptLocation").value.trim();
+  const name = $("ptName").value.trim();
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
+  if (!past && !clinical) return showError("Add some past medical details or clinical data.");
+
+  // Only the de-identified medical content is sent to Claude — never name/location.
+  const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
+
+  genController = new AbortController();
+  setLoading(true);
+  setGenStatus("Generating letter + summary…");
+  try {
+    const [letterSys, summarySys] = await Promise.all([
+      fetch(CONFIG.LETTER_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.LETTER_PROMPT); return r.text(); }),
+      fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
+    ]);
+
+    const [letter, summary] = await Promise.all([
+      callClaude(key, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal),
+      callClaude(key, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
+    ]);
+
+    $("output").value = letter || "(No text returned.)";
+    updateCount();
+
+    const record = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      created: new Date().toISOString(),
+      location, name,
+      pastMedical: past,
+      clinical,
+      letter: letter || "",
+      summary: summary || "",
+      jobs: ""
+    };
+
+    setGenStatus("Saving patient to GitHub…");
+    try {
+      await mutateRemote(list => [record, ...list], "Add blue letter patient: " + (name || location));
+      renderTable();
+      setGenStatus("Done ✓ — saved to Previous Patients", true);
+    } catch (e) {
+      setGenStatus("");
+      showError("Letter generated, but saving the patient failed: " + (e.message || e) +
+        "\nCheck your GitHub settings, then regenerate to save.");
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { clearError(); setGenStatus(""); }
+    else { setGenStatus(""); showError(e.message || String(e)); }
+  } finally {
+    genController = null;
+    setLoading(false);
+  }
+});
+
+function setLoading(on) {
+  const btn = $("generateBtn");
+  if (on) {
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+  } else {
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Generate";
+  }
+}
+
+// Ctrl/Cmd+Enter generates
+[$("ptLocation"), $("ptName"), $("pastMedical"), $("clinical")].forEach(el => {
+  el.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("generateBtn").click(); }
+  });
+});
+
+/* ============================================================== *
+ *  Copy                                                          *
+ * ============================================================== */
+$("copyBtn").addEventListener("click", async () => {
+  const t = $("output").value;
+  if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { $("output").select(); document.execCommand("copy"); }
+  flashCopied($("copyBtn"));
+});
+function flashCopied(btn, label) {
+  const orig = label || "Copy";
+  btn.textContent = "Copied ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1400);
+}
+
+/* ============================================================== *
+ *  Previous patients — table                                     *
+ * ============================================================== */
+async function loadPatients(auto) {
+  const c = ghCfg();
+  if (!c.token) { if (!auto) showListError("Set your GitHub token in Settings first."); return; }
+  clearListError();
+  setListStatus("Loading…");
+  try {
+    const { list } = await getRemote();
+    patients = list;
+    renderTable();
+    setListStatus("Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Couldn't load the patient list: " + (e.message || e));
+  }
+}
+$("refreshBtn").addEventListener("click", () => loadPatients(false));
+
+function timeNow() {
+  const t = new Date();
+  return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.getDate() + "/" + (d.getMonth() + 1) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function renderTable() {
+  const body = $("ptBody");
+  body.innerHTML = "";
+  $("emptyNote").style.display = patients.length ? "none" : "";
+  for (const p of patients) {
+    const tr = document.createElement("tr");
+
+    const tdLoc = document.createElement("td");
+    tdLoc.className = "loc";
+    tdLoc.textContent = p.location || "—";
+    tr.appendChild(tdLoc);
+
+    const tdName = document.createElement("td");
+    tdName.className = "name";
+    tdName.textContent = p.name || "—";
+    const meta = document.createElement("div");
+    meta.className = "rowmeta";
+    meta.textContent = fmtDate(p.created);
+    tdName.appendChild(meta);
+    tr.appendChild(tdName);
+
+    const tdSum = document.createElement("td");
+    tdSum.className = "summary";
+    tdSum.innerHTML = summaryHtml(p.summary || "");
+    tr.appendChild(tdSum);
+
+    const tdJobs = document.createElement("td");
+    tdJobs.className = "jobs";
+    const box = document.createElement("textarea");
+    box.className = "jobbox";
+    box.placeholder = "Jobs / to-dos…";
+    box.value = p.jobs || "";
+    box.addEventListener("input", () => queueJobSave(p.id, box.value));
+    tdJobs.appendChild(box);
+    tr.appendChild(tdJobs);
+
+    const tdAct = document.createElement("td");
+    tdAct.className = "actions";
+    const letterBtn = document.createElement("button");
+    letterBtn.className = "ghost-btn";
+    letterBtn.type = "button";
+    letterBtn.textContent = "Letter";
+    const delBtn = document.createElement("button");
+    delBtn.className = "ghost-btn danger";
+    delBtn.type = "button";
+    delBtn.textContent = "Delete";
+    tdAct.appendChild(letterBtn);
+    tdAct.appendChild(delBtn);
+    tr.appendChild(tdAct);
+    body.appendChild(tr);
+
+    // expandable letter row
+    const trLetter = document.createElement("tr");
+    trLetter.className = "letter-row";
+    trLetter.style.display = "none";
+    const tdLetter = document.createElement("td");
+    tdLetter.colSpan = 5;
+    const head = document.createElement("div");
+    head.className = "letter-head";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "eyebrow";
+    eyebrow.style.margin = "0";
+    eyebrow.textContent = "Blue letter reply";
+    const copyLetter = document.createElement("button");
+    copyLetter.className = "ghost-btn";
+    copyLetter.type = "button";
+    copyLetter.textContent = "Copy";
+    copyLetter.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(p.letter || ""); } catch (e) {}
+      flashCopied(copyLetter);
+    });
+    head.appendChild(eyebrow);
+    head.appendChild(copyLetter);
+    const pre = document.createElement("div");
+    pre.className = "letter-pre";
+    pre.textContent = p.letter || "(No letter stored.)";
+    tdLetter.appendChild(head);
+    tdLetter.appendChild(pre);
+    trLetter.appendChild(tdLetter);
+    body.appendChild(trLetter);
+
+    letterBtn.addEventListener("click", () => {
+      const open = trLetter.style.display !== "none";
+      trLetter.style.display = open ? "none" : "";
+      letterBtn.textContent = open ? "Letter" : "Hide";
+    });
+
+    delBtn.addEventListener("click", async () => {
+      const label = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
+      if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
+      delBtn.disabled = true;
+      setListStatus("Deleting…");
+      try {
+        await mutateRemote(list => list.filter(x => x.id !== p.id), "Remove blue letter patient: " + (p.name || p.location || p.id));
+        renderTable();
+        setListStatus("Deleted ✓", true);
+      } catch (e) {
+        delBtn.disabled = false;
+        setListStatus("");
+        showListError("Delete failed: " + (e.message || e));
+      }
+    });
+  }
+}
+
+/* ============================================================== *
+ *  Job list — debounced autosave                                 *
+ * ============================================================== */
+function queueJobSave(id, value) {
+  // keep local cache current so a re-render doesn't lose typing
+  const local = patients.find(p => p.id === id);
+  if (local) local.jobs = value;
+  if (jobTimers.has(id)) clearTimeout(jobTimers.get(id));
+  setListStatus("Editing…");
+  jobTimers.set(id, setTimeout(async () => {
+    jobTimers.delete(id);
+    setListStatus("Saving…");
+    try {
+      await mutateRemote(list => {
+        const rec = list.find(p => p.id === id);
+        if (rec) rec.jobs = value;
+        return list;
+      }, "Update job list");
+      // don't re-render here — it would replace the textarea mid-typing
+      setListStatus("Saved ✓ " + timeNow(), true);
+    } catch (e) {
+      setListStatus("");
+      showListError("Autosave failed: " + (e.message || e));
+    }
+  }, 1500));
+}
+
+/* ============================================================== *
+ *  Init                                                          *
+ * ============================================================== */
+loadSettings();
+if (get(K.ghToken)) loadPatients(true);
+</script>
+</body>
+</html>
