@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Respiratory Tools</title>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 820px;
+    padding: 40px 20px 56px;
+  }
+
+  header.app { text-align: center; margin-bottom: 30px; }
+  h1 {
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .sub { color: var(--muted); font-size: 13.5px; margin: 0; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+  }
+
+  a.tile {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 20px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .15s ease, background .15s ease, transform .12s ease;
+  }
+  a.tile:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+    transform: translateY(-2px);
+  }
+  a.tile:active { transform: translateY(0); }
+  a.tile:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .tile .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    transition: color .15s ease, background .15s ease;
+    flex: none;
+  }
+  a.tile:hover .icon {
+    color: var(--accent-strong);
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+  }
+  .tile .icon svg { width: 23px; height: 23px; }
+
+  .tile .name {
+    font-size: 15.5px;
+    font-weight: 620;
+    letter-spacing: -0.005em;
+    margin: 0;
+  }
+  .tile .desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 2px 0 0;
+    line-height: 1.45;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--faint);
+    font-size: 11.5px;
+    margin-top: 28px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <h1>Respiratory Tools</h1>
+    <p class="sub">Clinical documentation &amp; reference — pick a tool</p>
+  </header>
+
+  <nav class="grid">
+
+    <a class="tile" href="index.html">
+      <span class="icon" aria-hidden="true">
+        <!-- file-text -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 3v5h5"/>
+          <path d="M9 13h6M9 17h6M9 9h1.5"/>
+        </svg>
+      </span>
+      <span>
+        <span class="name">Document Generator</span>
+        <p class="desc">Generate or update clinical notes from patient details and a template</p>
+      </span>
+    </a>
+
+    <a class="tile" href="dictation.html">
+      <span class="icon" aria-hidden="true">
+        <!-- microphone -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="3" width="6" height="11" rx="3"/>
+          <path d="M5 11a7 7 0 0 0 14 0"/>
+          <path d="M12 18v3"/>
+        </svg>
+      </span>
+      <span>
+        <span class="name">Dictation</span>
+        <p class="desc">Record, transcribe and format dictated notes — synced via GitHub</p>
+      </span>
+    </a>
+
+    <a class="tile" href="pft.html">
+      <span class="icon" aria-hidden="true">
+        <!-- flow-volume loop -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20h16"/>
+          <path d="M4 20V5"/>
+          <path d="M6 18c1-8 3-12 6-12 4 0 6 7 6 12"/>
+          <path d="M6 18c4-1 8-1 12 0"/>
+        </svg>
+      </span>
+      <span>
+        <span class="name">PFT</span>
+        <p class="desc">Pulmonary function test interpretation and reporting</p>
+      </span>
+    </a>
+
+    <a class="tile" href="RESblue.html">
+      <span class="icon" aria-hidden="true">
+        <!-- envelope / letter -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+          <path d="m4.5 7 7.5 6 7.5-6"/>
+        </svg>
+      </span>
+      <span>
+        <span class="name">Blue Letters</span>
+        <p class="desc">Respiratory referral replies with a synced patient list &amp; job lists</p>
+      </span>
+    </a>
+
+    <a class="tile" href="RESClinic.html">
+      <span class="icon" aria-hidden="true">
+        <!-- stethoscope -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 3v5a5 5 0 0 0 10 0V3"/>
+          <path d="M5 3H4m2 0h1M15 3h-1m2 0h1"/>
+          <path d="M10 13v3a5 5 0 0 0 10 0v-1"/>
+          <circle cx="20" cy="13" r="2"/>
+        </svg>
+      </span>
+      <span>
+        <span class="name">Clinic Notes</span>
+        <p class="desc">RES SR clinic notes with updates, summaries &amp; job lists</p>
+      </span>
+    </a>
+
+  </nav>
+
+  <footer>De-identified data only — no names, NRIC, MRN or dates of birth</footer>
+
+</div>
+</body>
+</html>
