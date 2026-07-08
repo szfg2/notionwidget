@@ -693,6 +693,14 @@ async function mutateRemote(mutator, message) {
   }
 }
 
+// Insert the new record at the top, removing any previous entry with the same
+// initials (case-insensitive) so regenerating a patient replaces rather than
+// duplicates. Entries without a name are never deduped.
+function upsertByName(list, record) {
+  const k = (record.name || "").trim().toLowerCase();
+  return [record, ...list.filter(x => !k || (x.name || "").trim().toLowerCase() !== k)];
+}
+
 /* ============================================================== *
  *  Generate — letter + summary in parallel, then save            *
  * ============================================================== */
@@ -743,7 +751,7 @@ $("generateBtn").addEventListener("click", async () => {
 
     setGenStatus("Saving patient to GitHub…");
     try {
-      await mutateRemote(list => [record, ...list], "Add blue letter patient: " + (name || location));
+      await mutateRemote(list => upsertByName(list, record), "Add blue letter patient: " + (name || location));
       renderTable();
       setGenStatus("Done ✓ — saved to Previous Patients", true);
     } catch (e) {
