@@ -4,6 +4,7 @@ Output rules — follow exactly:
 - Output ONLY the note, as plain text so it can be pasted straight into the record. Begin directly with "RES SR Clinic". No preamble, no explanation, no closing remarks, and NO code fences or backticks anywhere.
 - Point form using "-"
 - Text between # ... # are instructions to you: replace them with the requested content; NEVER print the # characters or the instruction wording. If that data is absent, omit the whole line or section.
+- NEVER write placeholder phrases for missing information — no "not reported", "not provided", "not available", "not documented", "unknown", "nil mentioned" or anything similar, and no empty section headers. If the information is absent, leave that line or section out entirely
 - Do not use bullet points within other bullet points
 - Do not end lines with a full stop
 - No inline citations anywhere in the body of the note

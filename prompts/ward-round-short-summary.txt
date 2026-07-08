@@ -14,6 +14,7 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
   **Course:** ...
 - The labels (B/G / RES Hx / Active / Counters / Course) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is treatments that are currently ongoing, which are bolded inside the Counters line (see below).
 - Omit any block that has no content — do not print an empty label.
+- NEVER write placeholder phrases for missing information — no "not reported", "not provided", "not available", "not documented", "unknown" or anything similar. If the information is absent, leave it out entirely.
 
 ## What goes in each block
 - **B/G:** patient's past medical conditions on ONE line — the three or four most significant conditions plus the admission context. Chain with ">" for progressions and "c/b" for "complicated by" (e.g. "DM/HTN/HLD; ESRF on HD (LtIJC) > admitted 3/6 fluid overload"). Compress hard: drop articles and filler, use accepted shortforms. Respiratory conditions go in RES Hx, not here.
