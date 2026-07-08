@@ -269,6 +269,17 @@
   }
   .patients td.loc { white-space: nowrap; font-weight: 600; }
   .patients td.name { white-space: nowrap; }
+  .patients .editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color .12s;
+  }
+  .patients .editable:hover { border-bottom-color: var(--muted); }
+  .patients input.cell-edit {
+    width: 120px;
+    padding: 4px 7px;
+    font-size: 13px;
+  }
   .patients td.summary { min-width: 320px; line-height: 1.45; }
   .patients td.summary strong { color: var(--accent-strong); font-weight: 650; }
   .patients td.summary .refline {
@@ -978,6 +989,51 @@ function timeNow() {
   const t = new Date();
   return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
 }
+// Click-to-edit cell for location / name. Click swaps in an input; Enter or
+// clicking away commits and saves to GitHub, Escape cancels.
+function editableCell(td, p, field) {
+  const span = document.createElement("span");
+  span.className = "editable";
+  span.title = "Click to edit";
+  span.textContent = p[field] || "—";
+  span.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "cell-edit";
+    input.value = p[field] || "";
+    td.replaceChild(input, span);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      td.replaceChild(span, input);
+      if (!commit || v === (p[field] || "")) return;
+      p[field] = v;
+      span.textContent = v || "—";
+      setListStatus("Saving…");
+      mutateRemote(list => {
+        const rec = list.find(x => x.id === p.id);
+        if (rec) rec[field] = v;
+        return list;
+      }, "Update patient " + field).then(() => {
+        setListStatus("Saved ✓ " + timeNow(), true);
+      }).catch(e => {
+        setListStatus("");
+        showListError("Save failed: " + (e.message || e));
+      });
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+  });
+  td.appendChild(span);
+}
+
 // Pull the referral reason out of the stored blue letter — the template always
 // opens with "Thank you for your referral for <reason>".
 function referralOf(p) {
@@ -1000,12 +1056,12 @@ function renderTable() {
 
     const tdLoc = document.createElement("td");
     tdLoc.className = "loc";
-    tdLoc.textContent = p.location || "—";
+    editableCell(tdLoc, p, "location");
     tr.appendChild(tdLoc);
 
     const tdName = document.createElement("td");
     tdName.className = "name";
-    tdName.textContent = p.name || "—";
+    editableCell(tdName, p, "name");
     const meta = document.createElement("div");
     meta.className = "rowmeta";
     meta.textContent = fmtDate(p.created);
