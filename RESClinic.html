@@ -307,6 +307,26 @@
   }
   .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
+  /* per-patient "Update note" section inside the expanded note row */
+  .update-wrap {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .update-wrap textarea.update-box {
+    min-height: 64px;
+    font-size: 13px;
+    background: var(--surface-2);
+    margin-bottom: 8px;
+  }
+  .update-wrap .err {
+    display: none;
+    color: var(--danger);
+    font-size: 12.5px;
+    margin-top: 8px;
+    white-space: pre-wrap;
+  }
+
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
 </style>
 </head>
@@ -475,7 +495,8 @@ const CONFIG = {
   ASK_MODEL: "claude-opus-4-8",
   ASK_MAX_TOKENS: 2048,
   NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
-  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
+  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
+  UPDATE_PROMPT: "prompts/update-clinic-note.txt"
 };
 
 /* Instruction that shapes the "Ask about this case" answers (matches index.html). */
@@ -1100,6 +1121,85 @@ function renderTable() {
     pre.textContent = p.note || "(No note stored.)";
     tdNote.appendChild(head);
     tdNote.appendChild(pre);
+
+    // --- Update note: fold new reviews/results/scans into the stored note ---
+    const upWrap = document.createElement("div");
+    upWrap.className = "update-wrap";
+    const upLbl = document.createElement("span");
+    upLbl.className = "eyebrow";
+    upLbl.textContent = "Update this note";
+    const upBox = document.createElement("textarea");
+    upBox.className = "update-box";
+    upBox.placeholder = "New reviews, latest results, scans since this note… (de-identified)";
+    const upRow = document.createElement("div");
+    upRow.className = "gen-row";
+    const upBtn = document.createElement("button");
+    upBtn.className = "generate";
+    upBtn.type = "button";
+    upBtn.textContent = "Update note";
+    const upStatus = document.createElement("span");
+    upStatus.className = "status";
+    upRow.appendChild(upBtn);
+    upRow.appendChild(upStatus);
+    const upErr = document.createElement("div");
+    upErr.className = "err";
+    upWrap.appendChild(upLbl);
+    upWrap.appendChild(upBox);
+    upWrap.appendChild(upRow);
+    upWrap.appendChild(upErr);
+    tdNote.appendChild(upWrap);
+
+    let upController = null;
+    const showUpErr = (m) => { upErr.textContent = m; upErr.style.display = "block"; };
+    upBtn.addEventListener("click", async () => {
+      if (upController) { upController.abort(); return; }
+      upErr.style.display = "none"; upErr.textContent = "";
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      if (!key) { $("settingsBox").open = true; return showUpErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const updates = upBox.value.trim();
+      if (!updates) return showUpErr("Type the new reviews, results or scans first.");
+      if (!(p.note || "").trim()) return showUpErr("This patient has no stored note to update.");
+
+      upController = new AbortController();
+      upBtn.classList.add("is-cancel");
+      upBtn.innerHTML = '<span class="spinner"></span>Cancel';
+      upStatus.textContent = "Updating note…";
+      try {
+        const sysRes = await fetch(CONFIG.UPDATE_PROMPT, { cache: "no-store", signal: upController.signal });
+        if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.UPDATE_PROMPT);
+        const sys = await sysRes.text();
+        const userMessage =
+          "EXISTING CLINIC NOTE:\n" + p.note +
+          "\n\nLATEST UPDATES:\n" + updates;
+        const updated = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.NOTE_MAX_TOKENS, upController.signal);
+        if (!updated) throw new Error("No text returned.");
+
+        p.note = updated;
+        pre.textContent = updated;
+        upStatus.textContent = "Saving…";
+        await mutateRemote(list => {
+          const rec = list.find(x => x.id === p.id);
+          if (rec) rec.note = updated;
+          return list;
+        }, "Update clinic note: " + (p.name || p.id));
+        upBox.value = "";
+        upStatus.textContent = "Updated ✓ " + timeNow();
+        upStatus.classList.add("ok");
+        setTimeout(() => { upStatus.textContent = ""; upStatus.classList.remove("ok"); }, 4000);
+      } catch (e) {
+        upStatus.textContent = "";
+        if (e.name !== "AbortError") showUpErr("Update failed: " + (e.message || e));
+      } finally {
+        upController = null;
+        upBtn.classList.remove("is-cancel");
+        upBtn.innerHTML = "Update note";
+      }
+    });
+    // Ctrl/Cmd+Enter in the update box runs the update
+    upBox.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); upBtn.click(); }
+    });
+
     trNote.appendChild(tdNote);
     body.appendChild(trNote);
 
