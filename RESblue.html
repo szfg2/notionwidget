@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Respiratory Blue Letters</title>
+<script src="marked.min.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -201,6 +202,34 @@
   }
   .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
 
+  /* reading topics — rendered markdown */
+  .rich-output {
+    background: #161616;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    margin-top: 12px;
+  }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+  .md li { margin: 2px 0; }
+  .md li > ul, .md li > ol { margin: 2px 0; }
+  .md strong { color: var(--accent-strong); font-weight: 650; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; font-weight: 650; }
+  .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3 { font-size: 14px; } .md h4 { font-size: 13.5px; }
+  .md code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .md a { color: var(--accent-strong); }
+  .md blockquote { margin: 6px 0; padding: 2px 12px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+  .md table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 12.5px; }
+  .md th, .md td { border: 1px solid var(--border-strong); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .md th { background: var(--surface-2); font-weight: 600; }
+
   /* previous patients table */
   .table-scroll { overflow-x: auto; }
   table.patients {
@@ -227,6 +256,12 @@
   .patients td.name { white-space: nowrap; }
   .patients td.summary { min-width: 320px; line-height: 1.45; }
   .patients td.summary strong { color: var(--accent-strong); font-weight: 650; }
+  .patients td.summary .refline {
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .patients td.summary .refline strong { color: var(--warn); }
   .patients td.jobs { min-width: 200px; }
   .patients td.actions { white-space: nowrap; }
   .patients textarea.jobbox {
@@ -349,6 +384,18 @@
       <div class="out-foot" id="count"></div>
     </div>
 
+    <!-- READING TOPICS -->
+    <div class="card">
+      <span class="eyebrow">Learn from this case</span>
+      <div class="gen-row">
+        <button class="generate" id="topicsBtn" type="button">Suggest reading topics</button>
+        <span class="status" id="topicsStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px">Suggests focused respiratory topics to read up on, based on the case and the generated letter. Nothing identifying is sent.</div>
+      <div class="error" id="topicsError" style="margin:12px 0 0"></div>
+      <div class="rich-output md" id="topicsOut" style="display:none"></div>
+    </div>
+
   </div>
 
   <!-- =========================  PREVIOUS PATIENTS  ========================= -->
@@ -390,9 +437,27 @@ const CONFIG = {
   MODEL: "claude-sonnet-4-6",
   LETTER_MAX_TOKENS: 8192,
   SUMMARY_MAX_TOKENS: 2048,
+  // Reading topics use the stronger model, same as the "Ask about this case"
+  // box in index.html, because teaching quality benefits from it.
+  TOPICS_MODEL: "claude-opus-4-8",
+  TOPICS_MAX_TOKENS: 2048,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
 };
+
+/* Instruction that shapes the "Suggest reading topics" output. */
+const TOPICS_SYSTEM =
+  "You are a respiratory and critical care consultant mentoring a respiratory registrar. " +
+  "From the case provided, pick 3-5 focused reading topics that would most improve the registrar's " +
+  "respiratory knowledge relevant to THIS case — mechanisms, diagnostics, or management decisions the case turns on. " +
+  "Prefer topics with genuine depth (physiology, evidence, guideline nuance) over generic revision headings.\n\n" +
+  "FORMAT (Markdown):\n" +
+  "- One bullet per topic.\n" +
+  "- Each bullet starts with the topic as bold text, then a colon, then 1-2 sentences on why it matters " +
+  "for this case and what specifically to focus on.\n" +
+  "- Where a major guideline or landmark trial is directly relevant, name it in the bullet (e.g. BTS/ERS/ATS " +
+  "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
+  "- Output ONLY the bullets — no preamble, no closing remarks.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
 const K = {
@@ -485,7 +550,7 @@ $("output").addEventListener("input", updateCount);
 /* ============================================================== *
  *  Claude API                                                    *
  * ============================================================== */
-async function callClaude(key, system, userMessage, maxTokens, signal) {
+async function callClaude(key, model, system, userMessage, maxTokens, signal) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     signal,
@@ -496,7 +561,7 @@ async function callClaude(key, system, userMessage, maxTokens, signal) {
       "anthropic-dangerous-direct-browser-access": "true"
     },
     body: JSON.stringify({
-      model: CONFIG.MODEL,
+      model,
       max_tokens: maxTokens,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userMessage }]
@@ -598,8 +663,8 @@ $("generateBtn").addEventListener("click", async () => {
     ]);
 
     const [letter, summary] = await Promise.all([
-      callClaude(key, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal),
-      callClaude(key, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
+      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal),
+      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
     ]);
 
     $("output").value = letter || "(No text returned.)";
@@ -654,6 +719,63 @@ function setLoading(on) {
 });
 
 /* ============================================================== *
+ *  Suggest reading topics                                        *
+ * ============================================================== */
+let topicsController = null;
+
+$("topicsBtn").addEventListener("click", async () => {
+  if (topicsController) { topicsController.abort(); return; }
+
+  const errEl = $("topicsError");
+  errEl.style.display = "none"; errEl.textContent = "";
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  if (!key) {
+    $("settingsBox").open = true;
+    errEl.textContent = "Add your Claude (Anthropic) API key in Settings first.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  const letter = $("output").value.trim();
+  if (!past && !clinical && !letter) {
+    errEl.textContent = "Nothing to work from — add case details or generate a blue letter reply first.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  // De-identified case content only — name/location are never sent.
+  const caseContext =
+    "PATIENT DETAILS:\n" + (past || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + (clinical || "(none provided)") +
+    (letter ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + letter : "");
+
+  topicsController = new AbortController();
+  const btn = $("topicsBtn");
+  btn.classList.add("is-cancel");
+  btn.innerHTML = '<span class="spinner"></span>Cancel';
+  $("topicsStatus").textContent = "Thinking…";
+  try {
+    const text = await callClaude(key, CONFIG.TOPICS_MODEL, TOPICS_SYSTEM, caseContext, CONFIG.TOPICS_MAX_TOKENS, topicsController.signal);
+    const out = $("topicsOut");
+    out.innerHTML = window.marked ? marked.parse(text || "(No response.)", { breaks: true }) : escapeHtml(text);
+    out.style.display = "";
+    $("topicsStatus").textContent = "";
+  } catch (e) {
+    $("topicsStatus").textContent = "";
+    if (e.name !== "AbortError") {
+      errEl.textContent = e.message || String(e);
+      errEl.style.display = "block";
+    }
+  } finally {
+    topicsController = null;
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Suggest reading topics";
+  }
+});
+
+/* ============================================================== *
  *  Copy                                                          *
  * ============================================================== */
 $("copyBtn").addEventListener("click", async () => {
@@ -693,6 +815,13 @@ function timeNow() {
   const t = new Date();
   return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
 }
+// Pull the referral reason out of the stored blue letter — the template always
+// opens with "Thank you for your referral for <reason>".
+function referralOf(p) {
+  const m = (p.letter || "").match(/thank you for (?:your |the )?referral (?:for|of|regarding)\s*(.+)/i);
+  return m ? m[1].trim() : "";
+}
+
 function fmtDate(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return "";
@@ -722,7 +851,10 @@ function renderTable() {
 
     const tdSum = document.createElement("td");
     tdSum.className = "summary";
-    tdSum.innerHTML = summaryHtml(p.summary || "");
+    const ref = referralOf(p);
+    tdSum.innerHTML =
+      (ref ? '<div class="refline"><strong>Referral:</strong> ' + escapeHtml(ref) + "</div>" : "") +
+      summaryHtml(p.summary || "");
     tr.appendChild(tdSum);
 
     const tdJobs = document.createElement("td");
