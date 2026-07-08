@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Respiratory Clinic Notes</title>
+<script src="marked.min.js"></script>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --danger-bg: #2a1d18;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.app { margin-bottom: 22px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .sub a { color: var(--accent-strong); }
+
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 7px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+  input[type="password"], input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  input:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  textarea.input-box { min-height: 92px; }
+
+  .row2 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row2 .field { flex: 1 1 220px; min-width: 0; }
+
+  .hint { font-size: 12px; color: var(--faint); margin-top: 5px; }
+
+  .ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: color .12s, border-color .12s;
+    white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+  .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  /* settings */
+  details.settings summary { cursor: pointer; font-size: 13px; color: var(--accent-strong); list-style: none; user-select: none; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .settings-grid { margin-top: 12px; }
+  .settings-grid label.lbl { margin-top: 10px; }
+  .pill { font-size: 12px; color: var(--muted); }
+
+  /* de-id reminder */
+  .deid {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12.5px; color: var(--warn);
+    margin: -4px 2px 12px;
+  }
+  .deid .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+
+  /* tabs */
+  .mode-tabs { display: flex; gap: 6px; margin: 0 0 18px; }
+  .mode-tab {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 550;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+
+  /* generate button */
+  button.generate {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    height: 38px;
+    display: inline-flex; align-items: center; gap: 9px;
+    transition: background .12s ease, transform .06s ease;
+    white-space: nowrap;
+  }
+  button.generate:hover:not(:disabled) { background: var(--accent-strong); }
+  button.generate:active:not(:disabled) { transform: translateY(1px); }
+  button.generate:disabled { opacity: .5; cursor: not-allowed; }
+  button.generate.is-cancel { background: var(--danger); color: var(--accent-ink); }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .gen-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+  .status.ok { color: var(--accent); }
+
+  .kbd-hint { font-size: 11px; color: var(--faint); }
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  .error {
+    display: none;
+    background: var(--danger-bg);
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+  }
+
+  /* output */
+  .out-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .out-head .eyebrow { margin: 0; }
+  textarea.output {
+    min-height: 360px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: #161616;
+  }
+  .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
+
+  /* ask about this case */
+  .ask-card { border-color: var(--border-strong); }
+  .ask-note { font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
+  .thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .thread:empty { display: none; }
+  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; }
+  .msg.user { background: var(--surface-2); border: 1px solid var(--border); white-space: pre-wrap; }
+  .msg.assistant { background: #14211d; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .msg .who { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .msg.assistant .who { color: var(--accent); }
+  .ask-row { display: flex; gap: 10px; align-items: flex-end; }
+  .ask-row .field { flex: 1 1 auto; min-width: 0; }
+  textarea.ask-input { min-height: 56px; }
+  .ask-error { display: none; color: var(--danger); font-size: 12.5px; margin-bottom: 10px; white-space: pre-wrap; }
+
+  /* reading topics — rendered markdown */
+  .rich-output {
+    background: #161616;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    margin-top: 12px;
+  }
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+  .md li { margin: 2px 0; }
+  .md li > ul, .md li > ol { margin: 2px 0; }
+  .md strong { color: var(--accent-strong); font-weight: 650; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; font-weight: 650; }
+  .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3 { font-size: 14px; } .md h4 { font-size: 13.5px; }
+  .md code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .md a { color: var(--accent-strong); }
+  .md blockquote { margin: 6px 0; padding: 2px 12px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+  .md table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 12.5px; }
+  .md th, .md td { border: 1px solid var(--border-strong); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .md th { background: var(--surface-2); font-weight: 600; }
+
+  /* previous patients table */
+  .table-scroll { overflow-x: auto; }
+  table.patients {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .patients th, .patients td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .patients th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .patients td.name { white-space: nowrap; font-weight: 600; }
+  .patients .editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color .12s;
+  }
+  .patients .editable:hover { border-bottom-color: var(--muted); }
+  .patients input.cell-edit {
+    width: 120px;
+    padding: 4px 7px;
+    font-size: 13px;
+  }
+  .patients td.summary { min-width: 320px; line-height: 1.45; }
+  .patients td.summary strong { color: var(--accent-strong); font-weight: 650; }
+  .patients td.jobs { min-width: 200px; }
+  .patients td.actions { white-space: nowrap; }
+  .patients textarea.jobbox {
+    min-height: 72px;
+    font-size: 13px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+  }
+  .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
+  .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
+  .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
+
+  tr.letter-row td {
+    background: #161616;
+    padding: 12px 14px;
+  }
+  .letter-pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 8px 0 0;
+    color: var(--text);
+  }
+  .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <h1>Respiratory Clinic Notes</h1>
+    <p class="sub">Generate clinic notes and keep a synced list of clinic patients. <a href="RESblue.html">Blue Letters →</a> <a href="index.html">Document Generator →</a> <a href="dictation.html">Dictation →</a></p>
+  </header>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <details class="settings" id="settingsBox">
+      <summary>⚙ Settings &amp; keys (set once per device — shared with your other pages)</summary>
+      <div class="settings-grid">
+        <label class="lbl">Anthropic (Claude) API key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with index.html, dictation.html and RESblue.html (stored as <code>cdg_api_key</code>) — if you've used those pages, it's already filled.</div>
+
+        <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
+        <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with dictation.html and RESblue.html, along with owner / repo / branch below.</div>
+
+        <div class="row2" style="margin-top:6px">
+          <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
+          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="notionwidget"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
+          <div class="field"><label class="lbl">Patient list file</label><input type="text" id="ghPath" placeholder="resclinic-patients.json"></div>
+        </div>
+        <div class="hint">Keys live only in this browser (localStorage). The patient list is saved to the repo above as one JSON file shared across your devices. ⚠ In a <b>public</b> repo that file is publicly readable — use initials only, never real identifiers.</div>
+        <div class="gen-row" style="margin-top:10px">
+          <button class="ghost-btn" id="saveSettings" type="button">Save settings</button>
+          <span class="pill" id="settingsSaved"></span>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- TABS -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
+    <button class="mode-tab" id="tabPrev" type="button">Previous Patients</button>
+  </div>
+
+  <!-- =========================  CREATE NEW PATIENT  ========================= -->
+  <div id="createTab">
+
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label class="lbl" for="ptName">Name (initials only)</label>
+          <input type="text" id="ptName" placeholder="e.g. TSH" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint">The name is only stored in your GitHub patient list — it is never sent to Claude.</div>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Past medical details</span>
+      <textarea class="input-box" id="pastMedical" placeholder="Background, respiratory history, PFTs, imaging, other PMH, reason for clinic review…"></textarea>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
+      <textarea class="input-box" id="clinical" placeholder="Interval history, current symptoms, spirometry, bloods, imaging since last visit…"></textarea>
+    </div>
+
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials only, everywhere.</span></p>
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="generate" id="generateBtn" type="button">Generate</button>
+        <span class="status" id="genStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the clinic note + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+    </div>
+
+    <div class="error" id="error"></div>
+
+    <div class="card">
+      <div class="out-head">
+        <span class="eyebrow">Clinic note</span>
+        <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+      </div>
+      <textarea class="output" id="output" placeholder="The generated clinic note appears here. You can edit it before copying." spellcheck="false"></textarea>
+      <div class="out-foot" id="count"></div>
+    </div>
+
+    <!-- READING TOPICS -->
+    <div class="card">
+      <span class="eyebrow">Learn from this case</span>
+      <div class="gen-row">
+        <button class="generate" id="topicsBtn" type="button">Suggest reading topics</button>
+        <span class="status" id="topicsStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px">Suggests focused respiratory topics to read up on, based on the case and the generated note. Nothing identifying is sent.</div>
+      <div class="error" id="topicsError" style="margin:12px 0 0"></div>
+      <div class="rich-output md" id="topicsOut" style="display:none"></div>
+    </div>
+
+    <!-- ASK ABOUT THIS CASE -->
+    <div class="card ask-card">
+      <div class="out-head">
+        <span class="eyebrow">Ask about this case</span>
+        <button class="ghost-btn" id="askClear" type="button">New conversation</button>
+      </div>
+      <p class="ask-note">Uses the case details and the generated clinic note as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.</p>
+      <div class="thread" id="thread"></div>
+      <div class="ask-error" id="askError"></div>
+      <div class="ask-row">
+        <div class="field">
+          <textarea class="ask-input" id="askInput" placeholder="e.g. Would you escalate inhaled therapy at this visit or reassess in 3 months?"></textarea>
+        </div>
+        <button class="generate" id="askBtn" type="button">Ask</button>
+      </div>
+      <div class="kbd-hint">Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.</div>
+    </div>
+
+  </div>
+
+  <!-- =========================  PREVIOUS PATIENTS  ========================= -->
+  <div id="prevTab" style="display:none">
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <span class="status" id="listStatus"></span>
+      </div>
+      <div class="error" id="listError" style="margin:10px 0 0"></div>
+      <div class="table-scroll" style="margin-top:12px">
+        <table class="patients">
+          <thead>
+            <tr>
+              <th style="width:1%">Name</th>
+              <th>Summarised history</th>
+              <th style="width:24%">Job list</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="ptBody"></tbody>
+        </table>
+        <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a clinic note in the Create New Patient tab and it will appear here.</div>
+      </div>
+      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices.</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* ============================================================== *
+ *  CONFIG                                                        *
+ * ============================================================== */
+const CONFIG = {
+  MODEL: "claude-sonnet-4-6",
+  NOTE_MAX_TOKENS: 8192,
+  SUMMARY_MAX_TOKENS: 2048,
+  // Reading topics + Ask use the stronger model, same as the "Ask about this
+  // case" box in index.html, because clinical reasoning benefits from it.
+  TOPICS_MODEL: "claude-opus-4-8",
+  TOPICS_MAX_TOKENS: 2048,
+  ASK_MODEL: "claude-opus-4-8",
+  ASK_MAX_TOKENS: 2048,
+  NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
+  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
+};
+
+/* Instruction that shapes the "Ask about this case" answers (matches index.html). */
+const ASK_SYSTEM =
+  "You are an experienced physician assisting a clinician at the bedside. " +
+  "Using the case information provided, answer the clinician's question concisely and practically. " +
+  "Where relevant, give a focused differential ranked by likelihood, the discriminating features for each, " +
+  "what would confirm or exclude them, and the immediate steps to consider. " +
+  "Reason only from the information given; explicitly flag important missing data rather than assuming it. " +
+  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.\n\n" +
+  "FORMAT: Be succinct and summarised. Answer in short bullet points (Markdown '-'), not paragraphs. " +
+  "Lead with the key point; keep each bullet to one line where possible and avoid filler. " +
+  "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
+  "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
+
+/* Instruction that shapes the "Suggest reading topics" output. */
+const TOPICS_SYSTEM =
+  "You are a respiratory and critical care consultant mentoring a respiratory registrar. " +
+  "From the case provided, pick 3-5 focused reading topics that would most improve the registrar's " +
+  "respiratory knowledge relevant to THIS case — mechanisms, diagnostics, or management decisions the case turns on. " +
+  "Prefer topics with genuine depth (physiology, evidence, guideline nuance) over generic revision headings.\n\n" +
+  "FORMAT (Markdown):\n" +
+  "- One bullet per topic.\n" +
+  "- Each bullet starts with the topic as bold text, then a colon, then 1-2 sentences on why it matters " +
+  "for this case and what specifically to focus on.\n" +
+  "- Where a major guideline or landmark trial is directly relevant, name it in the bullet (e.g. BTS/ERS/ATS " +
+  "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
+  "- Output ONLY the bullets — no preamble, no closing remarks.";
+
+/* localStorage keys — Claude + GitHub settings shared with the other pages */
+const K = {
+  claude: "cdg_api_key",              // shared with index.html + dictation.html + RESblue.html
+  ghToken: "dictation_gh_token",      // shared with dictation.html + RESblue.html
+  ghOwner: "dictation_gh_owner",
+  ghRepo: "dictation_gh_repo",
+  ghBranch: "dictation_gh_branch",
+  path: "resclinic_gh_path"           // this page's own file
+};
+
+const $ = (id) => document.getElementById(id);
+function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+let patients = [];          // local cache of the synced list (newest first)
+let genController = null;   // in-flight generate (for cancel)
+const jobTimers = new Map();
+
+/* ============================================================== *
+ *  Settings                                                      *
+ * ============================================================== */
+function loadSettings() {
+  $("claudeKey").value = get(K.claude);
+  $("ghToken").value = get(K.ghToken);
+  $("ghOwner").value = get(K.ghOwner) || "szfg2";
+  $("ghRepo").value = get(K.ghRepo) || "notionwidget";
+  $("ghBranch").value = get(K.ghBranch) || "main";
+  $("ghPath").value = get(K.path) || "resclinic-patients.json";
+  if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
+}
+$("saveSettings").addEventListener("click", () => {
+  set(K.claude, $("claudeKey").value.trim());
+  set(K.ghToken, $("ghToken").value.trim());
+  set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
+  set(K.ghRepo, $("ghRepo").value.trim() || "notionwidget");
+  set(K.ghBranch, $("ghBranch").value.trim() || "main");
+  set(K.path, $("ghPath").value.trim() || "resclinic-patients.json");
+  $("settingsSaved").textContent = "Saved ✓";
+  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1500);
+});
+
+/* ============================================================== *
+ *  Tabs                                                          *
+ * ============================================================== */
+function setTab(t) {
+  const prev = t === "prev";
+  $("tabPrev").classList.toggle("active", prev);
+  $("tabCreate").classList.toggle("active", !prev);
+  $("prevTab").style.display = prev ? "" : "none";
+  $("createTab").style.display = prev ? "none" : "";
+  if (prev && get(K.ghToken)) loadPatients(true);
+}
+$("tabCreate").addEventListener("click", () => setTab("create"));
+$("tabPrev").addEventListener("click", () => setTab("prev"));
+
+/* ============================================================== *
+ *  Helpers                                                       *
+ * ============================================================== */
+function showError(msg) { $("error").textContent = msg; $("error").style.display = "block"; }
+function clearError() { $("error").style.display = "none"; $("error").textContent = ""; }
+function showListError(msg) { $("listError").textContent = msg; $("listError").style.display = "block"; }
+function clearListError() { $("listError").style.display = "none"; $("listError").textContent = ""; }
+function setGenStatus(msg, ok) {
+  const el = $("genStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function setListStatus(msg, ok) {
+  const el = $("listStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+// **bold** + newlines -> safe HTML (matches the ward-round summary format)
+function summaryHtml(s) {
+  let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
+  return esc.replace(/\n/g, "<br>");
+}
+function updateCount() {
+  const t = $("output").value.trim();
+  $("count").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
+}
+$("output").addEventListener("input", updateCount);
+
+/* ============================================================== *
+ *  Claude API                                                    *
+ * ============================================================== */
+async function callClaude(key, model, system, userMessage, maxTokens, signal) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userMessage }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+}
+
+/* ============================================================== *
+ *  GitHub sync (single shared JSON file, sha-based overwrite)    *
+ * ============================================================== */
+function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+function ghCfg() {
+  return {
+    token: get(K.ghToken),
+    owner: get(K.ghOwner) || "szfg2",
+    repo: get(K.ghRepo) || "notionwidget",
+    branch: get(K.ghBranch) || "main",
+    path: (get(K.path) || "resclinic-patients.json").replace(/^\/|\/$/g, "")
+  };
+}
+function ghUrl(c) { return "https://api.github.com/repos/" + c.owner + "/" + c.repo + "/contents/" + encodeURI(c.path); }
+function ghHeaders(c) {
+  const h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  if (c.token) h["Authorization"] = "Bearer " + c.token;
+  return h;
+}
+// Fetch the remote list. Returns { sha, list } — sha null if the file doesn't exist yet.
+async function getRemote() {
+  const c = ghCfg();
+  const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
+  if (res.status === 404) return { sha: null, list: [] };
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
+  let list = [];
+  try {
+    const text = decodeURIComponent(escape(atob((data.content || "").replace(/\n/g, ""))));
+    list = text.trim() ? JSON.parse(text) : [];
+    if (!Array.isArray(list)) list = [];
+  } catch (e) { list = []; }
+  return { sha: data.sha, list };
+}
+async function putRemote(list, sha, message) {
+  const c = ghCfg();
+  const body = { message, content: b64utf8(JSON.stringify(list, null, 2)), branch: c.branch };
+  if (sha) body.sha = sha;
+  const res = await fetch(ghUrl(c), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { const err = new Error(data.message || ("HTTP " + res.status)); err.status = res.status; throw err; }
+}
+// Fetch latest, apply mutator, save. Retries once with a fresh sha on conflict,
+// so a save from another device in between doesn't get clobbered or fail.
+async function mutateRemote(mutator, message) {
+  const c = ghCfg();
+  if (!c.token) throw new Error("Set your GitHub token in Settings first.");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { sha, list } = await getRemote();
+    const next = mutator(list);
+    try {
+      await putRemote(next, sha, message);
+      patients = next;
+      return;
+    } catch (e) {
+      if (attempt === 0 && (e.status === 409 || e.status === 422)) continue;
+      throw e;
+    }
+  }
+}
+
+/* ============================================================== *
+ *  Generate — note + summary in parallel, then save              *
+ * ============================================================== */
+$("generateBtn").addEventListener("click", async () => {
+  if (genController) { genController.abort(); return; }
+
+  clearError();
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  if (!key) { $("settingsBox").open = true; return showError("Add your Claude (Anthropic) API key in Settings first."); }
+
+  const name = $("ptName").value.trim();
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  if (!name) return showError("Add a name (initials) so the patient can be identified in the list.");
+  if (!past && !clinical) return showError("Add some past medical details or clinical data.");
+
+  // Only the de-identified medical content is sent to Claude — never the name.
+  const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
+
+  genController = new AbortController();
+  setLoading(true);
+  setGenStatus("Generating note + summary…");
+  try {
+    const [noteSys, summarySys] = await Promise.all([
+      fetch(CONFIG.NOTE_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.NOTE_PROMPT); return r.text(); }),
+      fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
+    ]);
+
+    const [note, summary] = await Promise.all([
+      callClaude(key, CONFIG.MODEL, noteSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal),
+      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
+    ]);
+
+    $("output").value = note || "(No text returned.)";
+    updateCount();
+
+    const record = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      created: new Date().toISOString(),
+      name,
+      pastMedical: past,
+      clinical,
+      note: note || "",
+      summary: summary || "",
+      jobs: ""
+    };
+
+    setGenStatus("Saving patient to GitHub…");
+    try {
+      await mutateRemote(list => [record, ...list], "Add clinic patient: " + name);
+      renderTable();
+      setGenStatus("Done ✓ — saved to Previous Patients", true);
+    } catch (e) {
+      setGenStatus("");
+      showError("Note generated, but saving the patient failed: " + (e.message || e) +
+        "\nCheck your GitHub settings, then regenerate to save.");
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { clearError(); setGenStatus(""); }
+    else { setGenStatus(""); showError(e.message || String(e)); }
+  } finally {
+    genController = null;
+    setLoading(false);
+  }
+});
+
+function setLoading(on) {
+  const btn = $("generateBtn");
+  if (on) {
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+  } else {
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Generate";
+  }
+}
+
+// Ctrl/Cmd+Enter generates
+[$("ptName"), $("pastMedical"), $("clinical")].forEach(el => {
+  el.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("generateBtn").click(); }
+  });
+});
+
+/* ============================================================== *
+ *  Ask about this case (multi-turn, grounded in the case boxes)  *
+ * ============================================================== */
+let askMessages = [];
+let askController = null;
+
+function showAskError(msg) { $("askError").textContent = msg; $("askError").style.display = "block"; }
+function clearAskError() { $("askError").style.display = "none"; $("askError").textContent = ""; }
+
+function renderThread() {
+  const thread = $("thread");
+  thread.innerHTML = "";
+  for (const m of askMessages) {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.role === "user" ? "You" : "Claude";
+    div.appendChild(who);
+    if (m.role === "assistant" && window.marked) {
+      const body = document.createElement("div");
+      body.className = "md";
+      body.innerHTML = marked.parse(m.content, { breaks: true });
+      div.appendChild(body);
+    } else {
+      div.appendChild(document.createTextNode(m.content));
+    }
+    thread.appendChild(div);
+  }
+  thread.scrollTop = thread.scrollHeight;
+}
+
+$("askClear").addEventListener("click", () => {
+  askMessages = []; renderThread(); clearAskError(); $("askInput").focus();
+});
+
+function setAskLoading(on) {
+  const btn = $("askBtn");
+  if (on) {
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+  } else {
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Ask";
+  }
+}
+
+$("askBtn").addEventListener("click", async () => {
+  if (askController) { askController.abort(); return; }
+
+  clearAskError();
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  const q = $("askInput").value.trim();
+  if (!key) { $("settingsBox").open = true; return showAskError("Add your Claude (Anthropic) API key in Settings first."); }
+  if (!q) return showAskError("Type a question first.");
+
+  askMessages.push({ role: "user", content: q });
+  renderThread();
+  $("askInput").value = "";
+  askController = new AbortController();
+  setAskLoading(true);
+
+  // Rebuild case context on every send so it reflects what's there now.
+  // De-identified content only — the name is never sent.
+  const note = $("output").value.trim();
+  const caseContext =
+    "PATIENT DETAILS:\n" + ($("pastMedical").value.trim() || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + ($("clinical").value.trim() || "(none provided)") +
+    (note ? "\n\nCLINIC NOTE (assessment & plan):\n" + note : "");
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: askController.signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: CONFIG.ASK_MODEL,
+        max_tokens: CONFIG.ASK_MAX_TOKENS,
+        // Static instructions are the reusable prefix → cache them. The per-patient
+        // case context changes, so it goes in a separate, uncached block.
+        system: [
+          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+          { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+        ],
+        messages: askMessages.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    askMessages.push({ role: "assistant", content: text || "(No response.)" });
+    renderThread();
+  } catch (e) {
+    // Roll back the unanswered question so the thread stays valid, and restore it for a retry
+    askMessages.pop();
+    renderThread();
+    $("askInput").value = q;
+    if (e.name !== "AbortError") showAskError(e.message || String(e));  // cancel is silent
+  } finally {
+    askController = null;
+    setAskLoading(false);
+    $("askInput").focus();
+  }
+});
+
+// Ctrl/Cmd+Enter in the Ask box sends the question
+$("askInput").addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("askBtn").click(); }
+});
+
+/* ============================================================== *
+ *  Suggest reading topics                                        *
+ * ============================================================== */
+let topicsController = null;
+
+$("topicsBtn").addEventListener("click", async () => {
+  if (topicsController) { topicsController.abort(); return; }
+
+  const errEl = $("topicsError");
+  errEl.style.display = "none"; errEl.textContent = "";
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  if (!key) {
+    $("settingsBox").open = true;
+    errEl.textContent = "Add your Claude (Anthropic) API key in Settings first.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  const note = $("output").value.trim();
+  if (!past && !clinical && !note) {
+    errEl.textContent = "Nothing to work from — add case details or generate a clinic note first.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  // De-identified case content only — the name is never sent.
+  const caseContext =
+    "PATIENT DETAILS:\n" + (past || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + (clinical || "(none provided)") +
+    (note ? "\n\nCLINIC NOTE (assessment & plan):\n" + note : "");
+
+  topicsController = new AbortController();
+  const btn = $("topicsBtn");
+  btn.classList.add("is-cancel");
+  btn.innerHTML = '<span class="spinner"></span>Cancel';
+  $("topicsStatus").textContent = "Thinking…";
+  try {
+    const text = await callClaude(key, CONFIG.TOPICS_MODEL, TOPICS_SYSTEM, caseContext, CONFIG.TOPICS_MAX_TOKENS, topicsController.signal);
+    const out = $("topicsOut");
+    out.innerHTML = window.marked ? marked.parse(text || "(No response.)", { breaks: true }) : escapeHtml(text);
+    out.style.display = "";
+    $("topicsStatus").textContent = "";
+  } catch (e) {
+    $("topicsStatus").textContent = "";
+    if (e.name !== "AbortError") {
+      errEl.textContent = e.message || String(e);
+      errEl.style.display = "block";
+    }
+  } finally {
+    topicsController = null;
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Suggest reading topics";
+  }
+});
+
+/* ============================================================== *
+ *  Copy                                                          *
+ * ============================================================== */
+$("copyBtn").addEventListener("click", async () => {
+  const t = $("output").value;
+  if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { $("output").select(); document.execCommand("copy"); }
+  flashCopied($("copyBtn"));
+});
+function flashCopied(btn, label) {
+  const orig = label || "Copy";
+  btn.textContent = "Copied ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1400);
+}
+
+/* ============================================================== *
+ *  Previous patients — table                                     *
+ * ============================================================== */
+async function loadPatients(auto) {
+  const c = ghCfg();
+  if (!c.token) { if (!auto) showListError("Set your GitHub token in Settings first."); return; }
+  clearListError();
+  setListStatus("Loading…");
+  try {
+    const { list } = await getRemote();
+    patients = list;
+    renderTable();
+    setListStatus("Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Couldn't load the patient list: " + (e.message || e));
+  }
+}
+$("refreshBtn").addEventListener("click", () => loadPatients(false));
+
+function timeNow() {
+  const t = new Date();
+  return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+}
+
+// Click-to-edit cell for the name. Click swaps in an input; Enter or clicking
+// away commits and saves to GitHub, Escape cancels.
+function editableCell(td, p, field) {
+  const span = document.createElement("span");
+  span.className = "editable";
+  span.title = "Click to edit";
+  span.textContent = p[field] || "—";
+  span.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "cell-edit";
+    input.value = p[field] || "";
+    td.replaceChild(input, span);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      td.replaceChild(span, input);
+      if (!commit || v === (p[field] || "")) return;
+      p[field] = v;
+      span.textContent = v || "—";
+      setListStatus("Saving…");
+      mutateRemote(list => {
+        const rec = list.find(x => x.id === p.id);
+        if (rec) rec[field] = v;
+        return list;
+      }, "Update patient " + field).then(() => {
+        setListStatus("Saved ✓ " + timeNow(), true);
+      }).catch(e => {
+        setListStatus("");
+        showListError("Save failed: " + (e.message || e));
+      });
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+  });
+  td.appendChild(span);
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.getDate() + "/" + (d.getMonth() + 1) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function renderTable() {
+  const body = $("ptBody");
+  body.innerHTML = "";
+  $("emptyNote").style.display = patients.length ? "none" : "";
+  for (const p of patients) {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.className = "name";
+    editableCell(tdName, p, "name");
+    const meta = document.createElement("div");
+    meta.className = "rowmeta";
+    meta.textContent = fmtDate(p.created);
+    tdName.appendChild(meta);
+    tr.appendChild(tdName);
+
+    const tdSum = document.createElement("td");
+    tdSum.className = "summary";
+    tdSum.innerHTML = summaryHtml(p.summary || "");
+    tr.appendChild(tdSum);
+
+    const tdJobs = document.createElement("td");
+    tdJobs.className = "jobs";
+    const box = document.createElement("textarea");
+    box.className = "jobbox";
+    box.placeholder = "Jobs / to-dos…";
+    box.value = p.jobs || "";
+    box.addEventListener("input", () => queueJobSave(p.id, box.value));
+    tdJobs.appendChild(box);
+    tr.appendChild(tdJobs);
+
+    const tdAct = document.createElement("td");
+    tdAct.className = "actions";
+    const noteBtn = document.createElement("button");
+    noteBtn.className = "ghost-btn";
+    noteBtn.type = "button";
+    noteBtn.textContent = "Note";
+    const delBtn = document.createElement("button");
+    delBtn.className = "ghost-btn danger";
+    delBtn.type = "button";
+    delBtn.textContent = "Delete";
+    tdAct.appendChild(noteBtn);
+    tdAct.appendChild(delBtn);
+    tr.appendChild(tdAct);
+    body.appendChild(tr);
+
+    // expandable note row
+    const trNote = document.createElement("tr");
+    trNote.className = "letter-row";
+    trNote.style.display = "none";
+    const tdNote = document.createElement("td");
+    tdNote.colSpan = 4;
+    const head = document.createElement("div");
+    head.className = "letter-head";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "eyebrow";
+    eyebrow.style.margin = "0";
+    eyebrow.textContent = "Clinic note";
+    const copyNote = document.createElement("button");
+    copyNote.className = "ghost-btn";
+    copyNote.type = "button";
+    copyNote.textContent = "Copy";
+    copyNote.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(p.note || ""); } catch (e) {}
+      flashCopied(copyNote);
+    });
+    head.appendChild(eyebrow);
+    head.appendChild(copyNote);
+    const pre = document.createElement("div");
+    pre.className = "letter-pre";
+    pre.textContent = p.note || "(No note stored.)";
+    tdNote.appendChild(head);
+    tdNote.appendChild(pre);
+    trNote.appendChild(tdNote);
+    body.appendChild(trNote);
+
+    noteBtn.addEventListener("click", () => {
+      const open = trNote.style.display !== "none";
+      trNote.style.display = open ? "none" : "";
+      noteBtn.textContent = open ? "Note" : "Hide";
+    });
+
+    delBtn.addEventListener("click", async () => {
+      const label = p.name || "this patient";
+      if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
+      delBtn.disabled = true;
+      setListStatus("Deleting…");
+      try {
+        await mutateRemote(list => list.filter(x => x.id !== p.id), "Remove clinic patient: " + (p.name || p.id));
+        renderTable();
+        setListStatus("Deleted ✓", true);
+      } catch (e) {
+        delBtn.disabled = false;
+        setListStatus("");
+        showListError("Delete failed: " + (e.message || e));
+      }
+    });
+  }
+}
+
+/* ============================================================== *
+ *  Job list — debounced autosave                                 *
+ * ============================================================== */
+function queueJobSave(id, value) {
+  // keep local cache current so a re-render doesn't lose typing
+  const local = patients.find(p => p.id === id);
+  if (local) local.jobs = value;
+  if (jobTimers.has(id)) clearTimeout(jobTimers.get(id));
+  setListStatus("Editing…");
+  jobTimers.set(id, setTimeout(async () => {
+    jobTimers.delete(id);
+    setListStatus("Saving…");
+    try {
+      await mutateRemote(list => {
+        const rec = list.find(p => p.id === id);
+        if (rec) rec.jobs = value;
+        return list;
+      }, "Update job list");
+      // don't re-render here — it would replace the textarea mid-typing
+      setListStatus("Saved ✓ " + timeNow(), true);
+    } catch (e) {
+      setListStatus("");
+      showListError("Autosave failed: " + (e.message || e));
+    }
+  }, 1500));
+}
+
+/* ============================================================== *
+ *  Init                                                          *
+ * ============================================================== */
+loadSettings();
+if (get(K.ghToken)) loadPatients(true);
+</script>
+</body>
+</html>
