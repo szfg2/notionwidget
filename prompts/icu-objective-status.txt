@@ -1,0 +1,20 @@
+## Context
+Extract a structured ICU objective status block from the clinical data provided. This feeds a small table cell on an ICU rounding list, so compress hard — one line per system, latest values only.
+
+## Output format — follow exactly
+- Output as PLAIN TEXT only — no markdown, no bold, no code fences or backticks, no preamble, no closing remarks.
+- Produce one line per letter, in this order: B, C, D, E, F, G, H, I. Each line starts with the letter, a colon and a space.
+- What goes on each line:
+  B: breathing — latest SpO2 with the oxygen device, or ventilator mode and settings (e.g. "B: Sats 99% on ACPC Fi 0.5 PEEP 10", "B: Sats 95% on HFNC 50/0.4")
+  C: circulation — latest BP and heart rate, plus any vasopressor/inotrope and dose (e.g. "C: 120/80 HR 88 on Norad 0.02"). If off vasopressors state "off Norad" only if a recent wean is documented
+  D: disability — GCS in E V M form, plus sedative/analgesic infusions and doses (e.g. "D: GCS E1VTM5, Propofol 120mg/h + Fentanyl 25mcg/h")
+  E: electrolytes — latest urea, sodium, potassium, then glucose/CBG readings (e.g. "E: Urea 7 Na 130 K 4.9; CBG 6 > 6 > 7")
+  F: fluids — latest intake, output and net balance, and whether on CRRT/HD (e.g. "F: Intake 570 Output 780 Net -210; on CRRT")
+  G: gastro/liver — latest ALP, ALT, AST, plus bilirubin only if abnormal (e.g. "G: ALP 120 ALT 30 AST 32")
+  H: haematology — latest Hb; add platelets or WBC only if clearly abnormal (e.g. "H: Hb 8.9, Plt 60")
+  I: infection — current and recent antibiotics/antifungals with start and stop dates or day counts (e.g. "I: Tazocin 6/7 — current; Augmentin 1/7–5/7")
+- OMIT any line that has no data — do not print an empty letter.
+- NEVER write placeholder phrases for missing information — no "not reported", "not available", "unknown" or anything similar. If the information is absent, leave that line out entirely.
+- Use ONLY information explicitly stated. Never infer or estimate values.
+- Multiple readings for one parameter go oldest → newest separated by " > ".
+- Dates as d/m. No laboratory units, no (H)/(L) flags.
