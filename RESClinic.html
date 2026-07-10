@@ -328,6 +328,34 @@
     white-space: pre-wrap;
   }
 
+  /* editable stored note */
+  textarea.note-edit {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    background: var(--surface-2);
+    margin-top: 8px;
+    min-height: 120px;
+    overflow: hidden;
+  }
+
+  /* memo generator inside the expanded note row */
+  .memo-wrap textarea.memo-input {
+    min-height: 56px;
+    font-size: 13px;
+    background: var(--surface-2);
+    margin-bottom: 8px;
+  }
+  .memo-outwrap { margin-top: 12px; }
+  textarea.memo-output {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    background: var(--surface-2);
+    min-height: 150px;
+    margin-top: 7px;
+  }
+
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
 </style>
 </head>
@@ -457,6 +485,8 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="hideAllBtn" type="button">Hide all notes</button>
+        <button class="ghost-btn danger" id="deleteAllBtn" type="button">Delete all patients</button>
         <span class="status" id="listStatus"></span>
       </div>
       <div class="error" id="listError" style="margin:10px 0 0"></div>
@@ -474,7 +504,7 @@
         </table>
         <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a clinic note in the Create New Patient tab and it will appear here.</div>
       </div>
-      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices.</div>
+      <div class="out-foot">Job list and note edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices.</div>
     </div>
 
   </div>
@@ -495,6 +525,7 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 2048,
   ASK_MODEL: "claude-opus-4-8",
   ASK_MAX_TOKENS: 2048,
+  MEMO_MAX_TOKENS: 1024,
   NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
   UPDATE_PROMPT: "prompts/update-clinic-note.txt"
@@ -526,6 +557,22 @@ const TOPICS_SYSTEM =
   "- Where a major guideline or landmark trial is directly relevant, name it in the bullet (e.g. BTS/ERS/ATS " +
   "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
   "- Output ONLY the bullets — no preamble, no closing remarks.";
+
+/* Instruction that shapes the referral memo generated from a stored note. */
+const MEMO_SYSTEM =
+  "You are a respiratory senior resident writing a short referral memo to accompany a patient. " +
+  "The clinician will tell you who the memo is addressed to, the reason for referral, and any instructions " +
+  "for the recipient. Using the case information provided, write the memo in PLAIN TEXT only (no markdown), " +
+  "short and succinct, with exactly this structure:\n\n" +
+  "Dear [recipient],\n\n" +
+  "Thank you for seeing the above patient who presented with [presenting complaint]. " +
+  "The patient has B/G [summarised past medical history]. We have treated for [summarised issues this episode].\n\n" +
+  "[One or two short lines stating the reason for referral and what the recipient is asked to do, " +
+  "based on the clinician's instructions.]\n\n" +
+  "Many thanks for your following care\n\n" +
+  "Samuel Goh\nRES SR\nSengkang General Hospital\n\n" +
+  "Rules: keep each bracketed section to one or two concise sentences — summarise, don't copy the note. " +
+  "No patient identifiers. Output ONLY the memo text, with no preamble or explanation.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
 const K = {
@@ -1084,14 +1131,14 @@ function renderTable() {
     box.className = "jobbox";
     box.placeholder = "Jobs / to-dos…";
     box.value = p.jobs || "";
-    box.addEventListener("input", () => queueJobSave(p.id, box.value));
+    box.addEventListener("input", () => queueFieldSave(p.id, "jobs", box.value, "Update job list"));
     tdJobs.appendChild(box);
     tr.appendChild(tdJobs);
 
     const tdAct = document.createElement("td");
     tdAct.className = "actions";
     const noteBtn = document.createElement("button");
-    noteBtn.className = "ghost-btn";
+    noteBtn.className = "ghost-btn note-toggle";
     noteBtn.type = "button";
     noteBtn.textContent = "Note";
     const delBtn = document.createElement("button");
@@ -1119,17 +1166,23 @@ function renderTable() {
     copyNote.className = "ghost-btn";
     copyNote.type = "button";
     copyNote.textContent = "Copy";
-    copyNote.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(p.note || ""); } catch (e) {}
-      flashCopied(copyNote);
-    });
     head.appendChild(eyebrow);
     head.appendChild(copyNote);
-    const pre = document.createElement("div");
-    pre.className = "letter-pre";
-    pre.textContent = p.note || "(No note stored.)";
+    const noteBox = document.createElement("textarea");
+    noteBox.className = "note-edit";
+    noteBox.placeholder = "(No note stored.)";
+    noteBox.value = p.note || "";
+    noteBox.spellcheck = false;
+    noteBox.addEventListener("input", () => {
+      autoGrow(noteBox);
+      queueFieldSave(p.id, "note", noteBox.value, "Edit clinic note: " + (p.name || p.id));
+    });
+    copyNote.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(noteBox.value); } catch (e) {}
+      flashCopied(copyNote);
+    });
     tdNote.appendChild(head);
-    tdNote.appendChild(pre);
+    tdNote.appendChild(noteBox);
 
     // --- Update note: fold new reviews/results/scans into the stored note ---
     const upWrap = document.createElement("div");
@@ -1167,7 +1220,7 @@ function renderTable() {
       if (!key) { $("settingsBox").open = true; return showUpErr("Add your Claude (Anthropic) API key in Settings first."); }
       const updates = upBox.value.trim();
       if (!updates) return showUpErr("Type the new reviews, results or scans first.");
-      if (!(p.note || "").trim()) return showUpErr("This patient has no stored note to update.");
+      if (!noteBox.value.trim()) return showUpErr("This patient has no stored note to update.");
 
       upController = new AbortController();
       upBtn.classList.add("is-cancel");
@@ -1178,13 +1231,14 @@ function renderTable() {
         if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.UPDATE_PROMPT);
         const sys = await sysRes.text();
         const userMessage =
-          "EXISTING CLINIC NOTE:\n" + p.note +
+          "EXISTING CLINIC NOTE:\n" + noteBox.value.trim() +
           "\n\nLATEST UPDATES:\n" + updates;
         const updated = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.NOTE_MAX_TOKENS, upController.signal);
         if (!updated) throw new Error("No text returned.");
 
         p.note = updated;
-        pre.textContent = updated;
+        noteBox.value = updated;
+        autoGrow(noteBox);
         upStatus.textContent = "Saving…";
         await mutateRemote(list => {
           const rec = list.find(x => x.id === p.id);
@@ -1209,6 +1263,104 @@ function renderTable() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); upBtn.click(); }
     });
 
+    // --- Generate memo: short plain-text referral memo from the stored note ---
+    const memoWrap = document.createElement("div");
+    memoWrap.className = "update-wrap memo-wrap";
+    const memoLbl = document.createElement("span");
+    memoLbl.className = "eyebrow";
+    memoLbl.textContent = "Generate memo";
+    const memoBox = document.createElement("textarea");
+    memoBox.className = "memo-input";
+    memoBox.placeholder = "Who the memo is to, reason for referral, and instructions… e.g. \"To Cardiology — instruct to review for TTE and optimise heart failure therapy\"";
+    const memoRow = document.createElement("div");
+    memoRow.className = "gen-row";
+    const memoBtn = document.createElement("button");
+    memoBtn.className = "generate";
+    memoBtn.type = "button";
+    memoBtn.textContent = "Generate memo";
+    const memoStatus = document.createElement("span");
+    memoStatus.className = "status";
+    memoRow.appendChild(memoBtn);
+    memoRow.appendChild(memoStatus);
+    const memoErr = document.createElement("div");
+    memoErr.className = "err";
+    const memoOutWrap = document.createElement("div");
+    memoOutWrap.className = "memo-outwrap";
+    memoOutWrap.style.display = "none";
+    const memoOutHead = document.createElement("div");
+    memoOutHead.className = "letter-head";
+    const memoOutLbl = document.createElement("span");
+    memoOutLbl.className = "eyebrow";
+    memoOutLbl.style.margin = "0";
+    memoOutLbl.textContent = "Memo";
+    const memoCopy = document.createElement("button");
+    memoCopy.className = "ghost-btn";
+    memoCopy.type = "button";
+    memoCopy.textContent = "Copy";
+    memoOutHead.appendChild(memoOutLbl);
+    memoOutHead.appendChild(memoCopy);
+    const memoOut = document.createElement("textarea");
+    memoOut.className = "memo-output";
+    memoOut.spellcheck = false;
+    memoOut.placeholder = "The generated memo appears here. You can edit it before copying.";
+    memoOut.addEventListener("input", () => autoGrow(memoOut));
+    memoOutWrap.appendChild(memoOutHead);
+    memoOutWrap.appendChild(memoOut);
+    memoCopy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(memoOut.value); } catch (e) {}
+      flashCopied(memoCopy);
+    });
+    memoWrap.appendChild(memoLbl);
+    memoWrap.appendChild(memoBox);
+    memoWrap.appendChild(memoRow);
+    memoWrap.appendChild(memoErr);
+    memoWrap.appendChild(memoOutWrap);
+    tdNote.appendChild(memoWrap);
+
+    let memoController = null;
+    const showMemoErr = (m) => { memoErr.textContent = m; memoErr.style.display = "block"; };
+    memoBtn.addEventListener("click", async () => {
+      if (memoController) { memoController.abort(); return; }
+      memoErr.style.display = "none"; memoErr.textContent = "";
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      if (!key) { $("settingsBox").open = true; return showMemoErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const request = memoBox.value.trim();
+      if (!request) return showMemoErr("Type who the memo is to, the reason for referral, and any instructions first.");
+
+      // De-identified content only — the name is never sent.
+      const userMessage =
+        "RECIPIENT / REASON FOR REFERRAL / INSTRUCTIONS:\n" + request +
+        "\n\nCLINIC NOTE:\n" + (noteBox.value.trim() || "(none)") +
+        "\n\nPAST MEDICAL DETAILS:\n" + ((p.pastMedical || "").trim() || "(none)") +
+        "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none)");
+
+      memoController = new AbortController();
+      memoBtn.classList.add("is-cancel");
+      memoBtn.innerHTML = '<span class="spinner"></span>Cancel';
+      memoStatus.textContent = "Writing memo…";
+      try {
+        const memo = await callClaude(key, CONFIG.MODEL, MEMO_SYSTEM, userMessage, CONFIG.MEMO_MAX_TOKENS, memoController.signal);
+        if (!memo) throw new Error("No text returned.");
+        memoOut.value = memo;
+        memoOutWrap.style.display = "";
+        autoGrow(memoOut);
+        memoStatus.textContent = "Done ✓";
+        memoStatus.classList.add("ok");
+        setTimeout(() => { memoStatus.textContent = ""; memoStatus.classList.remove("ok"); }, 3000);
+      } catch (e) {
+        memoStatus.textContent = "";
+        if (e.name !== "AbortError") showMemoErr("Memo failed: " + (e.message || e));
+      } finally {
+        memoController = null;
+        memoBtn.classList.remove("is-cancel");
+        memoBtn.innerHTML = "Generate memo";
+      }
+    });
+    // Ctrl/Cmd+Enter in the memo box generates the memo
+    memoBox.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); memoBtn.click(); }
+    });
+
     trNote.appendChild(tdNote);
     body.appendChild(trNote);
 
@@ -1216,6 +1368,7 @@ function renderTable() {
       const open = trNote.style.display !== "none";
       trNote.style.display = open ? "none" : "";
       noteBtn.textContent = open ? "Note" : "Hide";
+      if (!open) { autoGrow(noteBox); if (memoOutWrap.style.display !== "none") autoGrow(memoOut); }
     });
 
     delBtn.addEventListener("click", async () => {
@@ -1237,23 +1390,24 @@ function renderTable() {
 }
 
 /* ============================================================== *
- *  Job list — debounced autosave                                 *
+ *  Debounced field autosave (job list + note edits)              *
  * ============================================================== */
-function queueJobSave(id, value) {
+function queueFieldSave(id, field, value, message) {
   // keep local cache current so a re-render doesn't lose typing
   const local = patients.find(p => p.id === id);
-  if (local) local.jobs = value;
-  if (jobTimers.has(id)) clearTimeout(jobTimers.get(id));
+  if (local) local[field] = value;
+  const tkey = id + ":" + field;
+  if (jobTimers.has(tkey)) clearTimeout(jobTimers.get(tkey));
   setListStatus("Editing…");
-  jobTimers.set(id, setTimeout(async () => {
-    jobTimers.delete(id);
+  jobTimers.set(tkey, setTimeout(async () => {
+    jobTimers.delete(tkey);
     setListStatus("Saving…");
     try {
       await mutateRemote(list => {
         const rec = list.find(p => p.id === id);
-        if (rec) rec.jobs = value;
+        if (rec) rec[field] = value;
         return list;
-      }, "Update job list");
+      }, message);
       // don't re-render here — it would replace the textarea mid-typing
       setListStatus("Saved ✓ " + timeNow(), true);
     } catch (e) {
@@ -1262,6 +1416,39 @@ function queueJobSave(id, value) {
     }
   }, 1500));
 }
+
+// Grow a textarea to fit its content (used for the note + memo boxes)
+function autoGrow(el) {
+  el.style.height = "auto";
+  el.style.height = Math.max(el.scrollHeight + 2, 120) + "px";
+}
+
+/* ============================================================== *
+ *  Hide all notes / Delete all patients                          *
+ * ============================================================== */
+$("hideAllBtn").addEventListener("click", () => {
+  document.querySelectorAll("#ptBody tr.letter-row").forEach(tr => { tr.style.display = "none"; });
+  document.querySelectorAll("#ptBody button.note-toggle").forEach(b => { b.textContent = "Note"; });
+});
+
+$("deleteAllBtn").addEventListener("click", async () => {
+  if (!patients.length) { setListStatus("Nothing to delete."); return; }
+  const n = patients.length;
+  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the list?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
+  clearListError();
+  $("deleteAllBtn").disabled = true;
+  setListStatus("Deleting all…");
+  try {
+    await mutateRemote(() => [], "Delete all clinic patients");
+    renderTable();
+    setListStatus("All patients deleted ✓", true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Delete all failed: " + (e.message || e));
+  } finally {
+    $("deleteAllBtn").disabled = false;
+  }
+});
 
 /* ============================================================== *
  *  Init                                                          *
