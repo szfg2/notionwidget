@@ -1,0 +1,1507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>General Ward Round List</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<script src="marked.min.js"></script>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --danger-bg: #2a1d18;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  /* list tab uses the full screen width */
+  .wrap.full { max-width: none; }
+
+  header.app { margin-bottom: 22px; }
+  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .sub a { color: var(--accent-strong); }
+
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 7px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+  input[type="password"], input[type="text"], input[type="search"], textarea {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  input:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  textarea.input-box { min-height: 92px; }
+
+  .row2 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row2 .field { flex: 1 1 220px; min-width: 0; }
+
+  .hint { font-size: 12px; color: var(--faint); margin-top: 5px; }
+
+  .ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: color .12s, border-color .12s;
+    white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+  .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  /* settings — compact pill in the header, opens as a dropdown panel */
+  details.settings { position: relative; flex: none; }
+  details.settings summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 12.5px;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 11px;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s;
+  }
+  details.settings summary:hover { color: var(--text); border-color: var(--muted); }
+  details.settings[open] summary { color: var(--accent-strong); border-color: var(--accent); }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .settings-grid {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: min(560px, calc(100vw - 40px));
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 16px;
+    z-index: 50;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  }
+  .settings-grid label.lbl { margin-top: 10px; }
+  .pill { font-size: 12px; color: var(--muted); }
+
+  /* de-id reminder */
+  .deid {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12.5px; color: var(--warn);
+    margin: -4px 2px 12px;
+  }
+  .deid .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+
+  /* tabs */
+  .mode-tabs { display: flex; gap: 6px; margin: 0 0 18px; flex-wrap: wrap; }
+  .mode-tab {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 550;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .mode-tab:hover { color: var(--text); }
+  .mode-tab.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+
+  /* generate button */
+  button.generate {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    height: 38px;
+    display: inline-flex; align-items: center; gap: 9px;
+    transition: background .12s ease, transform .06s ease;
+    white-space: nowrap;
+  }
+  button.generate:hover:not(:disabled) { background: var(--accent-strong); }
+  button.generate:active:not(:disabled) { transform: translateY(1px); }
+  button.generate:disabled { opacity: .5; cursor: not-allowed; }
+  button.generate.is-cancel { background: var(--danger); color: var(--accent-ink); }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .gen-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input.search-input {
+    width: auto;
+    flex: 0 1 240px;
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+  .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+  .status.ok { color: var(--accent); }
+
+  .kbd-hint { font-size: 11px; color: var(--faint); }
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  .error {
+    display: none;
+    background: var(--danger-bg);
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+  }
+
+  .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
+
+  /* ask about this patient (per row) */
+  .ask-note { font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
+  .thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .thread:empty { display: none; }
+  .msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; line-height: 1.5; }
+  .msg.user { background: var(--surface-2); border: 1px solid var(--border); white-space: pre-wrap; }
+  .msg.assistant { background: #14211d; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .msg .who { display: block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .msg.assistant .who { color: var(--accent); }
+  .ask-row { display: flex; gap: 10px; align-items: flex-end; }
+  .ask-row .field { flex: 1 1 auto; min-width: 0; }
+  textarea.ask-input { min-height: 56px; }
+  .ask-error { display: none; color: var(--danger); font-size: 12.5px; margin-bottom: 10px; white-space: pre-wrap; }
+
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+  .md li { margin: 2px 0; }
+  .md li > ul, .md li > ol { margin: 2px 0; }
+  .md strong { color: var(--accent-strong); font-weight: 650; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; font-weight: 650; }
+  .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3 { font-size: 14px; } .md h4 { font-size: 13.5px; }
+  .md code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .md a { color: var(--accent-strong); }
+  .md blockquote { margin: 6px 0; padding: 2px 12px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+  .md table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 12.5px; }
+  .md th, .md td { border: 1px solid var(--border-strong); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .md th { background: var(--surface-2); font-weight: 600; }
+
+  /* patient table */
+  .table-scroll { overflow-x: auto; }
+  table.patients {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .patients th, .patients td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .patients th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .patients td.loc { white-space: nowrap; font-weight: 600; }
+  .patients td.name { white-space: nowrap; }
+  .patients .editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color .12s;
+  }
+  .patients .editable:hover { border-bottom-color: var(--muted); }
+  .patients input.cell-edit {
+    width: 120px;
+    padding: 4px 7px;
+    font-size: 13px;
+  }
+  .patients td.summary { min-width: 280px; line-height: 1.45; }
+  .patients td.summary strong { color: var(--accent-strong); font-weight: 650; }
+  .patients td.objective { min-width: 170px; line-height: 1.45; }
+  .patients td.objective strong { color: var(--accent-strong); font-weight: 650; }
+  .patients textarea.block-edit {
+    min-height: 140px;
+    font-size: 13px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+  }
+  .patients td.jobs { min-width: 170px; }
+  .patients td.actions { white-space: nowrap; }
+  .patients textarea.jobbox {
+    min-height: 96px;
+    font-size: 13px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+  }
+  .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
+  .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
+  .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
+
+  tr.detail-row td {
+    background: #161616;
+    padding: 12px 14px;
+  }
+  .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  /* per-patient "Update" panel inside the expanded row */
+  .update-wrap textarea.update-box {
+    min-height: 64px;
+    font-size: 13px;
+    background: var(--surface-2);
+    margin: 8px 0;
+  }
+  .update-wrap .err {
+    display: none;
+    color: var(--danger);
+    font-size: 12.5px;
+    margin-top: 8px;
+    white-space: pre-wrap;
+  }
+
+  .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+
+  /* upcoming timed jobs (job list lines containing "@") */
+  .upcoming {
+    border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+    background: color-mix(in srgb, var(--warn) 7%, var(--surface));
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .upcoming .eyebrow { color: var(--warn); margin-bottom: 8px; }
+  .up-item { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 13.5px; flex-wrap: wrap; }
+  .up-time {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 6px;
+    padding: 1px 8px;
+    white-space: nowrap;
+  }
+  .up-who { font-weight: 650; white-space: nowrap; }
+  .up-task { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="head-row">
+      <div>
+        <h1>General Ward Round List</h1>
+        <p class="sub">Keep a synced general ward rounding list. <a href="ICUList.html">ICU List →</a> <a href="RESblue.html">Blue Letters →</a> <a href="RESClinic.html">Clinic Notes →</a></p>
+      </div>
+      <details class="settings" id="settingsBox">
+      <summary>⚙ Settings &amp; keys</summary>
+      <div class="settings-grid">
+        <label class="lbl">Anthropic (Claude) API key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with index.html, RESblue.html, RESClinic.html and ICUList.html (stored as <code>cdg_api_key</code>) — if you've used those pages, it's already filled.</div>
+
+        <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
+        <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+        <div class="hint">Shared with dictation.html, RESblue.html, RESClinic.html and ICUList.html, along with owner / repo / branch below.</div>
+
+        <div class="row2" style="margin-top:6px">
+          <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
+          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="notionwidget"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
+          <div class="field"><label class="lbl">Patient list file</label><input type="text" id="ghPath" placeholder="gwlist-patients.json"></div>
+        </div>
+        <div class="hint">Keys live only in this browser (localStorage). The list is saved to the repo above as one JSON file shared across your devices. ⚠ In a <b>public</b> repo that file is publicly readable — use bed numbers / initials only, never real identifiers.</div>
+        <div class="gen-row" style="margin-top:10px">
+          <button class="ghost-btn" id="saveSettings" type="button">Save settings</button>
+          <span class="pill" id="settingsSaved"></span>
+        </div>
+      </div>
+      </details>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
+    <button class="mode-tab" id="tabIn" type="button">Inpatient List</button>
+  </div>
+
+  <!-- =========================  CREATE NEW PATIENT  ========================= -->
+  <div id="createTab">
+
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label class="lbl" for="ptLocation">Location</label>
+          <input type="text" id="ptLocation" placeholder="e.g. W46 Bed 12" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="ptName">Name (bed / initials only)</label>
+          <input type="text" id="ptName" placeholder="e.g. TSH or 12A-34" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint">Location and name are only stored in your GitHub patient list — they are never sent to Claude.</div>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Past medical details</span>
+      <textarea class="input-box" id="pastMedical" placeholder="Background, significant PMH, baseline function, reason for admission…"></textarea>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
+      <textarea class="input-box" id="clinical" placeholder="Vitals, oxygen requirements, bloods, micro, antibiotics, imaging this admission…"></textarea>
+    </div>
+
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere.</span></p>
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="generate" id="saveBtn" type="button">Save to Inpatient List</button>
+        <span class="status" id="genStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the ward-round summary and saves the patient to the Inpatient List, then clears the form for the next patient. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+    </div>
+
+    <div class="error" id="error"></div>
+
+  </div>
+
+  <!-- =========================  INPATIENT LIST  ========================= -->
+  <div id="inTab" style="display:none">
+
+    <div class="upcoming" id="inUpcoming" style="display:none"></div>
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
+        <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
+        <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
+        <span class="status" id="inStatus"></span>
+      </div>
+      <div class="error" id="inError" style="margin:10px 0 0"></div>
+      <div class="table-scroll" style="margin-top:12px">
+        <table class="patients">
+          <thead>
+            <tr>
+              <th style="width:1%">Location</th>
+              <th style="width:1%">Name</th>
+              <th>Summarised history</th>
+              <th style="width:16%">Objective</th>
+              <th style="width:16%">Job list</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="inBody"></tbody>
+        </table>
+        <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab.</div>
+      </div>
+      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new reviews and results into the summarised history.</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* ============================================================== *
+ *  CONFIG                                                        *
+ * ============================================================== */
+const CONFIG = {
+  MODEL: "claude-sonnet-4-6",
+  SUMMARY_MAX_TOKENS: 2048,
+  // Ask uses the stronger model, same as the "Ask about this case" box in
+  // index.html, because clinical reasoning benefits from it.
+  ASK_MODEL: "claude-opus-4-8",
+  ASK_MAX_TOKENS: 2048,
+  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
+};
+
+/* Blank objective template for new patients — filled in by hand on rounds. */
+const OBJECTIVE_TEMPLATE = "BP: \nTemp: \nSats: ";
+
+/* Instruction that shapes the "Ask about this patient" answers (matches index.html). */
+const ASK_SYSTEM =
+  "You are an experienced physician assisting a clinician at the bedside. " +
+  "Using the case information provided, answer the clinician's question concisely and practically. " +
+  "Where relevant, give a focused differential ranked by likelihood, the discriminating features for each, " +
+  "what would confirm or exclude them, and the immediate steps to consider. " +
+  "Reason only from the information given; explicitly flag important missing data rather than assuming it. " +
+  "You are a reasoning aid to support the clinician's judgement, not a replacement for it.\n\n" +
+  "FORMAT: Be succinct and summarised. Answer in short bullet points (Markdown '-'), not paragraphs. " +
+  "Lead with the key point; keep each bullet to one line where possible and avoid filler. " +
+  "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
+  "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
+
+/* Appended to the summary prompt when folding new data into an existing summary. */
+const SUMMARY_UPDATE_SUFFIX =
+  "\n\n## Update mode\n" +
+  "You will be given an EXISTING SUMMARY (already in the format above) and LATEST UPDATES. " +
+  "Merge the updates into the existing summary: keep everything still accurate, update Active, Counters and " +
+  "Course with the new events, dates and day counts, and remove items only when the updates clearly supersede them. " +
+  "Output the FULL updated summary in exactly the format above — never output only the changes.";
+
+/* localStorage keys — Claude + GitHub settings shared with the other pages */
+const K = {
+  claude: "cdg_api_key",              // shared with index.html + dictation.html + RESblue/RESClinic/ICUList
+  ghToken: "dictation_gh_token",      // shared with dictation.html + RESblue/RESClinic/ICUList
+  ghOwner: "dictation_gh_owner",
+  ghRepo: "dictation_gh_repo",
+  ghBranch: "dictation_gh_branch",
+  path: "gwlist_gh_path"              // this page's own file
+};
+
+const $ = (id) => document.getElementById(id);
+function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+// Local cache of the synced list (render-sorted by location)
+let data = { inpatients: [] };
+let genController = null;   // in-flight save (for cancel)
+const saveTimers = new Map();
+
+const LISTS = {
+  inpatients: {
+    body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", upcoming: "inUpcoming", label: "inpatient",
+    emptyText: "No inpatients yet — add a patient in the Create New Patient tab."
+  }
+};
+const searchTerms = { inpatients: "" };
+
+/* ============================================================== *
+ *  Settings                                                      *
+ * ============================================================== */
+function loadSettings() {
+  $("claudeKey").value = get(K.claude);
+  $("ghToken").value = get(K.ghToken);
+  $("ghOwner").value = get(K.ghOwner) || "szfg2";
+  $("ghRepo").value = get(K.ghRepo) || "notionwidget";
+  $("ghBranch").value = get(K.ghBranch) || "main";
+  $("ghPath").value = get(K.path) || "gwlist-patients.json";
+  if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
+}
+$("saveSettings").addEventListener("click", () => {
+  set(K.claude, $("claudeKey").value.trim());
+  set(K.ghToken, $("ghToken").value.trim());
+  set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
+  set(K.ghRepo, $("ghRepo").value.trim() || "notionwidget");
+  set(K.ghBranch, $("ghBranch").value.trim() || "main");
+  set(K.path, $("ghPath").value.trim() || "gwlist-patients.json");
+  $("settingsSaved").textContent = "Saved ✓";
+  // let the ✓ register, then close the dropdown
+  setTimeout(() => {
+    $("settingsSaved").textContent = "";
+    $("settingsBox").open = false;
+  }, 700);
+});
+
+/* ============================================================== *
+ *  Tabs                                                          *
+ * ============================================================== */
+function setTab(t) {
+  $("tabCreate").classList.toggle("active", t === "create");
+  $("tabIn").classList.toggle("active", t === "in");
+  $("createTab").style.display = t === "create" ? "" : "none";
+  $("inTab").style.display = t === "in" ? "" : "none";
+  document.querySelector(".wrap").classList.toggle("full", t !== "create");
+  if (t !== "create" && get(K.ghToken)) loadPatients(true);
+}
+$("tabCreate").addEventListener("click", () => setTab("create"));
+$("tabIn").addEventListener("click", () => setTab("in"));
+
+/* ============================================================== *
+ *  Helpers                                                       *
+ * ============================================================== */
+function showError(msg) { $("error").textContent = msg; $("error").style.display = "block"; }
+function clearError() { $("error").style.display = "none"; $("error").textContent = ""; }
+function showListError(listKey, msg) { const el = $(LISTS[listKey].error); el.textContent = msg; el.style.display = "block"; }
+function clearListError(listKey) { const el = $(LISTS[listKey].error); el.style.display = "none"; el.textContent = ""; }
+function setGenStatus(msg, ok) {
+  const el = $("genStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function setListStatus(listKey, msg, ok) {
+  const el = $(LISTS[listKey].status);
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+// **bold** + newlines -> safe HTML (matches the ward-round summary format)
+function summaryHtml(s) {
+  let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
+  return esc.replace(/\n/g, "<br>");
+}
+// Objective -> safe HTML with each line's leading label (BP / Temp / Sats …)
+// bold, styled like the summary labels
+function objectiveHtml(s) {
+  if (!String(s).trim()) return "—";
+  let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  esc = esc.replace(/^([A-Za-z][\w /]{0,14}):/gm, "<strong>$1:</strong>");
+  return esc.replace(/\n/g, "<br>");
+}
+
+/* ============================================================== *
+ *  Claude API                                                    *
+ * ============================================================== */
+async function callClaude(key, model, system, userMessage, maxTokens, signal) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userMessage }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
+  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+}
+
+/* ============================================================== *
+ *  GitHub sync (single shared JSON file, sha-based overwrite)    *
+ *  File shape: { "inpatients": [...] }                           *
+ * ============================================================== */
+function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+function ghCfg() {
+  return {
+    token: get(K.ghToken),
+    owner: get(K.ghOwner) || "szfg2",
+    repo: get(K.ghRepo) || "notionwidget",
+    branch: get(K.ghBranch) || "main",
+    path: (get(K.path) || "gwlist-patients.json").replace(/^\/|\/$/g, "")
+  };
+}
+function ghUrl(c) { return "https://api.github.com/repos/" + c.owner + "/" + c.repo + "/contents/" + encodeURI(c.path); }
+function ghHeaders(c) {
+  const h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  if (c.token) h["Authorization"] = "Bearer " + c.token;
+  return h;
+}
+function normaliseData(parsed) {
+  const d = { inpatients: [] };
+  if (Array.isArray(parsed)) d.inpatients = parsed;
+  else if (parsed && typeof parsed === "object" && Array.isArray(parsed.inpatients)) d.inpatients = parsed.inpatients;
+  return d;
+}
+// Fetch the remote list. Returns { sha, data } — sha null if the file doesn't exist yet.
+async function getRemote() {
+  const c = ghCfg();
+  const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
+  if (res.status === 404) return { sha: null, data: { inpatients: [] } };
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || ("HTTP " + res.status));
+  let parsed = {};
+  try {
+    const text = decodeURIComponent(escape(atob((body.content || "").replace(/\n/g, ""))));
+    parsed = text.trim() ? JSON.parse(text) : {};
+  } catch (e) { parsed = {}; }
+  return { sha: body.sha, data: normaliseData(parsed) };
+}
+async function putRemote(d, sha, message) {
+  const c = ghCfg();
+  const body = { message, content: b64utf8(JSON.stringify(d, null, 2)), branch: c.branch };
+  if (sha) body.sha = sha;
+  const res = await fetch(ghUrl(c), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
+  const resBody = await res.json();
+  if (!res.ok) { const err = new Error(resBody.message || ("HTTP " + res.status)); err.status = res.status; throw err; }
+}
+// Fetch latest, apply mutator, save. Retries once with a fresh sha on conflict,
+// so a save from another device in between doesn't get clobbered or fail.
+async function mutateRemote(mutator, message) {
+  const c = ghCfg();
+  if (!c.token) throw new Error("Set your GitHub token in Settings first.");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { sha, data: remote } = await getRemote();
+    const next = mutator(remote);
+    try {
+      await putRemote(next, sha, message);
+      data = next;
+      return;
+    } catch (e) {
+      if (attempt === 0 && (e.status === 409 || e.status === 422)) continue;
+      throw e;
+    }
+  }
+}
+
+// Insert the new record at the top, removing any previous entry with the same
+// initials (case-insensitive) so re-adding a patient replaces rather than
+// duplicates. Entries without a name are never deduped.
+function upsertByName(list, record) {
+  const k = (record.name || "").trim().toLowerCase();
+  return [record, ...list.filter(x => !k || (x.name || "").trim().toLowerCase() !== k)];
+}
+
+/* ============================================================== *
+ *  Save to Inpatient List                                        *
+ * ============================================================== */
+$("saveBtn").addEventListener("click", async () => {
+  if (genController) { genController.abort(); return; }
+
+  clearError();
+  const key = get(K.claude) || $("claudeKey").value.trim();
+  if (!key) { $("settingsBox").open = true; return showError("Add your Claude (Anthropic) API key in Settings first."); }
+
+  const location = $("ptLocation").value.trim();
+  const name = $("ptName").value.trim();
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
+  if (!past && !clinical) return showError("Add some past medical details or clinical data.");
+
+  // Only the de-identified medical content is sent to Claude — never name/location.
+  const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
+
+  genController = new AbortController();
+  setLoading(true);
+  setGenStatus("Generating summary…");
+  try {
+    const sysRes = await fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal });
+    if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
+    const summarySys = await sysRes.text();
+    const summary = await callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal);
+
+    const record = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      created: new Date().toISOString(),
+      location, name,
+      pastMedical: past,
+      clinical,
+      summary: summary || "",
+      objective: OBJECTIVE_TEMPLATE,
+      jobs: ""
+    };
+
+    setGenStatus("Saving patient to GitHub…");
+    try {
+      await mutateRemote(d => {
+        d.inpatients = upsertByName(d.inpatients, record);
+        return d;
+      }, "Add GW inpatient: " + (name || location));
+      renderList("inpatients");
+      // Clear the form ready for the next patient.
+      $("ptLocation").value = "";
+      $("ptName").value = "";
+      $("pastMedical").value = "";
+      $("clinical").value = "";
+      setGenStatus("Done ✓ — saved to Inpatient List", true);
+    } catch (e) {
+      setGenStatus("");
+      showError("Summary generated, but saving the patient failed: " + (e.message || e) +
+        "\nCheck your GitHub settings, then save again.");
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { clearError(); setGenStatus(""); }
+    else { setGenStatus(""); showError(e.message || String(e)); }
+  } finally {
+    genController = null;
+    setLoading(false);
+  }
+});
+
+function setLoading(on) {
+  const btn = $("saveBtn");
+  if (on) {
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+  } else {
+    btn.classList.remove("is-cancel");
+    btn.innerHTML = "Save to Inpatient List";
+  }
+}
+
+// Ctrl/Cmd+Enter saves
+[$("ptLocation"), $("ptName"), $("pastMedical"), $("clinical")].forEach(el => {
+  el.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("saveBtn").click(); }
+  });
+});
+
+function flashCopied(btn, label) {
+  const orig = label || "Copy";
+  btn.textContent = "Copied ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove("copied"); }, 1400);
+}
+
+/* ============================================================== *
+ *  Load + render the list                                        *
+ * ============================================================== */
+async function loadPatients(auto) {
+  const c = ghCfg();
+  if (!c.token) { if (!auto) showListError("inpatients", "Set your GitHub token in Settings first."); return; }
+  clearListError("inpatients");
+  setListStatus("inpatients", "Loading…");
+  try {
+    const { data: remote } = await getRemote();
+    data = remote;
+    renderList("inpatients");
+    setListStatus("inpatients", "Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setListStatus("inpatients", "");
+    showListError("inpatients", "Couldn't load the patient list: " + (e.message || e));
+  }
+}
+$("inRefreshBtn").addEventListener("click", () => loadPatients(false));
+
+function timeNow() {
+  const t = new Date();
+  return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.getDate() + "/" + (d.getMonth() + 1) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+// Click-to-edit cell for location / name. Click swaps in an input; Enter or
+// clicking away commits and saves to GitHub, Escape cancels.
+function editableCell(td, p, field, listKey) {
+  const span = document.createElement("span");
+  span.className = "editable";
+  span.title = "Click to edit";
+  span.textContent = p[field] || "—";
+  span.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "cell-edit";
+    input.value = p[field] || "";
+    td.replaceChild(input, span);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const v = input.value.trim();
+      td.replaceChild(span, input);
+      if (!commit || v === (p[field] || "")) return;
+      p[field] = v;
+      span.textContent = v || "—";
+      setListStatus(listKey, "Saving…");
+      mutateRemote(d => {
+        const rec = d[listKey].find(x => x.id === p.id);
+        if (rec) rec[field] = v;
+        return d;
+      }, "Update GW patient " + field).then(() => {
+        setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+      }).catch(e => {
+        setListStatus(listKey, "");
+        showListError(listKey, "Save failed: " + (e.message || e));
+      });
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+  });
+  td.appendChild(span);
+}
+
+/* ---- Upcoming timed jobs: job list lines containing "@" ---- */
+// Best-effort parse of the text after "@" into minutes-since-midnight for
+// sorting: handles "10pm", "10:30pm", "22:00", "2200", "2200h", "8". Returns
+// null when unparseable — those items sort last, in list order.
+function parseTimeMinutes(s) {
+  const t = String(s).trim().toLowerCase();
+  const toMin = (h, min, ap) => {
+    if (ap === "pm" && h < 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    return (h < 24 && min < 60) ? h * 60 + min : null;
+  };
+  let m = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?/);   // 10:30, 10:30pm, 22:00
+  if (m) return toMin(+m[1], +m[2], m[3]);
+  m = t.match(/^(\d{1,2})\s*(am|pm)/);                // 10pm, 8 am
+  if (m) return toMin(+m[1], 0, m[2]);
+  m = t.match(/^(\d{2})(\d{2})(?:h|hrs)?\b/);         // 2200, 0800h
+  if (m) return toMin(+m[1], +m[2]);
+  m = t.match(/^(\d{1,2})(?:h|hrs)?\b/);              // 22h, 8
+  if (m) return toMin(+m[1], 0);
+  return null;
+}
+
+function upcomingItems(listKey) {
+  const items = [];
+  for (const p of data[listKey]) {
+    for (const line of (p.jobs || "").split("\n")) {
+      const idx = line.indexOf("@");
+      if (idx === -1 || !line.trim()) continue;
+      const task = line.slice(0, idx).replace(/^[-•*\s]+/, "").trim();
+      const time = line.slice(idx + 1).trim();
+      items.push({
+        who: [p.location, p.name].filter(Boolean).join(" · "),
+        task: task || "(see job list)",
+        time,
+        sort: parseTimeMinutes(time)
+      });
+    }
+  }
+  items.sort((a, b) => (a.sort === null ? 9999 : a.sort) - (b.sort === null ? 9999 : b.sort));
+  return items;
+}
+
+function renderUpcoming(listKey) {
+  const el = $(LISTS[listKey].upcoming);
+  const items = upcomingItems(listKey);
+  el.innerHTML = "";
+  if (!items.length) { el.style.display = "none"; return; }
+  el.style.display = "";
+  const head = document.createElement("span");
+  head.className = "eyebrow";
+  head.textContent = "⏰ Upcoming";
+  el.appendChild(head);
+  for (const it of items) {
+    const row = document.createElement("div");
+    row.className = "up-item";
+    const time = document.createElement("span");
+    time.className = "up-time";
+    time.textContent = it.time ? "@ " + it.time : "@";
+    const who = document.createElement("span");
+    who.className = "up-who";
+    who.textContent = it.who || "—";
+    const task = document.createElement("span");
+    task.className = "up-task";
+    task.textContent = it.task;
+    row.appendChild(time);
+    row.appendChild(who);
+    row.appendChild(task);
+    el.appendChild(row);
+  }
+}
+
+function matchesSearch(p, q) {
+  return ["location", "name", "summary", "objective", "jobs", "pastMedical", "clinical"]
+    .some(f => (p[f] || "").toLowerCase().includes(q));
+}
+
+// Render sorted by location (natural sort, so W4 Bed 2 < W4 Bed 10);
+// patients without a location go last.
+function sortedList(listKey) {
+  return [...data[listKey]].sort((a, b) => {
+    if (!a.location && b.location) return 1;
+    if (a.location && !b.location) return -1;
+    return (a.location || "").localeCompare(b.location || "", undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
+function renderList(listKey) {
+  const body = $(LISTS[listKey].body);
+  const all = sortedList(listKey);
+  const q = (searchTerms[listKey] || "").trim().toLowerCase();
+  const list = q ? all.filter(p => matchesSearch(p, q)) : all;
+  body.innerHTML = "";
+  const emptyEl = $(LISTS[listKey].empty);
+  emptyEl.style.display = list.length ? "none" : "";
+  emptyEl.textContent = (all.length && !list.length)
+    ? "No patients match the search."
+    : LISTS[listKey].emptyText;
+  for (const p of list) buildRow(p, listKey, body);
+  renderUpcoming(listKey);
+}
+
+$("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
+
+/* Delete all — one warning, then wipes the whole list on every device */
+$("inDeleteAllBtn").addEventListener("click", async () => {
+  const n = data.inpatients.length;
+  if (!n) { setListStatus("inpatients", "Nothing to delete."); return; }
+  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the Inpatient List?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
+  clearListError("inpatients");
+  $("inDeleteAllBtn").disabled = true;
+  setListStatus("inpatients", "Deleting all…");
+  try {
+    await mutateRemote(d => { d.inpatients = []; return d; }, "Delete all GW inpatients");
+    renderList("inpatients");
+    setListStatus("inpatients", "All patients deleted ✓", true);
+  } catch (e) {
+    setListStatus("inpatients", "");
+    showListError("inpatients", "Delete all failed: " + (e.message || e));
+  } finally {
+    $("inDeleteAllBtn").disabled = false;
+  }
+});
+
+// Double-click-to-edit for the summary / objective cells. Double-click swaps
+// in a textarea over the rendered view; Ctrl/Cmd+Enter or clicking away
+// commits and saves to GitHub, Escape cancels.
+function editableBlock(td, div, p, field, listKey, renderFn, template) {
+  td.title = "Double-click to edit";
+  td.addEventListener("dblclick", () => {
+    if (td.querySelector("textarea.block-edit")) return;
+    const box = document.createElement("textarea");
+    box.className = "block-edit";
+    box.value = p[field] || template || "";
+    box.spellcheck = false;
+    div.style.display = "none";
+    td.appendChild(box);
+    box.style.height = Math.max(box.scrollHeight + 2, 140) + "px";
+    box.focus();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const v = box.value;
+      box.remove();
+      div.style.display = "";
+      if (!commit || v === (p[field] || "")) return;
+      p[field] = v;
+      div.innerHTML = renderFn(v);
+      setListStatus(listKey, "Saving…");
+      mutateRemote(d => {
+        const rec = d[listKey].find(x => x.id === p.id);
+        if (rec) rec[field] = v;
+        return d;
+      }, "Edit GW " + field + ": " + (p.name || p.location || p.id)).then(() => {
+        setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+      }).catch(e => {
+        setListStatus(listKey, "");
+        showListError(listKey, "Save failed: " + (e.message || e));
+      });
+    };
+    box.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") finish(false);
+    });
+    box.addEventListener("blur", () => finish(true));
+  });
+}
+
+function buildRow(p, listKey, body) {
+  const tr = document.createElement("tr");
+
+  const tdLoc = document.createElement("td");
+  tdLoc.className = "loc";
+  editableCell(tdLoc, p, "location", listKey);
+  tr.appendChild(tdLoc);
+
+  const tdName = document.createElement("td");
+  tdName.className = "name";
+  editableCell(tdName, p, "name", listKey);
+  const meta = document.createElement("div");
+  meta.className = "rowmeta";
+  meta.textContent = fmtDate(p.created);
+  tdName.appendChild(meta);
+  tr.appendChild(tdName);
+
+  const tdSum = document.createElement("td");
+  tdSum.className = "summary";
+  const sumDiv = document.createElement("div");
+  sumDiv.innerHTML = summaryHtml(p.summary || "");
+  tdSum.appendChild(sumDiv);
+  editableBlock(tdSum, sumDiv, p, "summary", listKey, v => summaryHtml(v || ""));
+  tr.appendChild(tdSum);
+
+  const tdObj = document.createElement("td");
+  tdObj.className = "objective";
+  const objText = document.createElement("div");
+  objText.className = "objtext";
+  objText.innerHTML = objectiveHtml(p.objective);
+  tdObj.appendChild(objText);
+  editableBlock(tdObj, objText, p, "objective", listKey, objectiveHtml, OBJECTIVE_TEMPLATE);
+  tr.appendChild(tdObj);
+
+  const tdJobs = document.createElement("td");
+  tdJobs.className = "jobs";
+  const jobBox = document.createElement("textarea");
+  jobBox.className = "jobbox";
+  jobBox.placeholder = "Jobs / to-dos…";
+  jobBox.value = p.jobs || "";
+  jobBox.addEventListener("input", () => {
+    queueFieldSave(listKey, p.id, "jobs", jobBox.value, "Update GW job list");
+    renderUpcoming(listKey); // queueFieldSave has already updated the local cache
+  });
+  tdJobs.appendChild(jobBox);
+  tr.appendChild(tdJobs);
+
+  const tdAct = document.createElement("td");
+  tdAct.className = "actions";
+  const askBtn = document.createElement("button");
+  askBtn.className = "ghost-btn";
+  askBtn.type = "button";
+  askBtn.textContent = "Ask";
+  tdAct.appendChild(askBtn);
+
+  const updBtn = document.createElement("button");
+  updBtn.className = "ghost-btn";
+  updBtn.type = "button";
+  updBtn.textContent = "Update";
+  tdAct.appendChild(updBtn);
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "ghost-btn danger";
+  delBtn.type = "button";
+  delBtn.textContent = "Delete";
+  tdAct.appendChild(delBtn);
+  tr.appendChild(tdAct);
+  body.appendChild(tr);
+
+  // --- expandable "Update summarised history" row ---
+  const trUpd = document.createElement("tr");
+  trUpd.className = "detail-row";
+  trUpd.style.display = "none";
+  const tdUpd = document.createElement("td");
+  tdUpd.colSpan = 6;
+  const wrap = document.createElement("div");
+  wrap.className = "update-wrap";
+  const lbl = document.createElement("span");
+  lbl.className = "eyebrow";
+  lbl.style.margin = "0";
+  lbl.textContent = "Update summarised history";
+  const hint = document.createElement("p");
+  hint.className = "ask-note";
+  hint.textContent = "Paste today's reviews, results and events — Claude folds them into the summarised history. Nothing identifying is sent.";
+  const box = document.createElement("textarea");
+  box.className = "update-box";
+  box.placeholder = "e.g. Weaned to RA, CRP 80 > 60, Augmentin D5, family updated… (de-identified)";
+  const row = document.createElement("div");
+  row.className = "gen-row";
+  const runBtn = document.createElement("button");
+  runBtn.className = "generate";
+  runBtn.type = "button";
+  runBtn.textContent = "Update";
+  const st = document.createElement("span");
+  st.className = "status";
+  row.appendChild(runBtn);
+  row.appendChild(st);
+  const err = document.createElement("div");
+  err.className = "err";
+  wrap.appendChild(lbl);
+  wrap.appendChild(hint);
+  wrap.appendChild(box);
+  wrap.appendChild(row);
+  wrap.appendChild(err);
+  tdUpd.appendChild(wrap);
+  trUpd.appendChild(tdUpd);
+  body.appendChild(trUpd);
+
+  updBtn.addEventListener("click", () => {
+    const open = trUpd.style.display !== "none";
+    trUpd.style.display = open ? "none" : "";
+    updBtn.textContent = open ? "Update" : "Hide update";
+    if (!open) box.focus();
+  });
+
+  let updController = null;
+  const showUpdErr = (m) => { err.textContent = m; err.style.display = "block"; };
+  runBtn.addEventListener("click", async () => {
+    if (updController) { updController.abort(); return; }
+    err.style.display = "none"; err.textContent = "";
+    const key = get(K.claude) || $("claudeKey").value.trim();
+    if (!key) { $("settingsBox").open = true; return showUpdErr("Add your Claude (Anthropic) API key in Settings first."); }
+    const updates = box.value.trim();
+    if (!updates) return showUpdErr("Paste the new reviews, results or events first.");
+
+    updController = new AbortController();
+    runBtn.classList.add("is-cancel");
+    runBtn.innerHTML = '<span class="spinner"></span>Cancel';
+    st.textContent = "Updating summary…";
+    try {
+      const sysRes = await fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: updController.signal });
+      if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
+      const summarySys = await sysRes.text();
+      // De-identified stored content only — name/location are never sent.
+      const newSummary = await callClaude(key, CONFIG.MODEL, summarySys + SUMMARY_UPDATE_SUFFIX,
+        "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
+        CONFIG.SUMMARY_MAX_TOKENS, updController.signal);
+      if (!newSummary) throw new Error("No text returned.");
+
+      // Append the pasted updates to the stored clinical data so the
+      // "Ask about this patient" context stays current.
+      const t = new Date();
+      const stampedClinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
+        "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + updates;
+      p.summary = newSummary;
+      p.clinical = stampedClinical;
+      sumDiv.innerHTML = summaryHtml(p.summary);
+
+      st.textContent = "Saving…";
+      await mutateRemote(d => {
+        const rec = d[listKey].find(x => x.id === p.id);
+        if (rec) { rec.summary = p.summary; rec.clinical = stampedClinical; }
+        return d;
+      }, "Update GW summary: " + (p.name || p.location || p.id));
+      box.value = "";
+      st.textContent = "Updated ✓ " + timeNow();
+      st.classList.add("ok");
+      setTimeout(() => { st.textContent = ""; st.classList.remove("ok"); }, 4000);
+    } catch (e) {
+      st.textContent = "";
+      if (e.name !== "AbortError") showUpdErr("Update failed: " + (e.message || e));
+    } finally {
+      updController = null;
+      runBtn.classList.remove("is-cancel");
+      runBtn.innerHTML = "Update";
+    }
+  });
+  // Ctrl/Cmd+Enter in the update box runs the update
+  box.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBtn.click(); }
+  });
+
+  // --- expandable "Ask about this patient" row ---
+  const trAsk = document.createElement("tr");
+  trAsk.className = "detail-row";
+  trAsk.style.display = "none";
+  const tdAsk = document.createElement("td");
+  tdAsk.colSpan = 6;
+
+  const askHead = document.createElement("div");
+  askHead.className = "letter-head";
+  const askEyebrow = document.createElement("span");
+  askEyebrow.className = "eyebrow";
+  askEyebrow.style.margin = "0";
+  askEyebrow.textContent = "Ask about this patient";
+  const askClear = document.createElement("button");
+  askClear.className = "ghost-btn";
+  askClear.type = "button";
+  askClear.textContent = "New conversation";
+  askHead.appendChild(askEyebrow);
+  askHead.appendChild(askClear);
+
+  const askNote = document.createElement("p");
+  askNote.className = "ask-note";
+  askNote.textContent = "Uses the stored case details, summary and objective as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.";
+
+  const thread = document.createElement("div");
+  thread.className = "thread";
+  const askErr = document.createElement("div");
+  askErr.className = "ask-error";
+  const askRow = document.createElement("div");
+  askRow.className = "ask-row";
+  const askField = document.createElement("div");
+  askField.className = "field";
+  const askInput = document.createElement("textarea");
+  askInput.className = "ask-input";
+  askInput.placeholder = "e.g. Would you escalate antibiotics or wait for cultures?";
+  askField.appendChild(askInput);
+  const askSend = document.createElement("button");
+  askSend.className = "generate";
+  askSend.type = "button";
+  askSend.textContent = "Ask";
+  askRow.appendChild(askField);
+  askRow.appendChild(askSend);
+  const askHint = document.createElement("div");
+  askHint.className = "kbd-hint";
+  askHint.innerHTML = 'Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.';
+
+  tdAsk.appendChild(askHead);
+  tdAsk.appendChild(askNote);
+  tdAsk.appendChild(thread);
+  tdAsk.appendChild(askErr);
+  tdAsk.appendChild(askRow);
+  tdAsk.appendChild(askHint);
+  trAsk.appendChild(tdAsk);
+  body.appendChild(trAsk);
+
+  askBtn.addEventListener("click", () => {
+    const open = trAsk.style.display !== "none";
+    trAsk.style.display = open ? "none" : "";
+    askBtn.textContent = open ? "Ask" : "Hide ask";
+    if (!open) askInput.focus();
+  });
+
+  let askMessages = [];
+  let askController = null;
+  const showAskErr = (m) => { askErr.textContent = m; askErr.style.display = "block"; };
+  const clearAskErr = () => { askErr.style.display = "none"; askErr.textContent = ""; };
+
+  function renderThread() {
+    thread.innerHTML = "";
+    for (const m of askMessages) {
+      const div = document.createElement("div");
+      div.className = "msg " + m.role;
+      const who = document.createElement("span");
+      who.className = "who";
+      who.textContent = m.role === "user" ? "You" : "Claude";
+      div.appendChild(who);
+      if (m.role === "assistant" && window.marked) {
+        const bodyDiv = document.createElement("div");
+        bodyDiv.className = "md";
+        bodyDiv.innerHTML = marked.parse(m.content, { breaks: true });
+        div.appendChild(bodyDiv);
+      } else {
+        div.appendChild(document.createTextNode(m.content));
+      }
+      thread.appendChild(div);
+    }
+  }
+
+  askClear.addEventListener("click", () => {
+    askMessages = []; renderThread(); clearAskErr(); askInput.focus();
+  });
+
+  const setAskLoading = (on) => {
+    if (on) {
+      askSend.classList.add("is-cancel");
+      askSend.innerHTML = '<span class="spinner"></span>Cancel';
+    } else {
+      askSend.classList.remove("is-cancel");
+      askSend.innerHTML = "Ask";
+    }
+  };
+
+  askSend.addEventListener("click", async () => {
+    if (askController) { askController.abort(); return; }
+
+    clearAskErr();
+    const key = get(K.claude) || $("claudeKey").value.trim();
+    const q = askInput.value.trim();
+    if (!key) { $("settingsBox").open = true; return showAskErr("Add your Claude (Anthropic) API key in Settings first."); }
+    if (!q) return showAskErr("Type a question first.");
+
+    askMessages.push({ role: "user", content: q });
+    renderThread();
+    askInput.value = "";
+    askController = new AbortController();
+    setAskLoading(true);
+
+    // De-identified stored content only — name/location are never sent.
+    const caseContext =
+      "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
+      "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
+      ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
+      ((p.objective || "").trim() ? "\n\nOBJECTIVE (latest obs):\n" + p.objective.trim() : "") +
+      ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: askController.signal,
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: CONFIG.ASK_MODEL,
+          max_tokens: CONFIG.ASK_MAX_TOKENS,
+          // Static instructions are the reusable prefix → cache them. The per-patient
+          // case context changes, so it goes in a separate, uncached block.
+          system: [
+            { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+            { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+          ],
+          messages: askMessages.map(m => ({ role: m.role, content: m.content }))
+        })
+      });
+      const resBody = await res.json();
+      if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
+      const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+      askMessages.push({ role: "assistant", content: text || "(No response.)" });
+      renderThread();
+    } catch (e) {
+      // Roll back the unanswered question so the thread stays valid, and restore it for a retry
+      askMessages.pop();
+      renderThread();
+      askInput.value = q;
+      if (e.name !== "AbortError") showAskErr(e.message || String(e));  // cancel is silent
+    } finally {
+      askController = null;
+      setAskLoading(false);
+      askInput.focus();
+    }
+  });
+
+  // Ctrl/Cmd+Enter in the Ask box sends the question
+  askInput.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); askSend.click(); }
+  });
+
+  delBtn.addEventListener("click", async () => {
+    const label = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
+    if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
+    delBtn.disabled = true;
+    setListStatus(listKey, "Deleting…");
+    try {
+      await mutateRemote(d => {
+        d[listKey] = d[listKey].filter(x => x.id !== p.id);
+        return d;
+      }, "Remove GW inpatient: " + (p.name || p.location || p.id));
+      renderList(listKey);
+      setListStatus(listKey, "Deleted ✓", true);
+    } catch (e) {
+      delBtn.disabled = false;
+      setListStatus(listKey, "");
+      showListError(listKey, "Delete failed: " + (e.message || e));
+    }
+  });
+}
+
+/* ============================================================== *
+ *  Debounced field autosave (job list)                           *
+ * ============================================================== */
+function queueFieldSave(listKey, id, field, value, message) {
+  // keep local cache current so a re-render doesn't lose typing
+  const local = data[listKey].find(p => p.id === id);
+  if (local) local[field] = value;
+  const tkey = listKey + ":" + id + ":" + field;
+  if (saveTimers.has(tkey)) clearTimeout(saveTimers.get(tkey));
+  setListStatus(listKey, "Editing…");
+  saveTimers.set(tkey, setTimeout(async () => {
+    saveTimers.delete(tkey);
+    setListStatus(listKey, "Saving…");
+    try {
+      await mutateRemote(d => {
+        const rec = d[listKey].find(p => p.id === id);
+        if (rec) rec[field] = value;
+        return d;
+      }, message);
+      // don't re-render here — it would replace the textarea mid-typing
+      setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+    } catch (e) {
+      setListStatus(listKey, "");
+      showListError(listKey, "Autosave failed: " + (e.message || e));
+    }
+  }, 1500));
+}
+
+/* ============================================================== *
+ *  Print — clean landscape table of the inpatient list           *
+ * ============================================================== */
+$("printBtn").addEventListener("click", () => {
+  const list = sortedList("inpatients");
+  if (!list.length) { setListStatus("inpatients", "Nothing to print."); return; }
+  const rows = list.map(p => "<tr>" +
+    '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
+    "<td>" + escapeHtml(p.name || "") + "</td>" +
+    '<td class="sum">' + summaryHtml(p.summary || "") + "</td>" +
+    '<td class="sum">' + objectiveHtml(p.objective) + "</td>" +
+    '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
+    "</tr>").join("");
+  const now = new Date();
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>General Ward Round List</title><style>" +
+    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
+    "h1{font-size:9pt;margin:0 0 2px;}" +
+    ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
+    "table{width:100%;border-collapse:collapse;}" +
+    "th,td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top;}" +
+    "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
+    "td.loc{white-space:nowrap;font-weight:600;}" +
+    "td.sum{line-height:1.35;}" +
+    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.4;}" +
+    "strong{font-weight:700;}" +
+    "tr{page-break-inside:avoid;}" +
+    "@page{size:A4 landscape;margin:18mm;}" +
+    "</style></head><body>" +
+    "<h1>General Ward Round List</h1>" +
+    '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
+      now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
+    "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table></body></html>";
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.right = "0"; frame.style.bottom = "0";
+  frame.style.width = "0"; frame.style.height = "0"; frame.style.border = "0";
+  document.body.appendChild(frame);
+  frame.onload = () => {
+    setTimeout(() => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      setTimeout(() => frame.remove(), 1000);
+    }, 50);
+  };
+  frame.srcdoc = html;
+});
+
+/* ============================================================== *
+ *  Init                                                          *
+ * ============================================================== */
+loadSettings();
+if (get(K.ghToken)) loadPatients(true);
+</script>
+</body>
+</html>
