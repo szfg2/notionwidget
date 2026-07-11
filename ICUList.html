@@ -1483,18 +1483,18 @@ $("printBtn").addEventListener("click", () => {
     "</tr>").join("");
   const now = new Date();
   const html = "<!doctype html><html><head><meta charset='utf-8'><title>ICU Inpatient List</title><style>" +
-    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:11px;color:#111;margin:0;}" +
-    "h1{font-size:14px;margin:0 0 2px;}" +
-    ".meta{color:#555;font-size:10px;margin:0 0 8px;}" +
+    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
+    "h1{font-size:9pt;margin:0 0 2px;}" +
+    ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
     "table{width:100%;border-collapse:collapse;}" +
-    "th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top;}" +
-    "th{background:#eee;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;}" +
+    "th,td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top;}" +
+    "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
     "td.loc{white-space:nowrap;font-weight:600;}" +
     "td.sum{line-height:1.35;}" +
-    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:9.5px;line-height:1.4;}" +
+    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.4;}" +
     "strong{font-weight:700;}" +
     "tr{page-break-inside:avoid;}" +
-    "@page{size:A4 landscape;margin:10mm;}" +
+    "@page{size:A4 landscape;margin:18mm;}" +
     "</style></head><body>" +
     "<h1>ICU Inpatient List</h1>" +
     '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
