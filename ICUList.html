@@ -39,6 +39,8 @@
   }
 
   .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  /* list tabs use the full screen width */
+  .wrap.full { max-width: none; }
 
   header.app { margin-bottom: 22px; }
   h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
@@ -287,6 +289,12 @@
   }
   .patients td.objective { line-height: 1.45; }
   .patients td.objective strong { color: var(--accent-strong); font-weight: 650; }
+  .patients textarea.block-edit {
+    min-height: 140px;
+    font-size: 13px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+  }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
   .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
@@ -456,7 +464,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List.</div>
       </div>
-      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Click a location or name to edit it. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
+      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
     </div>
 
   </div>
@@ -486,7 +494,7 @@
         </table>
         <div class="empty-note" id="triEmpty" style="display:none">No triaged patients yet — generate a triage note in the Create New Patient tab and the patient will appear here.</div>
       </div>
-      <div class="out-foot">Job list and triage note edits autosave to GitHub a moment after you stop typing. “→ Inpatient” moves a patient onto the Inpatient List.</div>
+      <div class="out-foot">Job list and triage note edits autosave to GitHub a moment after you stop typing. Double-click the summarised history or objective to edit them. “→ Inpatient” moves a patient onto the Inpatient List.</div>
     </div>
 
   </div>
@@ -597,6 +605,7 @@ function setTab(t) {
   $("createTab").style.display = t === "create" ? "" : "none";
   $("inTab").style.display = t === "in" ? "" : "none";
   $("triTab").style.display = t === "tri" ? "" : "none";
+  document.querySelector(".wrap").classList.toggle("full", t !== "create");
   if (t !== "create" && get(K.ghToken)) loadPatients(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
@@ -956,6 +965,51 @@ function editableCell(td, p, field, listKey) {
   td.appendChild(span);
 }
 
+// Double-click-to-edit for the summary / objective cells. Double-click swaps
+// in a textarea over the rendered view; Ctrl/Cmd+Enter or clicking away
+// commits and saves to GitHub, Escape cancels.
+function editableBlock(td, div, p, field, listKey, renderFn) {
+  td.title = "Double-click to edit";
+  td.addEventListener("dblclick", () => {
+    if (td.querySelector("textarea.block-edit")) return;
+    const box = document.createElement("textarea");
+    box.className = "block-edit";
+    box.value = p[field] || "";
+    box.spellcheck = false;
+    div.style.display = "none";
+    td.appendChild(box);
+    box.style.height = Math.max(box.scrollHeight + 2, 140) + "px";
+    box.focus();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const v = box.value;
+      box.remove();
+      div.style.display = "";
+      if (!commit || v === (p[field] || "")) return;
+      p[field] = v;
+      div.innerHTML = renderFn(v);
+      setListStatus(listKey, "Saving…");
+      mutateRemote(d => {
+        const rec = d[listKey].find(x => x.id === p.id);
+        if (rec) rec[field] = v;
+        return d;
+      }, "Edit ICU " + field + ": " + (p.name || p.location || p.id)).then(() => {
+        setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+      }).catch(e => {
+        setListStatus(listKey, "");
+        showListError(listKey, "Save failed: " + (e.message || e));
+      });
+    };
+    box.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") finish(false);
+    });
+    box.addEventListener("blur", () => finish(true));
+  });
+}
+
 function renderTables() {
   renderList("inpatients");
   renderList("triaged");
@@ -1000,7 +1054,10 @@ function buildRow(p, listKey, body) {
 
   const tdSum = document.createElement("td");
   tdSum.className = "summary";
-  tdSum.innerHTML = summaryHtml(p.summary || "");
+  const sumDiv = document.createElement("div");
+  sumDiv.innerHTML = summaryHtml(p.summary || "");
+  tdSum.appendChild(sumDiv);
+  editableBlock(tdSum, sumDiv, p, "summary", listKey, v => summaryHtml(v || ""));
   tr.appendChild(tdSum);
 
   const tdObj = document.createElement("td");
@@ -1009,6 +1066,7 @@ function buildRow(p, listKey, body) {
   objText.className = "objtext";
   objText.innerHTML = objectiveHtml(p.objective);
   tdObj.appendChild(objText);
+  editableBlock(tdObj, objText, p, "objective", listKey, objectiveHtml);
   tr.appendChild(tdObj);
 
   const tdJobs = document.createElement("td");
@@ -1168,7 +1226,7 @@ function buildRow(p, listKey, body) {
         p.summary = newSummary || p.summary;
         p.objective = newObjective || p.objective;
         p.clinical = stampedClinical;
-        tdSum.innerHTML = summaryHtml(p.summary || "");
+        sumDiv.innerHTML = summaryHtml(p.summary || "");
         objText.innerHTML = objectiveHtml(p.objective);
 
         st.textContent = "Saving…";
