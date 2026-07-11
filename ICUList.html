@@ -627,7 +627,11 @@ $("saveSettings").addEventListener("click", () => {
   set(K.ghBranch, $("ghBranch").value.trim() || "main");
   set(K.path, $("ghPath").value.trim() || "iculist-patients.json");
   $("settingsSaved").textContent = "Saved ✓";
-  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1500);
+  // let the ✓ register, then close the dropdown
+  setTimeout(() => {
+    $("settingsSaved").textContent = "";
+    $("settingsBox").open = false;
+  }, 700);
 });
 
 /* ============================================================== *
