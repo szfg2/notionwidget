@@ -62,7 +62,7 @@
 
   label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 
-  input[type="password"], input[type="text"], textarea {
+  input[type="password"], input[type="text"], input[type="search"], textarea {
     width: 100%;
     background: var(--surface-2);
     color: var(--text);
@@ -177,6 +177,12 @@
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
   .gen-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input.search-input {
+    width: auto;
+    flex: 0 1 240px;
+    padding: 5px 10px;
+    font-size: 13px;
+  }
   .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
   .status.ok { color: var(--accent); }
 
@@ -445,6 +451,8 @@
       <div class="gen-row">
         <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
+        <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
+        <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
         <span class="status" id="inStatus"></span>
       </div>
       <div class="error" id="inError" style="margin:10px 0 0"></div>
@@ -475,6 +483,8 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="triRefreshBtn" type="button">↻ Refresh</button>
+        <input type="search" id="triSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
+        <button class="ghost-btn danger" id="triDeleteAllBtn" type="button">Delete all</button>
         <span class="status" id="triStatus"></span>
       </div>
       <div class="error" id="triError" style="margin:10px 0 0"></div>
@@ -568,9 +578,16 @@ let genController = null;   // in-flight generate/save (for cancel)
 const saveTimers = new Map();
 
 const LISTS = {
-  inpatients: { body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", label: "inpatient" },
-  triaged:    { body: "triBody", empty: "triEmpty", status: "triStatus", error: "triError", label: "triaged patient" }
+  inpatients: {
+    body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", label: "inpatient",
+    emptyText: "No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List."
+  },
+  triaged: {
+    body: "triBody", empty: "triEmpty", status: "triStatus", error: "triError", label: "triaged patient",
+    emptyText: "No triaged patients yet — generate a triage note in the Create New Patient tab and the patient will appear here."
+  }
 };
+const searchTerms = { inpatients: "", triaged: "" };
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -1027,13 +1044,51 @@ function sortedList(listKey) {
   });
 }
 
+function matchesSearch(p, q) {
+  return ["location", "name", "summary", "objective", "jobs", "triageNote", "pastMedical", "clinical"]
+    .some(f => (p[f] || "").toLowerCase().includes(q));
+}
+
 function renderList(listKey) {
   const body = $(LISTS[listKey].body);
-  const list = sortedList(listKey);
+  const all = sortedList(listKey);
+  const q = (searchTerms[listKey] || "").trim().toLowerCase();
+  const list = q ? all.filter(p => matchesSearch(p, q)) : all;
   body.innerHTML = "";
-  $(LISTS[listKey].empty).style.display = list.length ? "none" : "";
+  const emptyEl = $(LISTS[listKey].empty);
+  emptyEl.style.display = list.length ? "none" : "";
+  emptyEl.textContent = (all.length && !list.length)
+    ? "No patients match the search."
+    : LISTS[listKey].emptyText;
   for (const p of list) buildRow(p, listKey, body);
 }
+
+$("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
+$("triSearch").addEventListener("input", () => { searchTerms.triaged = $("triSearch").value; renderList("triaged"); });
+
+/* Delete all — one warning, then wipes the whole list on every device */
+function wireDeleteAll(btnId, listKey, listName) {
+  $(btnId).addEventListener("click", async () => {
+    const n = data[listKey].length;
+    if (!n) { setListStatus(listKey, "Nothing to delete."); return; }
+    if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the " + listName + "?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
+    clearListError(listKey);
+    $(btnId).disabled = true;
+    setListStatus(listKey, "Deleting all…");
+    try {
+      await mutateRemote(d => { d[listKey] = []; return d; }, "Delete all ICU " + listName.toLowerCase() + " patients");
+      renderTables();
+      setListStatus(listKey, "All patients deleted ✓", true);
+    } catch (e) {
+      setListStatus(listKey, "");
+      showListError(listKey, "Delete all failed: " + (e.message || e));
+    } finally {
+      $(btnId).disabled = false;
+    }
+  });
+}
+wireDeleteAll("inDeleteAllBtn", "inpatients", "Inpatient List");
+wireDeleteAll("triDeleteAllBtn", "triaged", "Triaged Patient List");
 
 function buildRow(p, listKey, body) {
   const tr = document.createElement("tr");
