@@ -43,6 +43,7 @@
   .wrap.full { max-width: none; }
 
   header.app { margin-bottom: 22px; }
+  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin: 0; }
   .sub a { color: var(--accent-strong); }
@@ -102,10 +103,35 @@
   .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
-  /* settings */
-  details.settings summary { cursor: pointer; font-size: 13px; color: var(--accent-strong); list-style: none; user-select: none; }
+  /* settings — compact pill in the header, opens as a dropdown panel */
+  details.settings { position: relative; flex: none; }
+  details.settings summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 12.5px;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 11px;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s;
+  }
+  details.settings summary:hover { color: var(--text); border-color: var(--muted); }
+  details.settings[open] summary { color: var(--accent-strong); border-color: var(--accent); }
   details.settings summary::-webkit-details-marker { display: none; }
-  .settings-grid { margin-top: 12px; }
+  .settings-grid {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: min(560px, calc(100vw - 40px));
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 16px;
+    z-index: 50;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  }
   .settings-grid label.lbl { margin-top: 10px; }
   .pill { font-size: 12px; color: var(--muted); }
 
@@ -344,14 +370,13 @@
 <div class="wrap">
 
   <header class="app">
-    <h1>ICU Patient List</h1>
-    <p class="sub">Triage new referrals and keep a synced ICU rounding list. <a href="RESblue.html">Blue Letters →</a> <a href="RESClinic.html">Clinic Notes →</a> <a href="index.html">Document Generator →</a></p>
-  </header>
-
-  <!-- SETTINGS -->
-  <div class="card">
-    <details class="settings" id="settingsBox">
-      <summary>⚙ Settings &amp; keys (set once per device — shared with your other pages)</summary>
+    <div class="head-row">
+      <div>
+        <h1>ICU Patient List</h1>
+        <p class="sub">Triage new referrals and keep a synced ICU rounding list. <a href="RESblue.html">Blue Letters →</a> <a href="RESClinic.html">Clinic Notes →</a> <a href="index.html">Document Generator →</a></p>
+      </div>
+      <details class="settings" id="settingsBox">
+      <summary>⚙ Settings &amp; keys</summary>
       <div class="settings-grid">
         <label class="lbl">Anthropic (Claude) API key</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
@@ -375,8 +400,9 @@
           <span class="pill" id="settingsSaved"></span>
         </div>
       </div>
-    </details>
-  </div>
+      </details>
+    </div>
+  </header>
 
   <!-- TABS -->
   <div class="mode-tabs">
@@ -424,14 +450,6 @@
     </div>
 
     <div class="error" id="error"></div>
-
-    <div class="card">
-      <div class="out-head">
-        <span class="eyebrow">Objective status (B–I)</span>
-        <button class="ghost-btn" id="copyObjBtn" type="button">Copy</button>
-      </div>
-      <textarea class="output" id="objOutput" style="min-height:190px" placeholder="The B–I objective generated from the boxes above appears here after either button. It is saved to the patient's Objective column, where it stays editable." spellcheck="false"></textarea>
-    </div>
 
     <div class="card">
       <div class="out-head">
@@ -818,7 +836,6 @@ async function runGenerate(mode) {
         : Promise.resolve("")
     ]);
 
-    $("objOutput").value = objective || "";
     if (triage) {
       $("output").value = triageNote || "(No text returned.)";
       updateCount();
@@ -844,6 +861,14 @@ async function runGenerate(mode) {
         return d;
       }, "Add ICU " + LISTS[listKey].label + ": " + (name || location));
       renderTables();
+      // After a straight save, clear the form ready for the next patient.
+      // Triage keeps the inputs so they can be read alongside the note.
+      if (!triage) {
+        $("ptLocation").value = "";
+        $("ptName").value = "";
+        $("pastMedical").value = "";
+        $("clinical").value = "";
+      }
       setGenStatus("Done ✓ — saved to " + (triage ? "Triaged Patient List" : "Inpatient List"), true);
     } catch (e) {
       setGenStatus("");
@@ -890,13 +915,6 @@ $("copyBtn").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText(t); }
   catch (e) { $("output").select(); document.execCommand("copy"); }
   flashCopied($("copyBtn"));
-});
-$("copyObjBtn").addEventListener("click", async () => {
-  const t = $("objOutput").value;
-  if (!t) return;
-  try { await navigator.clipboard.writeText(t); }
-  catch (e) { $("objOutput").select(); document.execCommand("copy"); }
-  flashCopied($("copyObjBtn"));
 });
 function flashCopied(btn, label) {
   const orig = label || "Copy";
