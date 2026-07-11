@@ -364,6 +364,30 @@
   }
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+
+  /* upcoming timed jobs (job list lines containing "@") */
+  .upcoming {
+    border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+    background: color-mix(in srgb, var(--warn) 7%, var(--surface));
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .upcoming .eyebrow { color: var(--warn); margin-bottom: 8px; }
+  .up-item { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 13.5px; flex-wrap: wrap; }
+  .up-time {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 6px;
+    padding: 1px 8px;
+    white-space: nowrap;
+  }
+  .up-who { font-weight: 650; white-space: nowrap; }
+  .up-task { color: var(--text); }
 </style>
 </head>
 <body>
@@ -465,6 +489,8 @@
   <!-- =========================  INPATIENT LIST  ========================= -->
   <div id="inTab" style="display:none">
 
+    <div class="upcoming" id="inUpcoming" style="display:none"></div>
+
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
@@ -490,13 +516,15 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List.</div>
       </div>
-      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
+      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
     </div>
 
   </div>
 
   <!-- =========================  TRIAGED PATIENT LIST  ========================= -->
   <div id="triTab" style="display:none">
+
+    <div class="upcoming" id="triUpcoming" style="display:none"></div>
 
     <div class="card">
       <div class="gen-row">
@@ -597,11 +625,11 @@ const saveTimers = new Map();
 
 const LISTS = {
   inpatients: {
-    body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", label: "inpatient",
+    body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", upcoming: "inUpcoming", label: "inpatient",
     emptyText: "No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List."
   },
   triaged: {
-    body: "triBody", empty: "triEmpty", status: "triStatus", error: "triError", label: "triaged patient",
+    body: "triBody", empty: "triEmpty", status: "triStatus", error: "triError", upcoming: "triUpcoming", label: "triaged patient",
     emptyText: "No triaged patients yet — generate a triage note in the Create New Patient tab and the patient will appear here."
   }
 };
@@ -1066,6 +1094,77 @@ function sortedList(listKey) {
   });
 }
 
+/* ---- Upcoming timed jobs: job list lines containing "@" ---- */
+// Best-effort parse of the text after "@" into minutes-since-midnight for
+// sorting: handles "10pm", "10:30pm", "22:00", "2200", "2200h", "8". Returns
+// null when unparseable — those items sort last, in list order.
+function parseTimeMinutes(s) {
+  const t = String(s).trim().toLowerCase();
+  const toMin = (h, min, ap) => {
+    if (ap === "pm" && h < 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    return (h < 24 && min < 60) ? h * 60 + min : null;
+  };
+  let m = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?/);   // 10:30, 10:30pm, 22:00
+  if (m) return toMin(+m[1], +m[2], m[3]);
+  m = t.match(/^(\d{1,2})\s*(am|pm)/);                // 10pm, 8 am
+  if (m) return toMin(+m[1], 0, m[2]);
+  m = t.match(/^(\d{2})(\d{2})(?:h|hrs)?\b/);         // 2200, 0800h
+  if (m) return toMin(+m[1], +m[2]);
+  m = t.match(/^(\d{1,2})(?:h|hrs)?\b/);              // 22h, 8
+  if (m) return toMin(+m[1], 0);
+  return null;
+}
+
+function upcomingItems(listKey) {
+  const items = [];
+  for (const p of data[listKey]) {
+    for (const line of (p.jobs || "").split("\n")) {
+      const idx = line.indexOf("@");
+      if (idx === -1 || !line.trim()) continue;
+      const task = line.slice(0, idx).replace(/^[-•*\s]+/, "").trim();
+      const time = line.slice(idx + 1).trim();
+      items.push({
+        who: [p.location, p.name].filter(Boolean).join(" · "),
+        task: task || "(see job list)",
+        time,
+        sort: parseTimeMinutes(time)
+      });
+    }
+  }
+  items.sort((a, b) => (a.sort === null ? 9999 : a.sort) - (b.sort === null ? 9999 : b.sort));
+  return items;
+}
+
+function renderUpcoming(listKey) {
+  const el = $(LISTS[listKey].upcoming);
+  const items = upcomingItems(listKey);
+  el.innerHTML = "";
+  if (!items.length) { el.style.display = "none"; return; }
+  el.style.display = "";
+  const head = document.createElement("span");
+  head.className = "eyebrow";
+  head.textContent = "⏰ Upcoming";
+  el.appendChild(head);
+  for (const it of items) {
+    const row = document.createElement("div");
+    row.className = "up-item";
+    const time = document.createElement("span");
+    time.className = "up-time";
+    time.textContent = it.time ? "@ " + it.time : "@";
+    const who = document.createElement("span");
+    who.className = "up-who";
+    who.textContent = it.who || "—";
+    const task = document.createElement("span");
+    task.className = "up-task";
+    task.textContent = it.task;
+    row.appendChild(time);
+    row.appendChild(who);
+    row.appendChild(task);
+    el.appendChild(row);
+  }
+}
+
 function matchesSearch(p, q) {
   return ["location", "name", "summary", "objective", "jobs", "triageNote", "pastMedical", "clinical"]
     .some(f => (p[f] || "").toLowerCase().includes(q));
@@ -1083,6 +1182,7 @@ function renderList(listKey) {
     ? "No patients match the search."
     : LISTS[listKey].emptyText;
   for (const p of list) buildRow(p, listKey, body);
+  renderUpcoming(listKey);
 }
 
 $("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
@@ -1152,7 +1252,10 @@ function buildRow(p, listKey, body) {
   jobBox.className = "jobbox";
   jobBox.placeholder = "Jobs / to-dos…";
   jobBox.value = p.jobs || "";
-  jobBox.addEventListener("input", () => queueFieldSave(listKey, p.id, "jobs", jobBox.value, "Update ICU job list"));
+  jobBox.addEventListener("input", () => {
+    queueFieldSave(listKey, p.id, "jobs", jobBox.value, "Update ICU job list");
+    renderUpcoming(listKey); // queueFieldSave has already updated the local cache
+  });
   tdJobs.appendChild(jobBox);
   tr.appendChild(tdJobs);
 
