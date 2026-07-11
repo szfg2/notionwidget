@@ -285,13 +285,8 @@
     padding: 7px 9px;
     background: var(--surface-2);
   }
-  .patients td.objective .objtext {
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+  .patients td.objective { line-height: 1.45; }
+  .patients td.objective strong { color: var(--accent-strong); font-weight: 650; }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
   .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
@@ -512,7 +507,7 @@ const CONFIG = {
   ASK_MODEL: "claude-opus-4-8",
   ASK_MAX_TOKENS: 2048,
   TRIAGE_PROMPT: "prompts/icu-triage-note.txt",
-  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
+  SUMMARY_PROMPT: "prompts/icu-ward-round-summary.txt",
   OBJECTIVE_PROMPT: "prompts/icu-objective-status.txt"
 };
 
@@ -633,6 +628,14 @@ function escapeHtml(s) {
 function summaryHtml(s) {
   let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
+  return esc.replace(/\n/g, "<br>");
+}
+// B–I objective -> safe HTML with the leading letter of each line bold,
+// styled like the summary labels
+function objectiveHtml(s) {
+  if (!String(s).trim()) return "—";
+  let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  esc = esc.replace(/^([B-I]):/gm, "<strong>$1:</strong>");
   return esc.replace(/\n/g, "<br>");
 }
 function updateCount() {
@@ -1004,7 +1007,7 @@ function buildRow(p, listKey, body) {
   tdObj.className = "objective";
   const objText = document.createElement("div");
   objText.className = "objtext";
-  objText.textContent = p.objective || "—";
+  objText.innerHTML = objectiveHtml(p.objective);
   tdObj.appendChild(objText);
   tr.appendChild(tdObj);
 
@@ -1166,7 +1169,7 @@ function buildRow(p, listKey, body) {
         p.objective = newObjective || p.objective;
         p.clinical = stampedClinical;
         tdSum.innerHTML = summaryHtml(p.summary || "");
-        objText.textContent = p.objective || "—";
+        objText.innerHTML = objectiveHtml(p.objective);
 
         st.textContent = "Saving…";
         await mutateRemote(d => {
@@ -1475,7 +1478,7 @@ $("printBtn").addEventListener("click", () => {
     '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
     "<td>" + escapeHtml(p.name || "") + "</td>" +
     '<td class="sum">' + summaryHtml(p.summary || "") + "</td>" +
-    '<td class="pre">' + escapeHtml(p.objective || "") + "</td>" +
+    '<td class="sum">' + objectiveHtml(p.objective) + "</td>" +
     '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
     "</tr>").join("");
   const now = new Date();

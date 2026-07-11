@@ -1,0 +1,37 @@
+## Context
+Create a SHORT, dense summary of an ICU inpatient for an ICU rounding table. Maximum character economy: this feeds a small table cell, so compress hard. The bold labels are the only visual anchor when scanning on rounds.
+
+## Output format — follow exactly
+- Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
+- Output ONLY the summary — no preamble, no explanation, no closing remarks.
+- Produce labelled blocks in this order: B/G, RFAI, Active, Counters, Course.
+- Each block starts on its own line with NO blank lines between blocks — one block per line, directly under the previous one.
+- Each block label is in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
+  **B/G:** ...
+  **RFAI:** ...
+  **Active:** ...
+  **Counters:** ...
+  **Course:** ...
+- The labels (B/G / RFAI / Active / Counters / Course) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is treatments that are currently ongoing, which are bolded inside the Counters line (see below).
+- Omit any block that has no content — do not print an empty label.
+- NEVER write placeholder phrases for missing information — no "not reported", "not provided", "not available", "not documented", "unknown" or anything similar. If the information is absent, leave it out entirely.
+
+## What goes in each block
+- **B/G:** patient's past medical conditions on ONE line — the four or five most significant conditions including relevant respiratory history with prior lung function and treatment. Chain with ">" for progressions and "c/b" for "complicated by" (e.g. "DM/HTN/HLD; ESRF on HD (LtIJC); COPD GOLD D (FEV1 32% '24) on LAMA/LABA+ICS"). Compress hard: drop articles and filler, use accepted shortforms.
+- **RFAI:** Reason For Admission to ICU — ONE line stating the acute problem that brought the patient to ICU and the organ support that triggered admission, with the admission date if available (e.g. "26/6 septic shock 2° HAP — intubated, Norad" or "type 2 resp failure post-extubation stridor > reintubated"). One line only; details of the ongoing course belong in Course, not here.
+- **Active:** up to THREE current issues being worked up, most important first, all on ONE line separated by " | " (e.g. "HAP D5 | ?PE — CTPA pending | AKI on CKD, resolving"). The label **Active:** appears ONCE at the start of the line; the issues themselves are not bold.
+- **Counters:** running tallies of therapy and location durations on ONE line, separated by " | ". Include: antibiotics started and stopped with dates, steroids started and stopped with dates (incl. taper), sedation/vasopressor days where stated, and durations intubated, on CRRT, or in ICU/HD/GW. Chain switches/escalations with ">", separate distinct items with " | ". Dates as d/m. BOLD any treatment that is currently ongoing (e.g. **Tazo**, **Pred 30mg**). Include antifungal/antiviral prophylaxis where relevant (e.g. "**Tazo** 2/7 (D4); Augmentin 26/6–1/7 | intubated 26/6 (D5) | **CRRT** 28/6 (D3) | ICU D5").
+- **Course:** ALL significant dated events on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
+
+## Compression rules (apply to the whole summary)
+- Maximum character economy — aim well under 150 words; density over prose. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
+- Dates as d/m (e.g. 25/5), never dd/mm/yyyy.
+- Use medical shortforms freely: infxn, collxn, inflam, B/L, s/p, c/b, abx, BC (blood culture), NF (neutropenic fever), HD, IE, TW, PFT, LTOT, NIV, HFNC, ETT, CRRT. Keep organism names in FULL (e.g. Micrococcus luteus) — never abbreviate organisms.
+- No units for laboratory values.
+
+## Example of a good summary (illustrates format and tone ONLY — never reuse its content)
+**B/G:** DM/HTN/IHD s/p PCI '22; CKD 3b; COPD GOLD D (FEV1 32% '24), ex-smoker 40py, on LAMA/LABA+ICS
+**RFAI:** 26/6 septic shock 2° HAP — intubated, Norad + Vaso
+**Active:** HAP D5, improving | AKI on CKD > CRRT | slow vent wean
+**Counters:** **Tazo** 2/7 (D4); Augmentin 26/6–1/7 (failed) | intubated 26/6 (D5) | **CRRT** 28/6 (D3) | **Norad 0.05** weaning | ICU D5
+**Course:** 26/6 intubated ED, ICU | 28/6 BC −ve, ETA +Pseudomonas > CRRT started | 2/7 escalated Tazo | 4/7 Norad weaning, SBT planned
