@@ -285,13 +285,12 @@
     padding: 7px 9px;
     background: var(--surface-2);
   }
-  .patients textarea.objbox {
-    min-height: 150px;
+  .patients td.objective .objtext {
     font-family: var(--mono);
     font-size: 12px;
     line-height: 1.5;
-    padding: 7px 9px;
-    background: var(--surface-2);
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
@@ -302,6 +301,21 @@
     padding: 12px 14px;
   }
   .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  /* per-patient "Update" panel inside the expanded row */
+  .update-wrap textarea.update-box {
+    min-height: 64px;
+    font-size: 13px;
+    background: var(--surface-2);
+    margin: 8px 0;
+  }
+  .update-wrap .err {
+    display: none;
+    color: var(--danger);
+    font-size: 12.5px;
+    margin-top: 8px;
+    white-space: pre-wrap;
+  }
 
   /* editable stored triage note */
   textarea.note-edit {
@@ -427,6 +441,7 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <span class="status" id="inStatus"></span>
       </div>
       <div class="error" id="inError" style="margin:10px 0 0"></div>
@@ -446,7 +461,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List.</div>
       </div>
-      <div class="out-foot">Objective and job list edits autosave to GitHub a moment after you stop typing. Click a location or name to edit it. The list syncs across all your devices.</div>
+      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Click a location or name to edit it. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
     </div>
 
   </div>
@@ -476,7 +491,7 @@
         </table>
         <div class="empty-note" id="triEmpty" style="display:none">No triaged patients yet — generate a triage note in the Create New Patient tab and the patient will appear here.</div>
       </div>
-      <div class="out-foot">Objective, job list and triage note edits autosave to GitHub a moment after you stop typing. “→ Inpatient” moves a patient onto the Inpatient List.</div>
+      <div class="out-foot">Job list and triage note edits autosave to GitHub a moment after you stop typing. “→ Inpatient” moves a patient onto the Inpatient List.</div>
     </div>
 
   </div>
@@ -513,6 +528,22 @@ const ASK_SYSTEM =
   "Lead with the key point; keep each bullet to one line where possible and avoid filler. " +
   "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
   "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
+
+/* Appended to the summary prompt when folding new data into an existing summary. */
+const SUMMARY_UPDATE_SUFFIX =
+  "\n\n## Update mode\n" +
+  "You will be given an EXISTING SUMMARY (already in the format above) and LATEST UPDATES. " +
+  "Merge the updates into the existing summary: keep everything still accurate, update Active, Counters and " +
+  "Course with the new events, dates and day counts, and remove items only when the updates clearly supersede them. " +
+  "Output the FULL updated summary in exactly the format above — never output only the changes.";
+
+/* Appended to the objective prompt when folding new data into an existing B–I block. */
+const OBJECTIVE_UPDATE_SUFFIX =
+  "\n\n## Update mode\n" +
+  "You will be given an EXISTING OBJECTIVE block (already in the format above) and LATEST UPDATES. " +
+  "For each letter, replace values with the newest data where the updates provide it; keep a letter unchanged " +
+  "when the updates say nothing about it. Show short trends oldest → newest with \" > \" only where useful (e.g. CBG). " +
+  "Output the FULL updated B–I block in exactly the format above — never output only the changes.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
 const K = {
@@ -927,9 +958,21 @@ function renderTables() {
   renderList("triaged");
 }
 
+// Inpatients render sorted by location (natural sort, so ICU 2 < ICU 10);
+// patients without a location go last. Triaged stay newest first.
+function sortedList(listKey) {
+  const list = data[listKey];
+  if (listKey !== "inpatients") return list;
+  return [...list].sort((a, b) => {
+    if (!a.location && b.location) return 1;
+    if (a.location && !b.location) return -1;
+    return (a.location || "").localeCompare(b.location || "", undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
 function renderList(listKey) {
   const body = $(LISTS[listKey].body);
-  const list = data[listKey];
+  const list = sortedList(listKey);
   body.innerHTML = "";
   $(LISTS[listKey].empty).style.display = list.length ? "none" : "";
   for (const p of list) buildRow(p, listKey, body);
@@ -959,13 +1002,10 @@ function buildRow(p, listKey, body) {
 
   const tdObj = document.createElement("td");
   tdObj.className = "objective";
-  const objBox = document.createElement("textarea");
-  objBox.className = "objbox";
-  objBox.placeholder = "B:\nC:\nD:\nE:\nF:\nG:\nH:\nI:";
-  objBox.value = p.objective || "";
-  objBox.spellcheck = false;
-  objBox.addEventListener("input", () => queueFieldSave(listKey, p.id, "objective", objBox.value, "Update ICU objective: " + (p.name || p.id)));
-  tdObj.appendChild(objBox);
+  const objText = document.createElement("div");
+  objText.className = "objtext";
+  objText.textContent = p.objective || "—";
+  tdObj.appendChild(objText);
   tr.appendChild(tdObj);
 
   const tdJobs = document.createElement("td");
@@ -985,6 +1025,15 @@ function buildRow(p, listKey, body) {
   askBtn.type = "button";
   askBtn.textContent = "Ask";
   tdAct.appendChild(askBtn);
+
+  let updBtn = null;
+  if (listKey === "inpatients") {
+    updBtn = document.createElement("button");
+    updBtn.className = "ghost-btn";
+    updBtn.type = "button";
+    updBtn.textContent = "Update";
+    tdAct.appendChild(updBtn);
+  }
 
   let noteBtn = null;
   if (listKey === "triaged") {
@@ -1028,6 +1077,121 @@ function buildRow(p, listKey, body) {
   tdAct.appendChild(delBtn);
   tr.appendChild(tdAct);
   body.appendChild(tr);
+
+  // --- expandable "Update summary + objective" row (inpatient list only) ---
+  if (updBtn) {
+    const trUpd = document.createElement("tr");
+    trUpd.className = "detail-row";
+    trUpd.style.display = "none";
+    const tdUpd = document.createElement("td");
+    tdUpd.colSpan = 6;
+    const wrap = document.createElement("div");
+    wrap.className = "update-wrap";
+    const lbl = document.createElement("span");
+    lbl.className = "eyebrow";
+    lbl.style.margin = "0";
+    lbl.textContent = "Update summarised history & objective";
+    const hint = document.createElement("p");
+    hint.className = "ask-note";
+    hint.textContent = "Paste today's reviews, vitals, vent settings and results — Claude folds them into the summarised history and B–I objective. Nothing identifying is sent.";
+    const box = document.createElement("textarea");
+    box.className = "update-box";
+    box.placeholder = "e.g. Weaned Norad to 0.01, extubated to HFNC 50/0.4, Urea 9 Na 134 K 4.2, CRP 80 > 60, Tazocin D7… (de-identified)";
+    const row = document.createElement("div");
+    row.className = "gen-row";
+    const runBtn = document.createElement("button");
+    runBtn.className = "generate";
+    runBtn.type = "button";
+    runBtn.textContent = "Update";
+    const st = document.createElement("span");
+    st.className = "status";
+    row.appendChild(runBtn);
+    row.appendChild(st);
+    const err = document.createElement("div");
+    err.className = "err";
+    wrap.appendChild(lbl);
+    wrap.appendChild(hint);
+    wrap.appendChild(box);
+    wrap.appendChild(row);
+    wrap.appendChild(err);
+    tdUpd.appendChild(wrap);
+    trUpd.appendChild(tdUpd);
+    body.appendChild(trUpd);
+
+    updBtn.addEventListener("click", () => {
+      const open = trUpd.style.display !== "none";
+      trUpd.style.display = open ? "none" : "";
+      updBtn.textContent = open ? "Update" : "Hide update";
+      if (!open) box.focus();
+    });
+
+    let updController = null;
+    const showUpdErr = (m) => { err.textContent = m; err.style.display = "block"; };
+    runBtn.addEventListener("click", async () => {
+      if (updController) { updController.abort(); return; }
+      err.style.display = "none"; err.textContent = "";
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      if (!key) { $("settingsBox").open = true; return showUpdErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const updates = box.value.trim();
+      if (!updates) return showUpdErr("Paste the new reviews, vitals or results first.");
+
+      updController = new AbortController();
+      runBtn.classList.add("is-cancel");
+      runBtn.innerHTML = '<span class="spinner"></span>Cancel';
+      st.textContent = "Updating summary + objective…";
+      try {
+        const loadPrompt = (pr) => fetch(pr, { cache: "no-store", signal: updController.signal })
+          .then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + pr); return r.text(); });
+        const [summarySys, objectiveSys] = await Promise.all([
+          loadPrompt(CONFIG.SUMMARY_PROMPT),
+          loadPrompt(CONFIG.OBJECTIVE_PROMPT)
+        ]);
+        // De-identified stored content only — name/location are never sent.
+        const [newSummary, newObjective] = await Promise.all([
+          callClaude(key, CONFIG.MODEL, summarySys + SUMMARY_UPDATE_SUFFIX,
+            "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
+            CONFIG.SUMMARY_MAX_TOKENS, updController.signal),
+          callClaude(key, CONFIG.MODEL, objectiveSys + OBJECTIVE_UPDATE_SUFFIX,
+            "EXISTING OBJECTIVE:\n" + ((p.objective || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
+            CONFIG.OBJECTIVE_MAX_TOKENS, updController.signal)
+        ]);
+        if (!newSummary && !newObjective) throw new Error("No text returned.");
+
+        // Append the pasted updates to the stored clinical data so the
+        // "Ask about this patient" context stays current.
+        const t = new Date();
+        const stampedClinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
+          "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + updates;
+        p.summary = newSummary || p.summary;
+        p.objective = newObjective || p.objective;
+        p.clinical = stampedClinical;
+        tdSum.innerHTML = summaryHtml(p.summary || "");
+        objText.textContent = p.objective || "—";
+
+        st.textContent = "Saving…";
+        await mutateRemote(d => {
+          const rec = d[listKey].find(x => x.id === p.id);
+          if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = stampedClinical; }
+          return d;
+        }, "Update ICU summary/objective: " + (p.name || p.location || p.id));
+        box.value = "";
+        st.textContent = "Updated ✓ " + timeNow();
+        st.classList.add("ok");
+        setTimeout(() => { st.textContent = ""; st.classList.remove("ok"); }, 4000);
+      } catch (e) {
+        st.textContent = "";
+        if (e.name !== "AbortError") showUpdErr("Update failed: " + (e.message || e));
+      } finally {
+        updController = null;
+        runBtn.classList.remove("is-cancel");
+        runBtn.innerHTML = "Update";
+      }
+    });
+    // Ctrl/Cmd+Enter in the update box runs the update
+    box.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBtn.click(); }
+    });
+  }
 
   // --- expandable triage note row (triaged list only) ---
   if (noteBtn) {
@@ -1300,6 +1464,54 @@ function autoGrow(el) {
   el.style.height = "auto";
   el.style.height = Math.max(el.scrollHeight + 2, 120) + "px";
 }
+
+/* ============================================================== *
+ *  Print — clean landscape table of the inpatient list           *
+ * ============================================================== */
+$("printBtn").addEventListener("click", () => {
+  const list = sortedList("inpatients");
+  if (!list.length) { setListStatus("inpatients", "Nothing to print."); return; }
+  const rows = list.map(p => "<tr>" +
+    '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
+    "<td>" + escapeHtml(p.name || "") + "</td>" +
+    '<td class="sum">' + summaryHtml(p.summary || "") + "</td>" +
+    '<td class="pre">' + escapeHtml(p.objective || "") + "</td>" +
+    '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
+    "</tr>").join("");
+  const now = new Date();
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>ICU Inpatient List</title><style>" +
+    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:11px;color:#111;margin:0;}" +
+    "h1{font-size:14px;margin:0 0 2px;}" +
+    ".meta{color:#555;font-size:10px;margin:0 0 8px;}" +
+    "table{width:100%;border-collapse:collapse;}" +
+    "th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top;}" +
+    "th{background:#eee;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;}" +
+    "td.loc{white-space:nowrap;font-weight:600;}" +
+    "td.sum{line-height:1.35;}" +
+    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:9.5px;line-height:1.4;}" +
+    "strong{font-weight:700;}" +
+    "tr{page-break-inside:avoid;}" +
+    "@page{size:A4 landscape;margin:10mm;}" +
+    "</style></head><body>" +
+    "<h1>ICU Inpatient List</h1>" +
+    '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
+      now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
+    "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table></body></html>";
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.right = "0"; frame.style.bottom = "0";
+  frame.style.width = "0"; frame.style.height = "0"; frame.style.border = "0";
+  document.body.appendChild(frame);
+  frame.onload = () => {
+    setTimeout(() => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      setTimeout(() => frame.remove(), 1000);
+    }, 50);
+  };
+  frame.srcdoc = html;
+});
 
 /* ============================================================== *
  *  Init                                                          *
