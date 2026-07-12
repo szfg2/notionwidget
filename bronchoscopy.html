@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual Bronchoscopy — Navigable Airway Tree</title>
+<style>
+  :root{
+    --bg:#0c0708; --panel:#17110f; --panel-2:#1f1613; --line:#3a2a26;
+    --ink:#f0e6e2; --ink-dim:#c9a99f; --ink-faint:#8a6b63;
+    --accent:#e0876a; --accent-2:#5fb8a0; --route:#ffb38a;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* circular scope mask / vignette */
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(circle at 50% 48%,transparent 46%,rgba(0,0,0,.35) 66%,
+      rgba(0,0,0,.72) 82%,rgba(0,0,0,.96) 100%)}
+  .scopering{position:fixed;inset:0;pointer-events:none;z-index:6;display:flex;
+    align-items:center;justify-content:center}
+  .scopering::before{content:"";width:min(96vh,96vw);height:min(96vh,96vw);border-radius:50%;
+    box-shadow:0 0 0 2px rgba(255,220,200,.06),inset 0 0 60px rgba(0,0,0,.5)}
+
+  /* HUD panels */
+  .hud{position:fixed;z-index:10}
+  .card{background:color-mix(in srgb,var(--panel) 82%,transparent);
+    border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(9px);
+    -webkit-backdrop-filter:blur(9px)}
+
+  /* top-left location */
+  #loc{top:16px;left:16px;padding:12px 15px;min-width:210px;max-width:min(64vw,320px)}
+  #loc .eyebrow{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin-bottom:5px}
+  #loc .name{font-size:16px;font-weight:650;line-height:1.25;letter-spacing:-.01em}
+  #loc .gen{display:inline-block;margin-top:7px;font-family:var(--mono);font-size:10.5px;
+    color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+    background:color-mix(in srgb,var(--accent) 12%,transparent);
+    padding:2px 8px;border-radius:999px}
+  #crumb{margin-top:9px;font-size:11.5px;color:var(--ink-dim);line-height:1.5;
+    word-break:break-word}
+  #crumb b{color:var(--route);font-weight:600}
+
+  /* bottom branch chooser */
+  #chooser{left:50%;transform:translateX(-50%);bottom:20px;
+    display:flex;gap:9px;flex-wrap:wrap;justify-content:center;
+    max-width:min(92vw,720px);padding:0 8px}
+  .branch{background:color-mix(in srgb,var(--panel-2) 88%,transparent);
+    border:1px solid var(--line);border-radius:10px;color:var(--ink);
+    font-family:var(--sans);font-size:13px;font-weight:550;
+    padding:9px 14px;cursor:pointer;backdrop-filter:blur(9px);
+    display:flex;align-items:center;gap:8px;line-height:1.15;
+    transition:border-color .12s,background .12s,transform .06s}
+  .branch:hover{border-color:var(--accent);
+    background:color-mix(in srgb,var(--accent) 16%,var(--panel-2))}
+  .branch:active{transform:translateY(1px)}
+  .branch.sel{border-color:var(--route);
+    background:color-mix(in srgb,var(--route) 22%,var(--panel-2));
+    box-shadow:0 0 0 2px color-mix(in srgb,var(--route) 35%,transparent)}
+  .branch .seg{font-family:var(--mono);font-size:10px;color:var(--accent);
+    border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+    border-radius:5px;padding:1px 5px}
+  .branch.blind{cursor:default;color:var(--ink-faint);border-style:dashed}
+  .branch.blind:hover{border-color:var(--line);background:color-mix(in srgb,var(--panel-2) 88%,transparent)}
+  #chooser .lead{width:100%;text-align:center;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-faint);margin-bottom:2px}
+
+  /* top-right map */
+  #mapwrap{top:16px;right:16px;padding:10px 10px 6px}
+  #mapwrap .eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin:0 2px 4px}
+  #map{display:block}
+  #map .edge{stroke:#4a3631;stroke-width:2.4;stroke-linecap:round;fill:none}
+  #map .edge.on{stroke:var(--route);stroke-width:3}
+  #map .nd{fill:#5a423c;stroke:#0c0708;stroke-width:1.4;cursor:pointer;
+    transition:fill .12s,r .12s}
+  #map .nd:hover{fill:var(--accent-2)}
+  #map .nd.on{fill:var(--route)}
+  #map .nd.leaf{r:2.6}
+  #pos{fill:#fff;stroke:var(--accent);stroke-width:2}
+  #maphint{font-size:10px;color:var(--ink-faint);text-align:center;margin-top:2px}
+
+  /* bottom-left controls + buttons */
+  #ctrls{bottom:20px;left:16px;padding:10px 13px;max-width:230px}
+  #ctrls .eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:600;margin-bottom:7px}
+  #ctrls .row{font-size:11.5px;color:var(--ink-dim);line-height:1.7}
+  .kbd{font-family:var(--mono);font-size:10px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
+  .btns{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+  .mini{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:8px 6px;font-size:12px;font-weight:600;
+    cursor:pointer;font-family:var(--sans);user-select:none;
+    transition:border-color .12s,background .12s}
+  .mini:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel-2))}
+  .mini.wide{flex-basis:100%}
+
+  /* intro */
+  #intro{position:fixed;inset:0;z-index:30;display:flex;align-items:center;
+    justify-content:center;background:radial-gradient(circle at 50% 40%,#1a0f0c,#000 80%)}
+  #intro .box{max-width:420px;text-align:center;padding:28px}
+  #intro h1{font-size:22px;font-weight:680;letter-spacing:-.02em;margin:0 0 6px}
+  #intro p{color:var(--ink-dim);font-size:13.5px;line-height:1.6;margin:0 0 18px}
+  #intro .go{background:var(--accent);color:#1a0d09;border:none;border-radius:10px;
+    padding:12px 26px;font-size:14px;font-weight:650;cursor:pointer;font-family:var(--sans)}
+  #intro .go:hover{filter:brightness(1.07)}
+  #intro .keys{margin-top:16px;font-size:11.5px;color:var(--ink-faint);line-height:1.9}
+  #loader{position:fixed;inset:0;z-index:40;display:flex;align-items:center;
+    justify-content:center;background:#000;color:var(--ink-faint);font-size:13px}
+
+  @media (max-width:720px){
+    #ctrls .row{display:none}
+    #ctrls{max-width:none;left:16px;right:16px}
+    #loc{max-width:58vw}
+    #mapwrap{padding:8px 8px 4px}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="vignette"></div>
+<div class="scopering"></div>
+
+<div id="loader">Building airway model…</div>
+
+<!-- Location -->
+<div class="hud card" id="loc" style="display:none">
+  <div class="eyebrow">Scope position</div>
+  <div class="name" id="locName">Lower trachea</div>
+  <div class="gen" id="locGen">Generation 0</div>
+  <div id="crumb"></div>
+</div>
+
+<!-- Map -->
+<div class="hud card" id="mapwrap" style="display:none">
+  <div class="eyebrow">Airway map</div>
+  <svg id="map" width="176" height="230" viewBox="0 0 176 230"></svg>
+  <div id="maphint">tap a branch to jump</div>
+</div>
+
+<!-- Controls -->
+<div class="hud card" id="ctrls" style="display:none">
+  <div class="eyebrow">Controls</div>
+  <div class="row"><span class="kbd">↑</span> advance &nbsp; <span class="kbd">↓</span> withdraw</div>
+  <div class="row"><span class="kbd">←</span> <span class="kbd">→</span> aim at a branch</div>
+  <div class="row"><span class="kbd">move mouse</span> angulate the tip</div>
+  <div class="btns">
+    <button class="mini" id="btnBack">↑ Advance</button>
+    <button class="mini" id="btnFwd">↓ Withdraw</button>
+    <button class="mini wide" id="btnReset">Reset to carina</button>
+  </div>
+</div>
+
+<!-- Branch chooser -->
+<div class="hud" id="chooser" style="display:none"></div>
+
+<!-- Intro -->
+<div id="intro" style="display:none">
+  <div class="box">
+    <h1>Virtual Bronchoscopy</h1>
+    <p>You are at the main carina, looking down the trachea. Drive the scope down the bronchial tree with the arrow keys, and move the mouse to angulate the tip. Each orifice ahead is labelled.</p>
+    <button class="go" id="startBtn">Enter the airway</button>
+    <div class="keys"><b>↑</b> advance · <b>↓</b> withdraw · <b>←</b> <b>→</b> aim at a branch · <b>mouse</b> to look</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================= *
+ *  AIRWAY ANATOMY
+ *  Coordinates: x = lateral (patient's right +x, left -x),
+ *  y = vertical (superior +y), z = anterior +z / posterior -z.
+ *  r = lumen radius. Scope enters from the top and descends.
+ * ============================================================= */
+const N = {
+  trachea:   { pos:[ 0.0, 11.0, 0.0], r:1.05, name:'Trachea',                         gen:0 },
+  carina:    { pos:[ 0.0,  4.6, 0.0], r:0.98, name:'Main carina',                     gen:0 },
+
+  // ---- RIGHT ----
+  rmb:       { pos:[ 2.5,  2.1, 0.1], r:0.80, name:'Right main bronchus',             gen:1 },
+  rul:       { pos:[ 4.7,  2.9,-0.2], r:0.54, name:'Right upper lobe bronchus',       gen:2 },
+  rul_ap:    { pos:[ 5.3,  4.7,-0.4], r:0.30, name:'RUL apical',        seg:'B1', gen:3, leaf:1 },
+  rul_post:  { pos:[ 6.2,  3.0,-1.3], r:0.30, name:'RUL posterior',     seg:'B2', gen:3, leaf:1 },
+  rul_ant:   { pos:[ 5.8,  2.3, 1.1], r:0.30, name:'RUL anterior',      seg:'B3', gen:3, leaf:1 },
+  bi:        { pos:[ 2.8, -0.7, 0.0], r:0.65, name:'Bronchus intermedius',            gen:2 },
+  rml:       { pos:[ 3.8, -2.3, 1.4], r:0.45, name:'Right middle lobe bronchus',      gen:3 },
+  rml_lat:   { pos:[ 4.9, -3.1, 1.7], r:0.26, name:'RML lateral',       seg:'B4', gen:4, leaf:1 },
+  rml_med:   { pos:[ 3.4, -3.5, 2.3], r:0.26, name:'RML medial',        seg:'B5', gen:4, leaf:1 },
+  rll:       { pos:[ 2.6, -3.3,-0.5], r:0.57, name:'Right lower lobe bronchus',       gen:3 },
+  rll_sup:   { pos:[ 2.0, -3.2,-2.1], r:0.31, name:'RLL superior',      seg:'B6', gen:4, leaf:1 },
+  rll_bas:   { pos:[ 2.8, -5.7,-0.4], r:0.43, name:'RLL basal trunk',             gen:4 },
+  rll_med:   { pos:[ 2.0, -6.9, 0.9], r:0.24, name:'RLL medial basal',  seg:'B7', gen:5, leaf:1 },
+  rll_ant:   { pos:[ 3.3, -7.1, 0.9], r:0.24, name:'RLL anterior basal',seg:'B8', gen:5, leaf:1 },
+  rll_lat:   { pos:[ 3.9, -7.1,-0.6], r:0.24, name:'RLL lateral basal', seg:'B9', gen:5, leaf:1 },
+  rll_post:  { pos:[ 2.7, -7.3,-1.7], r:0.24, name:'RLL posterior basal',seg:'B10',gen:5, leaf:1 },
+
+  // ---- LEFT ----
+  lmb:       { pos:[-3.3,  1.2, 0.1], r:0.70, name:'Left main bronchus',              gen:1 },
+  lul:       { pos:[-5.5,  0.9, 0.5], r:0.54, name:'Left upper lobe bronchus',        gen:2 },
+  lul_apost: { pos:[-6.5,  2.7, 0.3], r:0.31, name:'LUL apicoposterior', seg:'B1+2', gen:3, leaf:1 },
+  lul_ant:   { pos:[-6.7,  1.4, 1.5], r:0.30, name:'LUL anterior',       seg:'B3',   gen:3, leaf:1 },
+  ling:      { pos:[-6.0, -1.5, 1.7], r:0.37, name:'Lingular bronchus',              gen:3 },
+  ling_sup:  { pos:[-6.9, -2.7, 1.7], r:0.24, name:'Superior lingular',  seg:'B4',   gen:4, leaf:1 },
+  ling_inf:  { pos:[-6.5, -3.7, 1.9], r:0.24, name:'Inferior lingular',  seg:'B5',   gen:4, leaf:1 },
+  lll:       { pos:[-3.5, -3.1,-0.6], r:0.55, name:'Left lower lobe bronchus',        gen:2 },
+  lll_sup:   { pos:[-3.0, -3.0,-2.2], r:0.31, name:'LLL superior',       seg:'B6',   gen:3, leaf:1 },
+  lll_bas:   { pos:[-3.7, -5.7,-0.4], r:0.43, name:'LLL basal trunk',                gen:3 },
+  lll_amed:  { pos:[-3.0, -7.0, 0.9], r:0.26, name:'LLL anteromedial basal',seg:'B7+8',gen:4, leaf:1 },
+  lll_lat:   { pos:[-4.5, -7.1,-0.4], r:0.24, name:'LLL lateral basal',  seg:'B9',   gen:4, leaf:1 },
+  lll_post:  { pos:[-3.5, -7.3,-1.7], r:0.24, name:'LLL posterior basal',seg:'B10',  gen:4, leaf:1 },
+};
+
+// Mirror across the sagittal plane so the patient's RIGHT tree renders on the
+// viewer's right and the LEFT tree on the left (intuitive, non-radiological view).
+for(const k in N) N[k].pos[0] *= -1;
+
+// parent -> [children]
+const KIDS = {
+  trachea:['carina'],
+  carina:['rmb','lmb'],
+  rmb:['rul','bi'],
+  rul:['rul_ap','rul_post','rul_ant'],
+  bi:['rml','rll'],
+  rml:['rml_lat','rml_med'],
+  rll:['rll_sup','rll_bas'],
+  rll_bas:['rll_med','rll_ant','rll_lat','rll_post'],
+  lmb:['lul','lll'],
+  lul:['lul_apost','lul_ant','ling'],
+  ling:['ling_sup','ling_inf'],
+  lll:['lll_sup','lll_bas'],
+  lll_bas:['lll_amed','lll_lat','lll_post'],
+};
+const PARENT = {};
+for(const p in KIDS) for(const c of KIDS[p]) PARENT[c]=p;
+const V = k => new THREE.Vector3(...N[k].pos);
+
+/* ============================================================= *
+ *  SCENE
+ * ============================================================= */
+const stage = document.getElementById('stage');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0303);
+scene.fog = new THREE.FogExp2(0x180606, 0.05);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.02, 200);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+
+/* ---- mucosa texture (procedural) ---- */
+function mucosaTexture(){
+  const s=512, c=document.createElement('canvas'); c.width=c.height=s;
+  const g=c.getContext('2d');
+  g.fillStyle='#c9685c'; g.fillRect(0,0,s,s);
+  // faint cartilage-ring banding along v
+  for(let y=0;y<s;y+=1){
+    const b=Math.sin(y/s*Math.PI*11)*10;
+    g.fillStyle=`rgba(${b>0?255:120},${b>0?200:60},${b>0?185:55},${Math.abs(b)/255*0.5})`;
+    g.fillRect(0,y,s,1);
+  }
+  // blotches
+  for(let i=0;i<150;i++){
+    const x=Math.random()*s,y=Math.random()*s,r=8+Math.random()*40;
+    const rad=g.createRadialGradient(x,y,0,x,y,r);
+    const light=Math.random()>0.5;
+    rad.addColorStop(0,light?'rgba(214,120,110,.28)':'rgba(120,40,38,.30)');
+    rad.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=rad; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  }
+  // vascular streaks
+  for(let i=0;i<70;i++){
+    let x=Math.random()*s, y=Math.random()*s;
+    g.strokeStyle=`rgba(150,30,30,${0.10+Math.random()*0.22})`;
+    g.lineWidth=0.6+Math.random()*1.6; g.beginPath(); g.moveTo(x,y);
+    const steps=6+Math.random()*10;
+    for(let j=0;j<steps;j++){ x+=(Math.random()-0.5)*40; y+=(Math.random()-0.5)*40; g.lineTo(x,y); }
+    g.stroke();
+  }
+  const t=new THREE.CanvasTexture(c);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(3,3);
+  t.colorSpace=THREE.SRGBColorSpace;
+  return t;
+}
+const tex = mucosaTexture();
+const mucosa = new THREE.MeshStandardMaterial({
+  map:tex, bumpMap:tex, bumpScale:0.02,
+  color:0xffffff, roughness:0.6, metalness:0.0,
+  emissive:0x3a1512, emissiveIntensity:0.6, side:THREE.BackSide
+});
+
+/* ---- build airway lumen as tapered open cylinders per edge ---- */
+const YUP = new THREE.Vector3(0,1,0);
+function edgeMesh(aKey,bKey){
+  const a=V(aKey), b=V(bKey);
+  const dir=new THREE.Vector3().subVectors(b,a); const len=dir.length();
+  const geo=new THREE.CylinderGeometry(N[bKey].r, N[aKey].r, len, 22, 6, true);
+  const m=new THREE.Mesh(geo, mucosa);
+  m.position.copy(a).addScaledVector(dir,0.5);
+  m.quaternion.setFromUnitVectors(YUP, dir.clone().normalize());
+  return m;
+}
+const airway = new THREE.Group();
+for(const p in KIDS) for(const c of KIDS[p]) airway.add(edgeMesh(p,c));
+scene.add(airway);
+
+/* ---- floating labels on each orifice ---- */
+function roundRect(g,x,y,w,h,r){ g.beginPath();
+  g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function makeLabel(text){
+  const fs=46, padX=22, padY=14;
+  const c=document.createElement('canvas'); let g=c.getContext('2d');
+  g.font=`600 ${fs}px -apple-system,Segoe UI,Arial`;
+  const w=Math.ceil(g.measureText(text).width);
+  c.width=w+padX*2; c.height=fs+padY*2; g=c.getContext('2d');
+  g.font=`600 ${fs}px -apple-system,Segoe UI,Arial`;
+  g.fillStyle='rgba(10,4,4,0.78)'; roundRect(g,2,2,c.width-4,c.height-4,18); g.fill();
+  g.strokeStyle='rgba(255,179,138,0.95)'; g.lineWidth=3;
+  roundRect(g,2,2,c.width-4,c.height-4,18); g.stroke();
+  g.fillStyle='#ffeee6'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(text, c.width/2, c.height/2+2);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,depthWrite:false,transparent:true,fog:false}));
+  s.userData.aspect=c.width/c.height; s.visible=false; s.renderOrder=999;
+  return s;
+}
+const labels={};
+for(const k in N){
+  if(k==='trachea') continue;
+  const txt=(N[k].seg?N[k].seg+' · ':'')+N[k].name.replace(' bronchus','');
+  const s=makeLabel(txt); labels[k]=s; scene.add(s);
+}
+let shownLabels=[];
+function updateLabels(){
+  for(const s of shownLabels) s.visible=false;
+  shownLabels=[];
+  const frontier=route[route.length-1];
+  const kids=KIDS[frontier];
+  if(!kids) return;
+  const fp=V(frontier);
+  kids.forEach((c,i)=>{
+    const cp=V(c);
+    const s=labels[c];
+    s.position.copy(fp).lerp(cp,0.34); s.position.y+=N[c].r*0.9;
+    const h=(i===sel?1.15:0.82);
+    s.scale.set(s.userData.aspect*h, h, 1);
+    s.material.opacity=(i===sel?1.0:0.72);
+    s.visible=true; shownLabels.push(s);
+  });
+}
+
+/* ---- lighting: ambient + scope headlight ---- */
+scene.add(new THREE.AmbientLight(0x8a4a44, 0.95));
+scene.add(new THREE.HemisphereLight(0xffbaa4, 0x2a0a08, 0.55));
+const headlight = new THREE.PointLight(0xffe0cd, 3.4, 18, 1.5);
+scene.add(headlight);
+const fill = new THREE.PointLight(0xffc4a2, 1.1, 9, 1.7);
+scene.add(fill);
+
+/* ============================================================= *
+ *  ROUTE + ARC-LENGTH CURVE
+ * ============================================================= */
+let route, curve, tGrid, cum, totalLen, nodeArc;
+let camDist = 0;
+let sel = 0;   // highlighted branch index at the frontier bifurcation
+
+function autoExtend(keys){
+  let last=keys[keys.length-1];
+  while(KIDS[last] && KIDS[last].length===1){ last=KIDS[last][0]; keys.push(last); }
+  return keys;
+}
+function pathTo(key){            // root chain trachea..key
+  const chain=[key]; let k=key;
+  while(PARENT[k]!==undefined){ k=PARENT[k]; chain.unshift(k); }
+  return chain;
+}
+function buildCurve(keys){
+  route=keys;
+  const pts=keys.map(V);
+  curve=new THREE.CatmullRomCurve3(pts,false,'catmullrom',0.5);
+  const S=Math.max(80,(pts.length-1)*36);
+  tGrid=new Float32Array(S+1); cum=new Float32Array(S+1);
+  let prev=curve.getPoint(0); cum[0]=0; tGrid[0]=0;
+  for(let i=1;i<=S;i++){
+    const t=i/S; const p=curve.getPoint(t);
+    cum[i]=cum[i-1]+p.distanceTo(prev); tGrid[i]=t; prev=p;
+  }
+  totalLen=cum[S];
+  // arc length at each control point (uniform t = i/(n-1))
+  nodeArc=keys.map((_,i)=>arcAtT(i/(keys.length-1)));
+}
+function arcAtT(t){
+  const S=cum.length-1; const f=t*S; const i=Math.min(S-1,Math.floor(f)); const frac=f-i;
+  return cum[i]+(cum[i+1]-cum[i])*frac;
+}
+function tAtArc(d){
+  d=Math.max(0,Math.min(totalLen,d));
+  let lo=0,hi=cum.length-1;
+  while(hi-lo>1){ const m=(lo+hi)>>1; (cum[m]<d?lo=m:hi=m); }
+  const seg=cum[hi]-cum[lo]; const frac=seg>1e-6?(d-cum[lo])/seg:0;
+  return tGrid[lo]+(tGrid[hi]-tGrid[lo])*frac;
+}
+
+// look angulation offsets (radians)
+let yaw=0, pitch=0;
+const clampLook=v=>Math.max(-1.25,Math.min(1.25,v));
+
+function placeCamera(){
+  const t=tAtArc(camDist);
+  const pos=curve.getPoint(t);
+  const tan=curve.getTangent(t).normalize();
+  let right=new THREE.Vector3().crossVectors(tan,YUP);
+  if(right.lengthSq()<1e-4) right.set(1,0,0);
+  right.normalize();
+  const up=new THREE.Vector3().crossVectors(right,tan).normalize();
+  const dir=tan.clone()
+    .applyAxisAngle(up,yaw)
+    .applyAxisAngle(right,pitch).normalize();
+  camera.position.copy(pos);
+  camera.up.copy(up);
+  camera.lookAt(pos.clone().add(dir));
+  headlight.position.copy(pos).addScaledVector(dir,0.15);
+  fill.position.copy(pos).addScaledVector(dir,1.2);
+}
+
+/* current segment index within route for labelling */
+function currentSeg(){
+  let i=0;
+  for(let k=0;k<route.length-1;k++) if(camDist>=nodeArc[k]-0.001) i=k;
+  return i; // segment from route[i] -> route[i+1]
+}
+
+/* ============================================================= *
+ *  UI
+ * ============================================================= */
+const el = id=>document.getElementById(id);
+const locName=el('locName'), locGen=el('locGen'), crumb=el('crumb'),
+      chooser=el('chooser');
+
+function setRoute(keys,{focusEnd=false,keepDist=false}={}){
+  const oldEndArc = (nodeArc&&route)? nodeArc[route.length-1] : null;
+  buildCurve(autoExtend(keys.slice()));
+  if(focusEnd){
+    const endHasKids = KIDS[route[route.length-1]];
+    camDist = endHasKids ? Math.max(0.6,totalLen-1.4) : totalLen-0.25;
+  } else if(!keepDist){
+    camDist=Math.min(camDist,totalLen-0.05);
+  }
+  sel=0; yaw=0; pitch=0;
+  refreshUI();
+}
+
+function refreshUI(){
+  const i=currentSeg();
+  const here=N[route[i+1]]||N[route[i]];
+  locName.textContent=here.name+(here.seg?` (${here.seg})`:'');
+  locGen.textContent='Generation '+here.gen;
+  // breadcrumb (skip trachea label noise, keep concise)
+  const parts=route.map((k,idx)=>{
+    const nm=N[k].name.replace(' bronchus','').replace('Right ','R ').replace('Left ','L ');
+    return idx===i+1||idx===i ? `<b>${nm}</b>` : nm;
+  });
+  crumb.innerHTML=parts.join(' › ');
+  buildChooser();
+  drawMapState();
+}
+
+function buildChooser(){
+  const endKey=route[route.length-1];
+  const kids=KIDS[endKey];
+  const near = totalLen-camDist < 2.6;
+  chooser.innerHTML='';
+  if(!near){ chooser.style.display='none'; return; }
+  chooser.style.display='flex';
+  if(!kids){                       // blind-ending segment
+    const d=document.createElement('div');
+    d.className='branch blind';
+    d.textContent='Blind-ending segment — withdraw to explore elsewhere';
+    chooser.appendChild(d);
+    return;
+  }
+  sel=Math.max(0,Math.min(kids.length-1,sel));
+  const lead=document.createElement('div'); lead.className='lead';
+  lead.innerHTML='◀ ▶ aim &nbsp;·&nbsp; ▲ enter'; chooser.appendChild(lead);
+  kids.forEach((c,i)=>{
+    const b=document.createElement('button'); b.className='branch'+(i===sel?' sel':'');
+    b.innerHTML=(N[c].seg?`<span class="seg">${N[c].seg}</span>`:'')+
+      `<span>${N[c].name.replace(' bronchus','')}</span>`;
+    b.onclick=()=>{ sel=i; const fArc=totalLen; commitSel();
+      camDist=clampDist(Math.max(camDist,fArc-0.15)); refreshUI(); };
+    chooser.appendChild(b);
+  });
+}
+
+/* ---- 2D map ---- */
+const svg=el('map');
+const SVGNS='http://www.w3.org/2000/svg';
+let mapXY={};
+function buildMap(){
+  let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+  for(const k in N){ const[x,y]=N[k].pos;
+    minx=Math.min(minx,x);maxx=Math.max(maxx,x);
+    miny=Math.min(miny,y);maxy=Math.max(maxy,y); }
+  const W=176,H=230,pad=16;
+  const sx=(W-2*pad)/(maxx-minx), sy=(H-2*pad)/(maxy-miny), s=Math.min(sx,sy);
+  const ox=(W-(maxx-minx)*s)/2, oy=(H-(maxy-miny)*s)/2;
+  // mirror x so the map matches the mirrored 3D view (right tree on the right)
+  for(const k in N){ const[x,y]=N[k].pos;
+    mapXY[k]={ x:W-(ox+(x-minx)*s), y:H-(oy+(y-miny)*s) }; }
+  // edges
+  for(const p in KIDS) for(const c of KIDS[p]){
+    const l=document.createElementNS(SVGNS,'line');
+    l.setAttribute('x1',mapXY[p].x);l.setAttribute('y1',mapXY[p].y);
+    l.setAttribute('x2',mapXY[c].x);l.setAttribute('y2',mapXY[c].y);
+    l.setAttribute('class','edge'); l.dataset.a=p; l.dataset.b=c;
+    svg.appendChild(l);
+  }
+  // nodes
+  for(const k in N){
+    const cir=document.createElementNS(SVGNS,'circle');
+    cir.setAttribute('cx',mapXY[k].x);cir.setAttribute('cy',mapXY[k].y);
+    cir.setAttribute('r',N[k].leaf?2.6:3.4);
+    cir.setAttribute('class','nd'+(N[k].leaf?' leaf':'')); cir.dataset.k=k;
+    const tip=document.createElementNS(SVGNS,'title');
+    tip.textContent=N[k].name+(N[k].seg?` (${N[k].seg})`:'');
+    cir.appendChild(tip);
+    cir.onclick=()=>{ setRoute(pathTo(k),{focusEnd:true}); };
+    svg.appendChild(cir);
+  }
+  // position dot
+  const dot=document.createElementNS(SVGNS,'circle');
+  dot.setAttribute('id','pos'); dot.setAttribute('r','4'); svg.appendChild(dot);
+}
+function drawMapState(){
+  const on=new Set(route);
+  const onEdge=new Set();
+  for(let i=0;i<route.length-1;i++) onEdge.add(route[i]+'>'+route[i+1]);
+  svg.querySelectorAll('.edge').forEach(l=>
+    l.classList.toggle('on', onEdge.has(l.dataset.a+'>'+l.dataset.b)));
+  svg.querySelectorAll('.nd').forEach(c=>
+    c.classList.toggle('on', on.has(c.dataset.k)));
+}
+function updateMapDot(){
+  const t=tAtArc(camDist), p=curve.getPoint(t);
+  // project via nearest interpolation between the two bounding control pts
+  const i=currentSeg();
+  const a=mapXY[route[i]], b=mapXY[route[i+1]]||a;
+  const segLen=(nodeArc[i+1]??totalLen)-nodeArc[i];
+  const f=segLen>1e-4?Math.max(0,Math.min(1,(camDist-nodeArc[i])/segLen)):0;
+  const dot=el('pos');
+  dot.setAttribute('cx',a.x+(b.x-a.x)*f);
+  dot.setAttribute('cy',a.y+(b.y-a.y)*f);
+}
+
+/* ============================================================= *
+ *  INPUT
+ * ============================================================= */
+const cv=renderer.domElement;
+function clampDist(d){ return Math.max(0.5, Math.min(totalLen-0.05, d)); }
+function frontierKids(){ return KIDS[route[route.length-1]]; }
+function cycleSel(d){
+  const kids=frontierKids(); if(!kids) return;
+  sel=(sel+d+kids.length)%kids.length;
+  buildChooser();
+}
+// advance into the highlighted branch when the tip reaches the bifurcation
+function commitSel(){
+  const kids=frontierKids(); if(!kids) return;
+  const child=kids[Math.max(0,Math.min(kids.length-1,sel))];
+  buildCurve(autoExtend([...route,child]));
+  sel=0; refreshUI();
+}
+
+// ---- keyboard: arrows only ----
+const keys={};
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright','w','s'].includes(k)) e.preventDefault();
+  keys[k]=true;
+  if(e.repeat) return;
+  if(k==='arrowleft')  cycleSel(-1);
+  if(k==='arrowright') cycleSel(+1);
+  if(k==='r') { camDist=camDist; }   // (reserved)
+},{passive:false});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+
+// ---- cursor steers the tip: offset from screen centre = angulation ----
+cv.addEventListener('pointermove',e=>{
+  const r=cv.getBoundingClientRect();
+  const nx=((e.clientX-r.left)/r.width)*2-1;
+  const ny=((e.clientY-r.top)/r.height)*2-1;
+  yaw   = clampLook(-nx*0.85);
+  pitch = clampLook(-ny*0.85);
+});
+// scroll also advances/withdraws
+cv.addEventListener('wheel',e=>{ camDist=clampDist(camDist - e.deltaY*0.02); e.preventDefault(); },{passive:false});
+
+// on-screen buttons (hold to move)
+let held=0;
+function holdBtn(id,dir){
+  const b=el(id);
+  const down=e=>{ e.preventDefault(); held=dir; };
+  const up=()=>{ held=0; };
+  b.addEventListener('pointerdown',down);
+  b.addEventListener('pointerup',up); b.addEventListener('pointerleave',up);
+}
+holdBtn('btnBack',+1); holdBtn('btnFwd',-1);
+el('btnReset').onclick=()=>{ setRoute(['trachea','carina'],{focusEnd:true}); };
+
+/* ============================================================= *
+ *  LOOP
+ * ============================================================= */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  let move=0;
+  if(keys['arrowup']||keys['w']) move+=1;
+  if(keys['arrowdown']||keys['s']) move-=1;
+  move+=held;
+  if(move){
+    camDist=clampDist(camDist + move*3.0*dt);
+    // reached the frontier bifurcation while advancing → flow into selected branch
+    if(move>0 && frontierKids() && totalLen-camDist<0.3) commitSel();
+    buildChooser();
+  }
+  // subtle breathing sway
+  const t=now*0.001, sway=0.010;
+  placeCamera();
+  camera.position.x+=Math.sin(t*0.7)*sway;
+  camera.position.y+=Math.sin(t*1.1)*sway;
+  updateLabels();
+  updateLabelLight();
+  updateMapDot();
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+let lastLabelSeg=-1;
+function updateLabelLight(){
+  const i=currentSeg();
+  if(i!==lastLabelSeg){ lastLabelSeg=i; refreshUI(); }
+}
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* ============================================================= *
+ *  START
+ * ============================================================= */
+buildMap();
+setRoute(['trachea','carina'],{focusEnd:true});
+el('loader').style.display='none';
+el('intro').style.display='flex';
+el('startBtn').onclick=()=>{
+  el('intro').style.display='none';
+  ['loc','mapwrap','ctrls'].forEach(id=>el(id).style.display='');
+  chooser.style.display='flex';
+  refreshUI();
+};
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
