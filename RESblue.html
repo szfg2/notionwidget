@@ -449,6 +449,7 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn danger" id="deleteAllBtn" type="button">Delete all</button>
         <span class="status" id="listStatus"></span>
       </div>
       <div class="error" id="listError" style="margin:10px 0 0"></div>
@@ -467,7 +468,7 @@
         </table>
         <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a blue letter reply in the Create New Patient tab and it will appear here.</div>
       </div>
-      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. The list syncs across all your devices.</div>
+      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. The list syncs across all your devices. Use Ask to discuss a stored case with Claude.</div>
     </div>
 
   </div>
@@ -994,6 +995,26 @@ async function loadPatients(auto) {
 }
 $("refreshBtn").addEventListener("click", () => loadPatients(false));
 
+/* Delete all — one warning, then wipes the whole list on every device */
+$("deleteAllBtn").addEventListener("click", async () => {
+  const n = patients.length;
+  if (!n) { setListStatus("Nothing to delete."); return; }
+  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the Previous Patients list?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
+  clearListError();
+  $("deleteAllBtn").disabled = true;
+  setListStatus("Deleting all…");
+  try {
+    await mutateRemote(() => [], "Delete all blue letter patients");
+    renderTable();
+    setListStatus("All patients deleted ✓", true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Delete all failed: " + (e.message || e));
+  } finally {
+    $("deleteAllBtn").disabled = false;
+  }
+});
+
 function timeNow() {
   const t = new Date();
   return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
@@ -1097,6 +1118,10 @@ function renderTable() {
 
     const tdAct = document.createElement("td");
     tdAct.className = "actions";
+    const askBtn = document.createElement("button");
+    askBtn.className = "ghost-btn";
+    askBtn.type = "button";
+    askBtn.textContent = "Ask";
     const letterBtn = document.createElement("button");
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
@@ -1105,6 +1130,7 @@ function renderTable() {
     delBtn.className = "ghost-btn danger";
     delBtn.type = "button";
     delBtn.textContent = "Delete";
+    tdAct.appendChild(askBtn);
     tdAct.appendChild(letterBtn);
     tdAct.appendChild(delBtn);
     tr.appendChild(tdAct);
@@ -1144,6 +1170,176 @@ function renderTable() {
       const open = trLetter.style.display !== "none";
       trLetter.style.display = open ? "none" : "";
       letterBtn.textContent = open ? "Letter" : "Hide";
+    });
+
+    // expandable "Ask about this case" row
+    const trAsk = document.createElement("tr");
+    trAsk.className = "letter-row";
+    trAsk.style.display = "none";
+    const tdAsk = document.createElement("td");
+    tdAsk.colSpan = 5;
+
+    const askHead = document.createElement("div");
+    askHead.className = "letter-head";
+    const askEyebrow = document.createElement("span");
+    askEyebrow.className = "eyebrow";
+    askEyebrow.style.margin = "0";
+    askEyebrow.textContent = "Ask about this case";
+    const askClearBtn = document.createElement("button");
+    askClearBtn.className = "ghost-btn";
+    askClearBtn.type = "button";
+    askClearBtn.textContent = "New conversation";
+    askHead.appendChild(askEyebrow);
+    askHead.appendChild(askClearBtn);
+
+    const rowAskNote = document.createElement("p");
+    rowAskNote.className = "ask-note";
+    rowAskNote.textContent = "Uses the stored case details, summary and blue letter as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.";
+
+    const rowThread = document.createElement("div");
+    rowThread.className = "thread";
+    const askErr = document.createElement("div");
+    askErr.className = "ask-error";
+    const askRow = document.createElement("div");
+    askRow.className = "ask-row";
+    const askField = document.createElement("div");
+    askField.className = "field";
+    const rowAskInput = document.createElement("textarea");
+    rowAskInput.className = "ask-input";
+    rowAskInput.placeholder = "e.g. What would make you drain this effusion now rather than observe?";
+    askField.appendChild(rowAskInput);
+    const askSend = document.createElement("button");
+    askSend.className = "generate";
+    askSend.type = "button";
+    askSend.textContent = "Ask";
+    askRow.appendChild(askField);
+    askRow.appendChild(askSend);
+    const askHint = document.createElement("div");
+    askHint.className = "kbd-hint";
+    askHint.innerHTML = 'Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.';
+
+    tdAsk.appendChild(askHead);
+    tdAsk.appendChild(rowAskNote);
+    tdAsk.appendChild(rowThread);
+    tdAsk.appendChild(askErr);
+    tdAsk.appendChild(askRow);
+    tdAsk.appendChild(askHint);
+    trAsk.appendChild(tdAsk);
+    body.appendChild(trAsk);
+
+    askBtn.addEventListener("click", () => {
+      const open = trAsk.style.display !== "none";
+      trAsk.style.display = open ? "none" : "";
+      askBtn.textContent = open ? "Ask" : "Hide ask";
+      if (!open) rowAskInput.focus();
+    });
+
+    let rowMessages = [];
+    let rowAskController = null;
+    const showRowAskErr = (m) => { askErr.textContent = m; askErr.style.display = "block"; };
+    const clearRowAskErr = () => { askErr.style.display = "none"; askErr.textContent = ""; };
+
+    function renderRowThread() {
+      rowThread.innerHTML = "";
+      for (const m of rowMessages) {
+        const div = document.createElement("div");
+        div.className = "msg " + m.role;
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = m.role === "user" ? "You" : "Claude";
+        div.appendChild(who);
+        if (m.role === "assistant" && window.marked) {
+          const bodyDiv = document.createElement("div");
+          bodyDiv.className = "md";
+          bodyDiv.innerHTML = marked.parse(m.content, { breaks: true });
+          div.appendChild(bodyDiv);
+        } else {
+          div.appendChild(document.createTextNode(m.content));
+        }
+        rowThread.appendChild(div);
+      }
+    }
+
+    askClearBtn.addEventListener("click", () => {
+      rowMessages = []; renderRowThread(); clearRowAskErr(); rowAskInput.focus();
+    });
+
+    const setRowAskLoading = (on) => {
+      if (on) {
+        askSend.classList.add("is-cancel");
+        askSend.innerHTML = '<span class="spinner"></span>Cancel';
+      } else {
+        askSend.classList.remove("is-cancel");
+        askSend.innerHTML = "Ask";
+      }
+    };
+
+    askSend.addEventListener("click", async () => {
+      if (rowAskController) { rowAskController.abort(); return; }
+
+      clearRowAskErr();
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      const q = rowAskInput.value.trim();
+      if (!key) { $("settingsBox").open = true; return showRowAskErr("Add your Claude (Anthropic) API key in Settings first."); }
+      if (!q) return showRowAskErr("Type a question first.");
+
+      rowMessages.push({ role: "user", content: q });
+      renderRowThread();
+      rowAskInput.value = "";
+      rowAskController = new AbortController();
+      setRowAskLoading(true);
+
+      // De-identified stored content only — name/location are never sent.
+      const caseContext =
+        "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
+        "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
+        ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
+        ((p.letter || "").trim() ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + p.letter.trim() : "") +
+        ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
+
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          signal: rowAskController.signal,
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify({
+            model: CONFIG.ASK_MODEL,
+            max_tokens: CONFIG.ASK_MAX_TOKENS,
+            // Static instructions are the reusable prefix → cache them. The per-patient
+            // case context changes, so it goes in a separate, uncached block.
+            system: [
+              { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+              { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+            ],
+            messages: rowMessages.map(m => ({ role: m.role, content: m.content }))
+          })
+        });
+        const resBody = await res.json();
+        if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
+        const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+        rowMessages.push({ role: "assistant", content: text || "(No response.)" });
+        renderRowThread();
+      } catch (e) {
+        // Roll back the unanswered question so the thread stays valid, and restore it for a retry
+        rowMessages.pop();
+        renderRowThread();
+        rowAskInput.value = q;
+        if (e.name !== "AbortError") showRowAskErr(e.message || String(e));  // cancel is silent
+      } finally {
+        rowAskController = null;
+        setRowAskLoading(false);
+        rowAskInput.focus();
+      }
+    });
+
+    // Ctrl/Cmd+Enter in the Ask box sends the question
+    rowAskInput.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); askSend.click(); }
     });
 
     delBtn.addEventListener("click", async () => {
