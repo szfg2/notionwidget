@@ -381,6 +381,11 @@
     </div>
 
     <div class="card">
+      <span class="eyebrow">Referral letter to Respiratory</span>
+      <textarea class="input-box" id="referralLetter" placeholder="Paste the referral letter from the primary team — reason for referral, their question, relevant course so far…"></textarea>
+    </div>
+
+    <div class="card">
       <span class="eyebrow">Past medical details</span>
       <textarea class="input-box" id="pastMedical" placeholder="Background, respiratory history, PFTs, imaging, other PMH, referral reason…"></textarea>
     </div>
@@ -449,6 +454,7 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <button class="ghost-btn danger" id="deleteAllBtn" type="button">Delete all</button>
         <span class="status" id="listStatus"></span>
       </div>
@@ -714,13 +720,16 @@ $("generateBtn").addEventListener("click", async () => {
 
   const location = $("ptLocation").value.trim();
   const name = $("ptName").value.trim();
+  const referral = $("referralLetter").value.trim();
   const past = $("pastMedical").value.trim();
   const clinical = $("clinical").value.trim();
   if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
-  if (!past && !clinical) return showError("Add some past medical details or clinical data.");
+  if (!referral && !past && !clinical) return showError("Add a referral letter, past medical details or clinical data.");
 
   // Only the de-identified medical content is sent to Claude — never name/location.
-  const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
+  const userMessage =
+    (referral ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + referral + "\n\n" : "") +
+    "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
 
   genController = new AbortController();
   setLoading(true);
@@ -743,6 +752,7 @@ $("generateBtn").addEventListener("click", async () => {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       created: new Date().toISOString(),
       location, name,
+      referral,
       pastMedical: past,
       clinical,
       letter: letter || "",
@@ -781,7 +791,7 @@ function setLoading(on) {
 }
 
 // Ctrl/Cmd+Enter generates
-[$("ptLocation"), $("ptName"), $("pastMedical"), $("clinical")].forEach(el => {
+[$("ptLocation"), $("ptName"), $("referralLetter"), $("pastMedical"), $("clinical")].forEach(el => {
   el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("generateBtn").click(); }
   });
@@ -805,10 +815,11 @@ $("topicsBtn").addEventListener("click", async () => {
     return;
   }
 
+  const referral = $("referralLetter").value.trim();
   const past = $("pastMedical").value.trim();
   const clinical = $("clinical").value.trim();
   const letter = $("output").value.trim();
-  if (!past && !clinical && !letter) {
+  if (!referral && !past && !clinical && !letter) {
     errEl.textContent = "Nothing to work from — add case details or generate a blue letter reply first.";
     errEl.style.display = "block";
     return;
@@ -816,6 +827,7 @@ $("topicsBtn").addEventListener("click", async () => {
 
   // De-identified case content only — name/location are never sent.
   const caseContext =
+    (referral ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + referral + "\n\n" : "") +
     "PATIENT DETAILS:\n" + (past || "(none provided)") +
     "\n\nLATEST CLINICAL DATA:\n" + (clinical || "(none provided)") +
     (letter ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + letter : "");
@@ -909,7 +921,9 @@ $("askBtn").addEventListener("click", async () => {
   // Rebuild case context on every send so it reflects what's there now.
   // De-identified content only — name/location are never sent.
   const letter = $("output").value.trim();
+  const referral = $("referralLetter").value.trim();
   const caseContext =
+    (referral ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + referral + "\n\n" : "") +
     "PATIENT DETAILS:\n" + ($("pastMedical").value.trim() || "(none provided)") +
     "\n\nLATEST CLINICAL DATA:\n" + ($("clinical").value.trim() || "(none provided)") +
     (letter ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + letter : "");
@@ -1291,6 +1305,7 @@ function renderTable() {
 
       // De-identified stored content only — name/location are never sent.
       const caseContext =
+        ((p.referral || "").trim() ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + p.referral.trim() + "\n\n" : "") +
         "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
         "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
         ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
@@ -1386,6 +1401,57 @@ function queueJobSave(id, value) {
     }
   }, 1500));
 }
+
+/* ============================================================== *
+ *  Print — clean landscape table of the patient list             *
+ * ============================================================== */
+$("printBtn").addEventListener("click", () => {
+  if (!patients.length) { setListStatus("Nothing to print."); return; }
+  const rows = patients.map(p => {
+    const ref = referralOf(p);
+    return "<tr>" +
+      '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
+      "<td>" + escapeHtml(p.name || "") + "</td>" +
+      '<td class="sum">' +
+        (ref ? "<strong>Referral:</strong> " + escapeHtml(ref) + "<br>" : "") +
+        summaryHtml(p.summary || "") + "</td>" +
+      '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
+      "</tr>";
+  }).join("");
+  const now = new Date();
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>Respiratory Blue Letter Patients</title><style>" +
+    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
+    "h1{font-size:9pt;margin:0 0 2px;}" +
+    ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
+    "table{width:100%;border-collapse:collapse;}" +
+    "th,td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top;}" +
+    "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
+    "td.loc{white-space:nowrap;font-weight:600;}" +
+    "td.sum{line-height:1.35;}" +
+    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.4;}" +
+    "strong{font-weight:700;}" +
+    "tr{page-break-inside:avoid;}" +
+    "@page{size:A4 landscape;margin:18mm;}" +
+    "</style></head><body>" +
+    "<h1>Respiratory Blue Letter Patients</h1>" +
+    '<p class="meta">' + patients.length + " patient" + (patients.length === 1 ? "" : "s") + " · printed " +
+      now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
+    "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Job list</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table></body></html>";
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.right = "0"; frame.style.bottom = "0";
+  frame.style.width = "0"; frame.style.height = "0"; frame.style.border = "0";
+  document.body.appendChild(frame);
+  frame.onload = () => {
+    setTimeout(() => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      setTimeout(() => frame.remove(), 1000);
+    }, 50);
+  };
+  frame.srcdoc = html;
+});
 
 /* ============================================================== *
  *  Init                                                          *
