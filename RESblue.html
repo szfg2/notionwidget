@@ -328,6 +328,7 @@
   details.arch-day > summary::before { content: "▸"; color: var(--faint); font-size: 11px; }
   details.arch-day[open] > summary::before { content: "▾"; }
   details.arch-day .day-count { font-weight: 400; font-size: 12px; color: var(--faint); }
+  details.arch-day .day-del { margin-left: auto; align-self: center; }
   details.arch-day .day-body { padding: 0 12px 12px; }
   .patients .jobs-pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--muted); }
 </style>
@@ -713,6 +714,12 @@ async function putRemote(list, sha, message, path) {
   const res = await fetch(ghUrl(c, path), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) { const err = new Error(data.message || ("HTTP " + res.status)); err.status = res.status; throw err; }
+}
+async function deleteRemote(path, sha, message) {
+  const c = ghCfg();
+  const res = await fetch(ghUrl(c, path), { method: "DELETE", headers: ghHeaders(c), body: JSON.stringify({ message, sha, branch: c.branch }) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
 }
 // Fetch latest, apply mutator, save. Retries once with a fresh sha on conflict,
 // so a save from another device in between doesn't get clobbered or fail.
@@ -1517,6 +1524,34 @@ async function loadArchive(auto) {
       det.className = "arch-day";
       const sum = document.createElement("summary");
       sum.textContent = fmtDayHeading(day);
+      const delDay = document.createElement("button");
+      delDay.className = "ghost-btn danger day-del";
+      delDay.type = "button";
+      delDay.textContent = "Delete day";
+      delDay.addEventListener("click", async (e) => {
+        // a click inside <summary> would also toggle the folder — stop that
+        e.preventDefault();
+        e.stopPropagation();
+        delDay.disabled = true;
+        try {
+          const path = ARCHIVE_DIR + "/" + f.name;
+          const { sha, list } = await getRemote(path);
+          if (!sha) { det.remove(); return; }   // already deleted elsewhere
+          if (!confirm("⚠ Delete ALL " + list.length + " archived patient" + (list.length === 1 ? "" : "s") +
+              " from " + fmtDayHeading(day) + "?\n\nThis permanently removes that day's folder on all your devices and cannot be undone.")) return;
+          setArchiveStatus("Deleting " + day + "…");
+          await deleteRemote(path, sha, "Delete archived blue letter patients: " + day);
+          det.remove();
+          if (!$("archiveFolders").children.length) $("archiveEmpty").style.display = "";
+          setArchiveStatus("Deleted " + fmtDayHeading(day) + " ✓", true);
+        } catch (err) {
+          setArchiveStatus("");
+          showArchiveError("Delete failed: " + (err.message || err));
+        } finally {
+          delDay.disabled = false;
+        }
+      });
+      sum.appendChild(delDay);
       det.appendChild(sum);
       const bodyDiv = document.createElement("div");
       bodyDiv.className = "day-body";
@@ -1531,7 +1566,7 @@ async function loadArchive(auto) {
           const count = document.createElement("span");
           count.className = "day-count";
           count.textContent = list.length + " patient" + (list.length === 1 ? "" : "s");
-          sum.appendChild(count);
+          sum.insertBefore(count, delDay);
           renderArchiveDay(bodyDiv, list);
         } catch (e) {
           loaded = false;
