@@ -317,6 +317,19 @@
   .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+
+  /* previous patients — one folder per creation date */
+  details.arch-day { border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); margin-bottom: 10px; }
+  details.arch-day > summary {
+    cursor: pointer; padding: 10px 14px; font-size: 13.5px; font-weight: 600;
+    list-style: none; user-select: none; display: flex; align-items: baseline; gap: 9px;
+  }
+  details.arch-day > summary::-webkit-details-marker { display: none; }
+  details.arch-day > summary::before { content: "▸"; color: var(--faint); font-size: 11px; }
+  details.arch-day[open] > summary::before { content: "▾"; }
+  details.arch-day .day-count { font-weight: 400; font-size: 12px; color: var(--faint); }
+  details.arch-day .day-body { padding: 0 12px 12px; }
+  .patients .jobs-pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -360,7 +373,8 @@
   <!-- TABS -->
   <div class="mode-tabs">
     <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
-    <button class="mode-tab" id="tabPrev" type="button">Previous Patients</button>
+    <button class="mode-tab" id="tabPrev" type="button">Patient List</button>
+    <button class="mode-tab" id="tabArchive" type="button">Previous Patients</button>
   </div>
 
   <!-- =========================  CREATE NEW PATIENT  ========================= -->
@@ -474,7 +488,23 @@
         </table>
         <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a blue letter reply in the Create New Patient tab and it will appear here.</div>
       </div>
-      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. The list syncs across all your devices. Use Ask to discuss a stored case with Claude.</div>
+      <div class="out-foot">Job list edits autosave to GitHub a moment after you stop typing. The list syncs across all your devices. Patients created before today are filed automatically into Previous Patients, under the date they were created.</div>
+    </div>
+
+  </div>
+
+  <!-- =========================  PREVIOUS PATIENTS (ARCHIVE)  ========================= -->
+  <div id="archiveTab" style="display:none">
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="archiveRefreshBtn" type="button">↻ Refresh</button>
+        <span class="status" id="archiveStatus"></span>
+      </div>
+      <div class="error" id="archiveError" style="margin:10px 0 0"></div>
+      <div id="archiveFolders" style="margin-top:12px"></div>
+      <div class="empty-note" id="archiveEmpty" style="display:none">Nothing archived yet — patients move here automatically once the day they were created has passed.</div>
+      <div class="out-foot">Read-only archive, one folder per day, stored in the repo under <code>resblue-archive/</code>. Delete all in Patient List does not touch this archive.</div>
     </div>
 
   </div>
@@ -570,16 +600,18 @@ $("saveSettings").addEventListener("click", () => {
 /* ============================================================== *
  *  Tabs                                                          *
  * ============================================================== */
+const TABS = { create: ["tabCreate", "createTab"], prev: ["tabPrev", "prevTab"], archive: ["tabArchive", "archiveTab"] };
 function setTab(t) {
-  const prev = t === "prev";
-  $("tabPrev").classList.toggle("active", prev);
-  $("tabCreate").classList.toggle("active", !prev);
-  $("prevTab").style.display = prev ? "" : "none";
-  $("createTab").style.display = prev ? "none" : "";
-  if (prev && get(K.ghToken)) loadPatients(true);
+  for (const k in TABS) {
+    $(TABS[k][0]).classList.toggle("active", k === t);
+    $(TABS[k][1]).style.display = k === t ? "" : "none";
+  }
+  if (t === "prev" && get(K.ghToken)) loadPatients(true);
+  if (t === "archive" && get(K.ghToken)) loadArchive(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabPrev").addEventListener("click", () => setTab("prev"));
+$("tabArchive").addEventListener("click", () => setTab("archive"));
 
 /* ============================================================== *
  *  Helpers                                                       *
@@ -652,16 +684,17 @@ function ghCfg() {
     path: (get(K.path) || "resblue-patients.json").replace(/^\/|\/$/g, "")
   };
 }
-function ghUrl(c) { return "https://api.github.com/repos/" + c.owner + "/" + c.repo + "/contents/" + encodeURI(c.path); }
+function ghUrl(c, path) { return "https://api.github.com/repos/" + c.owner + "/" + c.repo + "/contents/" + encodeURI(path || c.path); }
 function ghHeaders(c) {
   const h = { "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
   if (c.token) h["Authorization"] = "Bearer " + c.token;
   return h;
 }
-// Fetch the remote list. Returns { sha, list } — sha null if the file doesn't exist yet.
-async function getRemote() {
+// Fetch a remote list (the active file by default, or an archive file via `path`).
+// Returns { sha, list } — sha null if the file doesn't exist yet.
+async function getRemote(path) {
   const c = ghCfg();
-  const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
+  const res = await fetch(ghUrl(c, path) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
   if (res.status === 404) return { sha: null, list: [] };
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
@@ -673,11 +706,11 @@ async function getRemote() {
   } catch (e) { list = []; }
   return { sha: data.sha, list };
 }
-async function putRemote(list, sha, message) {
+async function putRemote(list, sha, message, path) {
   const c = ghCfg();
   const body = { message, content: b64utf8(JSON.stringify(list, null, 2)), branch: c.branch };
   if (sha) body.sha = sha;
-  const res = await fetch(ghUrl(c), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
+  const res = await fetch(ghUrl(c, path), { method: "PUT", headers: ghHeaders(c), body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) { const err = new Error(data.message || ("HTTP " + res.status)); err.status = res.status; throw err; }
 }
@@ -706,6 +739,43 @@ async function mutateRemote(mutator, message) {
 function upsertByName(list, record) {
   const k = (record.name || "").trim().toLowerCase();
   return [record, ...list.filter(x => !k || (x.name || "").trim().toLowerCase() !== k)];
+}
+
+/* ============================================================== *
+ *  Auto-archive — patients not created today move to             *
+ *  resblue-archive/<YYYY-MM-DD>.json (their creation date)       *
+ * ============================================================== */
+const ARCHIVE_DIR = "resblue-archive";
+function dateKey(v) {
+  const d = new Date(v);
+  if (isNaN(d)) return "";
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+// Runs whenever the Patient List loads. A day's records are only removed from
+// the active list after their archive file has been written, so a failure
+// midway never loses a patient — worst case they stay in the list until the
+// next load retries.
+async function archiveStale() {
+  const today = dateKey(Date.now());
+  const stale = patients.filter(p => dateKey(p.created) && dateKey(p.created) !== today);
+  if (!stale.length) return;
+  setListStatus("Filing " + stale.length + " older patient" + (stale.length === 1 ? "" : "s") + " into Previous Patients…");
+  const groups = new Map();
+  for (const p of stale) {
+    const day = dateKey(p.created);
+    if (!groups.has(day)) groups.set(day, []);
+    groups.get(day).push(p);
+  }
+  const moved = new Set();
+  for (const [day, recs] of groups) {
+    const path = ARCHIVE_DIR + "/" + day + ".json";
+    const { sha, list } = await getRemote(path);
+    const have = new Set(list.map(x => x.id));
+    const add = recs.filter(r => !have.has(r.id));
+    if (add.length) await putRemote([...add, ...list], sha, "Archive blue letter patients: " + day, path);
+    recs.forEach(r => moved.add(r.id));
+  }
+  await mutateRemote(list => list.filter(x => !moved.has(x.id)), "Move older patients to Previous Patients archive");
 }
 
 /* ============================================================== *
@@ -764,7 +834,7 @@ $("generateBtn").addEventListener("click", async () => {
     try {
       await mutateRemote(list => upsertByName(list, record), "Add blue letter patient: " + (name || location));
       renderTable();
-      setGenStatus("Done ✓ — saved to Previous Patients", true);
+      setGenStatus("Done ✓ — saved to Patient List", true);
     } catch (e) {
       setGenStatus("");
       showError("Letter generated, but saving the patient failed: " + (e.message || e) +
@@ -1000,6 +1070,11 @@ async function loadPatients(auto) {
   try {
     const { list } = await getRemote();
     patients = list;
+    try {
+      await archiveStale();
+    } catch (e) {
+      showListError("Couldn't file older patients into Previous Patients: " + (e.message || e) + " — they stay in the list for now.");
+    }
     renderTable();
     setListStatus("Synced ✓ " + timeNow(), true);
   } catch (e) {
@@ -1013,7 +1088,7 @@ $("refreshBtn").addEventListener("click", () => loadPatients(false));
 $("deleteAllBtn").addEventListener("click", async () => {
   const n = patients.length;
   if (!n) { setListStatus("Nothing to delete."); return; }
-  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the Previous Patients list?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
+  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the Patient List?\n\nThis permanently removes the entire list on all your devices and cannot be undone. (Archived Previous Patients are not affected.)")) return;
   clearListError();
   $("deleteAllBtn").disabled = true;
   setListStatus("Deleting all…");
@@ -1400,6 +1475,173 @@ function queueJobSave(id, value) {
       showListError("Autosave failed: " + (e.message || e));
     }
   }, 1500));
+}
+
+/* ============================================================== *
+ *  Previous patients — archive folders by creation date          *
+ * ============================================================== */
+function setArchiveStatus(msg, ok) {
+  const el = $("archiveStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function showArchiveError(msg) { $("archiveError").textContent = msg; $("archiveError").style.display = "block"; }
+function clearArchiveError() { $("archiveError").style.display = "none"; $("archiveError").textContent = ""; }
+
+function fmtDayHeading(day) {
+  const d = new Date(day + "T00:00:00");
+  if (isNaN(d)) return day;
+  return d.toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
+async function loadArchive(auto) {
+  const c = ghCfg();
+  if (!c.token) { if (!auto) showArchiveError("Set your GitHub token in Settings first."); return; }
+  clearArchiveError();
+  setArchiveStatus("Loading…");
+  try {
+    const res = await fetch(ghUrl(c, ARCHIVE_DIR) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
+    let files = [];
+    if (res.status !== 404) {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
+      files = (Array.isArray(data) ? data : []).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f.name));
+    }
+    files.sort((a, b) => b.name.localeCompare(a.name));   // newest day first
+    const box = $("archiveFolders");
+    box.innerHTML = "";
+    $("archiveEmpty").style.display = files.length ? "none" : "";
+    for (const f of files) {
+      const day = f.name.replace(/\.json$/, "");
+      const det = document.createElement("details");
+      det.className = "arch-day";
+      const sum = document.createElement("summary");
+      sum.textContent = fmtDayHeading(day);
+      det.appendChild(sum);
+      const bodyDiv = document.createElement("div");
+      bodyDiv.className = "day-body";
+      det.appendChild(bodyDiv);
+      let loaded = false;
+      det.addEventListener("toggle", async () => {
+        if (!det.open || loaded) return;
+        loaded = true;
+        bodyDiv.textContent = "Loading…";
+        try {
+          const { list } = await getRemote(ARCHIVE_DIR + "/" + f.name);
+          const count = document.createElement("span");
+          count.className = "day-count";
+          count.textContent = list.length + " patient" + (list.length === 1 ? "" : "s");
+          sum.appendChild(count);
+          renderArchiveDay(bodyDiv, list);
+        } catch (e) {
+          loaded = false;
+          bodyDiv.textContent = "Couldn't load this day: " + (e.message || e);
+        }
+      });
+      box.appendChild(det);
+    }
+    setArchiveStatus("Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setArchiveStatus("");
+    showArchiveError("Couldn't load the archive: " + (e.message || e));
+  }
+}
+$("archiveRefreshBtn").addEventListener("click", () => loadArchive(false));
+
+// Read-only version of the Patient List table for one archived day.
+function renderArchiveDay(container, list) {
+  container.innerHTML = "";
+  if (!list.length) { container.innerHTML = '<div class="empty-note">Empty.</div>'; return; }
+  const scroll = document.createElement("div");
+  scroll.className = "table-scroll";
+  const table = document.createElement("table");
+  table.className = "patients";
+  table.innerHTML = "<thead><tr>" +
+    '<th style="width:1%">Location</th><th style="width:1%">Name</th>' +
+    '<th>Summarised history</th><th style="width:24%">Job list</th><th style="width:1%"></th>' +
+    "</tr></thead>";
+  const body = document.createElement("tbody");
+  for (const p of list) {
+    const tr = document.createElement("tr");
+
+    const tdLoc = document.createElement("td");
+    tdLoc.className = "loc";
+    tdLoc.textContent = p.location || "—";
+    tr.appendChild(tdLoc);
+
+    const tdName = document.createElement("td");
+    tdName.className = "name";
+    tdName.textContent = p.name || "—";
+    const meta = document.createElement("div");
+    meta.className = "rowmeta";
+    meta.textContent = fmtDate(p.created);
+    tdName.appendChild(meta);
+    tr.appendChild(tdName);
+
+    const tdSum = document.createElement("td");
+    tdSum.className = "summary";
+    const ref = referralOf(p);
+    tdSum.innerHTML =
+      (ref ? '<div class="refline"><strong>Referral:</strong> ' + escapeHtml(ref) + "</div>" : "") +
+      summaryHtml(p.summary || "");
+    tr.appendChild(tdSum);
+
+    const tdJobs = document.createElement("td");
+    tdJobs.className = "jobs";
+    const jobsPre = document.createElement("div");
+    jobsPre.className = "jobs-pre";
+    jobsPre.textContent = p.jobs || "—";
+    tdJobs.appendChild(jobsPre);
+    tr.appendChild(tdJobs);
+
+    const tdAct = document.createElement("td");
+    tdAct.className = "actions";
+    const letterBtn = document.createElement("button");
+    letterBtn.className = "ghost-btn";
+    letterBtn.type = "button";
+    letterBtn.textContent = "Letter";
+    tdAct.appendChild(letterBtn);
+    tr.appendChild(tdAct);
+    body.appendChild(tr);
+
+    const trLetter = document.createElement("tr");
+    trLetter.className = "letter-row";
+    trLetter.style.display = "none";
+    const tdLetter = document.createElement("td");
+    tdLetter.colSpan = 5;
+    const head = document.createElement("div");
+    head.className = "letter-head";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "eyebrow";
+    eyebrow.style.margin = "0";
+    eyebrow.textContent = "Blue letter reply";
+    const copyLetter = document.createElement("button");
+    copyLetter.className = "ghost-btn";
+    copyLetter.type = "button";
+    copyLetter.textContent = "Copy";
+    copyLetter.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(p.letter || ""); } catch (e) {}
+      flashCopied(copyLetter);
+    });
+    head.appendChild(eyebrow);
+    head.appendChild(copyLetter);
+    const pre = document.createElement("div");
+    pre.className = "letter-pre";
+    pre.textContent = p.letter || "(No letter stored.)";
+    tdLetter.appendChild(head);
+    tdLetter.appendChild(pre);
+    trLetter.appendChild(tdLetter);
+    body.appendChild(trLetter);
+
+    letterBtn.addEventListener("click", () => {
+      const open = trLetter.style.display !== "none";
+      trLetter.style.display = open ? "none" : "";
+      letterBtn.textContent = open ? "Letter" : "Hide";
+    });
+  }
+  table.appendChild(body);
+  scroll.appendChild(table);
+  container.appendChild(scroll);
 }
 
 /* ============================================================== *
