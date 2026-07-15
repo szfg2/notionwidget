@@ -410,7 +410,7 @@
 
         <div class="row2" style="margin-top:6px">
           <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
-          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="notionwidget"></div>
+          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="patient-data"></div>
         </div>
         <div class="row2">
           <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
@@ -650,7 +650,8 @@ function loadSettings() {
   $("claudeKey").value = get(K.claude);
   $("ghToken").value = get(K.ghToken);
   $("ghOwner").value = get(K.ghOwner) || "szfg2";
-  $("ghRepo").value = get(K.ghRepo) || "notionwidget";
+  if (get(K.ghRepo) === "notionwidget") set(K.ghRepo, "patient-data");   // data moved to private repo
+  $("ghRepo").value = get(K.ghRepo) || "patient-data";
   $("ghBranch").value = get(K.ghBranch) || "main";
   $("ghPath").value = get(K.path) || "resblue-patients.json";
   if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
@@ -659,7 +660,7 @@ $("saveSettings").addEventListener("click", () => {
   set(K.claude, $("claudeKey").value.trim());
   set(K.ghToken, $("ghToken").value.trim());
   set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
-  set(K.ghRepo, $("ghRepo").value.trim() || "notionwidget");
+  set(K.ghRepo, $("ghRepo").value.trim() || "patient-data");
   set(K.ghBranch, $("ghBranch").value.trim() || "main");
   set(K.path, $("ghPath").value.trim() || "resblue-patients.json");
   $("settingsSaved").textContent = "Saved ✓";
@@ -748,7 +749,7 @@ function ghCfg() {
   return {
     token: get(K.ghToken),
     owner: get(K.ghOwner) || "szfg2",
-    repo: get(K.ghRepo) || "notionwidget",
+    repo: get(K.ghRepo) || "patient-data",
     branch: get(K.ghBranch) || "main",
     path: (get(K.path) || "resblue-patients.json").replace(/^\/|\/$/g, "")
   };

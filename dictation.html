@@ -92,7 +92,7 @@
 
         <div class="row" style="margin-top:6px">
           <div class="grow"><label>GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
-          <div class="grow"><label>Repo to save into</label><input type="text" id="ghRepo" placeholder="notionwidget"></div>
+          <div class="grow"><label>Repo to save into</label><input type="text" id="ghRepo" placeholder="patient-data"></div>
         </div>
         <div class="row">
           <div class="grow"><label>Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
@@ -193,7 +193,8 @@ function loadSettings() {
   $("openaiKey").value = get(K.openai);
   $("ghToken").value   = get(K.ghToken);
   $("ghOwner").value   = get(K.ghOwner) || "szfg2";
-  $("ghRepo").value    = get(K.ghRepo)  || "notionwidget";
+  if (get(K.ghRepo) === "notionwidget") set(K.ghRepo, "patient-data");   // data moved to private repo
+  $("ghRepo").value    = get(K.ghRepo)  || "patient-data";
   $("ghBranch").value  = get(K.ghBranch) || "main";
   $("ghPath").value    = get(K.ghPath)  || "dictation-note.txt";
   // Autosave defaults to true unless explicitly set to "0"
@@ -422,7 +423,7 @@ function b64utf8(str) {
 }
 function ghCfg() {
   return {
-    token: get(K.ghToken), owner: get(K.ghOwner) || "szfg2", repo: get(K.ghRepo) || "notionwidget",
+    token: get(K.ghToken), owner: get(K.ghOwner) || "szfg2", repo: get(K.ghRepo) || "patient-data",
     branch: get(K.ghBranch) || "main", path: (get(K.ghPath) || "dictation-note.txt").replace(/^\/|\/$/g, "")
   };
 }
