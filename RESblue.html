@@ -331,6 +331,60 @@
   details.arch-day .day-del { margin-left: auto; align-self: center; }
   details.arch-day .day-body { padding: 0 12px 12px; }
   .patients .jobs-pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+  /* mobile — stack each patient row into a card so nothing scrolls sideways */
+  @media (max-width: 700px) {
+    .wrap { padding: 18px 12px 48px; }
+    .mode-tabs { flex-wrap: wrap; }
+    .mode-tab { flex: 1 1 auto; }
+
+    table.patients, .patients thead, .patients tbody, .patients tr, .patients td { display: block; width: 100%; }
+    .patients thead { display: none; }
+    .patients tr {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .patients td { border: none; border-top: 1px solid var(--border); }
+    .patients tr > td:first-child { border-top: none; }
+    .patients td.loc, .patients td.name { white-space: normal; }
+    .patients td.summary, .patients td.jobs { min-width: 0; }
+
+    /* small field labels replace the hidden header row */
+    .patients td.loc::before, .patients td.name::before,
+    .patients td.summary::before, .patients td.jobs::before {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 2px;
+    }
+    .patients td.loc::before { content: "Location"; }
+    .patients td.name::before { content: "Name"; }
+    .patients td.summary::before { content: "Summarised history"; }
+    .patients td.jobs::before { content: "Job list"; }
+
+    /* action buttons side by side instead of a stacked column */
+    .patients td.actions { white-space: normal; display: flex; flex-wrap: wrap; gap: 6px; }
+    .patients .actions .ghost-btn { display: inline-block; width: auto; flex: 1 1 30%; margin-bottom: 0; }
+
+    /* expanded letter / history / ask rows tuck under their patient card */
+    .patients tr.letter-row {
+      margin-top: -13px;
+      border-top: none;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+
+    /* keep wide markdown (tables in summaries / answers) inside the card */
+    .md table { display: block; overflow-x: auto; }
+
+    details.arch-day .day-body { padding: 0 8px 10px; }
+  }
 </style>
 </head>
 <body>
@@ -526,6 +580,9 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 2048,
   ASK_MODEL: "claude-opus-4-8",
   ASK_MAX_TOKENS: 2048,
+  // History-taking questions use Sonnet — quick, cheap, called only on demand.
+  HISTORY_MODEL: "claude-sonnet-4-6",
+  HISTORY_MAX_TOKENS: 1024,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
 };
@@ -556,6 +613,17 @@ const TOPICS_SYSTEM =
   "- Where a major guideline or landmark trial is directly relevant, name it in the bullet (e.g. BTS/ERS/ATS " +
   "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
   "- Output ONLY the bullets — no preamble, no closing remarks.";
+
+/* Instruction that shapes the per-patient "History" question list. */
+const HISTORY_SYSTEM =
+  "You are a respiratory and critical care consultant helping a registrar prepare to clerk a referred patient. " +
+  "From the case provided, list the questions the registrar should ask when taking the history — prioritising " +
+  "those that discriminate between the likely differentials, pick up severity and red flags, and answer the " +
+  "referring team's question. Reason only from the information given, and skip anything the notes already answer.\n\n" +
+  "FORMAT (Markdown): a succinct point-by-point checklist.\n" +
+  "- Group under 3-5 short bold headings (e.g. **Presenting complaint**, **Red flags**, **Exposures & risk factors**).\n" +
+  "- One question per bullet, phrased as you would ask it, kept to one short line.\n" +
+  "- 15-25 questions total. Output ONLY the checklist — no preamble, no closing remarks.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
 const K = {
@@ -1160,6 +1228,16 @@ function editableCell(td, p, field) {
   td.appendChild(span);
 }
 
+// De-identified stored content only — name/location are never sent to Claude.
+function caseContextOf(p) {
+  return ((p.referral || "").trim() ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + p.referral.trim() + "\n\n" : "") +
+    "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
+    ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
+    ((p.letter || "").trim() ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + p.letter.trim() : "") +
+    ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
+}
+
 // Pull the referral reason out of the stored blue letter — the template always
 // opens with "Thank you for your referral for <reason>".
 function referralOf(p) {
@@ -1218,6 +1296,10 @@ function renderTable() {
     askBtn.className = "ghost-btn";
     askBtn.type = "button";
     askBtn.textContent = "Ask";
+    const histBtn = document.createElement("button");
+    histBtn.className = "ghost-btn";
+    histBtn.type = "button";
+    histBtn.textContent = "History";
     const letterBtn = document.createElement("button");
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
@@ -1227,6 +1309,7 @@ function renderTable() {
     delBtn.type = "button";
     delBtn.textContent = "Delete";
     tdAct.appendChild(askBtn);
+    tdAct.appendChild(histBtn);
     tdAct.appendChild(letterBtn);
     tdAct.appendChild(delBtn);
     tr.appendChild(tdAct);
@@ -1266,6 +1349,94 @@ function renderTable() {
       const open = trLetter.style.display !== "none";
       trLetter.style.display = open ? "none" : "";
       letterBtn.textContent = open ? "Letter" : "Hide";
+    });
+
+    // expandable "History-taking questions" row — Sonnet is only called when
+    // the History button is pressed, and the result is kept for the session
+    const trHist = document.createElement("tr");
+    trHist.className = "letter-row";
+    trHist.style.display = "none";
+    const tdHist = document.createElement("td");
+    tdHist.colSpan = 5;
+    const histHead = document.createElement("div");
+    histHead.className = "letter-head";
+    const histEyebrow = document.createElement("span");
+    histEyebrow.className = "eyebrow";
+    histEyebrow.style.margin = "0";
+    histEyebrow.textContent = "History-taking questions";
+    const histActions = document.createElement("div");
+    const histRegen = document.createElement("button");
+    histRegen.className = "ghost-btn";
+    histRegen.type = "button";
+    histRegen.textContent = "Regenerate";
+    histRegen.style.display = "none";
+    const histCopy = document.createElement("button");
+    histCopy.className = "ghost-btn";
+    histCopy.type = "button";
+    histCopy.textContent = "Copy";
+    histCopy.style.display = "none";
+    histCopy.style.marginLeft = "6px";
+    histActions.appendChild(histRegen);
+    histActions.appendChild(histCopy);
+    histHead.appendChild(histEyebrow);
+    histHead.appendChild(histActions);
+    const histNote = document.createElement("p");
+    histNote.className = "ask-note";
+    histNote.textContent = "What to ask when clerking this patient — generated from the stored case details. Nothing identifying is sent.";
+    const histErr = document.createElement("div");
+    histErr.className = "ask-error";
+    const histBody = document.createElement("div");
+    histBody.className = "md";
+    tdHist.appendChild(histHead);
+    tdHist.appendChild(histNote);
+    tdHist.appendChild(histErr);
+    tdHist.appendChild(histBody);
+    trHist.appendChild(tdHist);
+    body.appendChild(trHist);
+
+    let histText = "";
+    let histController = null;
+    async function generateHistory() {
+      if (histController) return;
+      histErr.style.display = "none";
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      if (!key) {
+        $("settingsBox").open = true;
+        histErr.textContent = "Add your Claude (Anthropic) API key in Settings first.";
+        histErr.style.display = "block";
+        return;
+      }
+      histController = new AbortController();
+      histRegen.disabled = true;
+      histBody.innerHTML = '<span class="status"><span class="spinner grey" style="display:inline-block;vertical-align:-2px"></span> Generating questions…</span>';
+      try {
+        const text = await callClaude(key, CONFIG.HISTORY_MODEL, HISTORY_SYSTEM, caseContextOf(p), CONFIG.HISTORY_MAX_TOKENS, histController.signal);
+        histText = text || "";
+        histBody.innerHTML = window.marked ? marked.parse(histText, { breaks: true }) : "";
+        if (!window.marked) histBody.textContent = histText;
+        histRegen.style.display = "";
+        histCopy.style.display = "";
+      } catch (e) {
+        histBody.innerHTML = "";
+        if (e.name !== "AbortError") {
+          histErr.textContent = e.message || String(e);
+          histErr.style.display = "block";
+        }
+      } finally {
+        histController = null;
+        histRegen.disabled = false;
+      }
+    }
+    histRegen.addEventListener("click", generateHistory);
+    histCopy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(histText); } catch (e) {}
+      flashCopied(histCopy);
+    });
+    histBtn.addEventListener("click", () => {
+      const open = trHist.style.display !== "none";
+      trHist.style.display = open ? "none" : "";
+      histBtn.textContent = open ? "History" : "Hide hx";
+      if (!open && !histText && !histController) generateHistory();
     });
 
     // expandable "Ask about this case" row
@@ -1385,14 +1556,7 @@ function renderTable() {
       rowAskController = new AbortController();
       setRowAskLoading(true);
 
-      // De-identified stored content only — name/location are never sent.
-      const caseContext =
-        ((p.referral || "").trim() ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + p.referral.trim() + "\n\n" : "") +
-        "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
-        "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
-        ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
-        ((p.letter || "").trim() ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + p.letter.trim() : "") +
-        ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
+      const caseContext = caseContextOf(p);
 
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
