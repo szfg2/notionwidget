@@ -443,7 +443,7 @@
         <span class="eyebrow">Clinic note</span>
         <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
       </div>
-      <textarea class="output" id="output" placeholder="The generated clinic note appears here. You can edit it before copying." spellcheck="false"></textarea>
+      <textarea class="output" id="output" placeholder="The generated clinic note appears here. Edits autosave into the patient's stored note a moment after you stop typing." spellcheck="false"></textarea>
       <div class="out-foot" id="count"></div>
     </div>
 
@@ -527,7 +527,7 @@ const CONFIG = {
   ASK_MAX_TOKENS: 2048,
   MEMO_MAX_TOKENS: 1024,
   NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
-  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
+  SUMMARY_PROMPT: "prompts/respiratory-clinic-summary.txt",
   UPDATE_PROMPT: "prompts/update-clinic-note.txt"
 };
 
@@ -591,6 +591,8 @@ function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 let patients = [];          // local cache of the synced list (newest first)
 let genController = null;   // in-flight generate (for cancel)
 const jobTimers = new Map();
+let editNoteId = null;      // patient the Clinic note box is editing (autosave target)
+let noteSaveTimer = null;
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -661,6 +663,34 @@ function updateCount() {
   $("count").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
 }
 $("output").addEventListener("input", updateCount);
+
+// Edits to the generated note autosave into the stored patient record,
+// debounced like the job-list edits. Only active once the patient has been
+// saved — a note that failed to save (or a cleared box) writes to no one.
+$("output").addEventListener("input", () => {
+  if (!editNoteId) return;
+  const id = editNoteId;
+  const value = $("output").value;
+  const local = patients.find(p => p.id === id);
+  if (local) local.note = value;
+  if (noteSaveTimer) clearTimeout(noteSaveTimer);
+  setGenStatus("Editing…");
+  noteSaveTimer = setTimeout(async () => {
+    noteSaveTimer = null;
+    setGenStatus("Saving note…");
+    try {
+      await mutateRemote(list => {
+        const rec = list.find(p => p.id === id);
+        if (rec) rec.note = value;
+        return list;
+      }, "Edit clinic note: " + ((local && local.name) || id));
+      setGenStatus("Note saved ✓ " + timeNow(), true);
+    } catch (e) {
+      setGenStatus("");
+      showError("Note autosave failed: " + (e.message || e));
+    }
+  }, 1500);
+});
 
 /* ============================================================== *
  *  Claude API                                                    *
@@ -789,6 +819,7 @@ $("generateBtn").addEventListener("click", async () => {
       callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
     ]);
 
+    editNoteId = null;   // box now holds a note that isn't saved to anyone yet
     $("output").value = note || "(No text returned.)";
     updateCount();
 
@@ -806,6 +837,7 @@ $("generateBtn").addEventListener("click", async () => {
     setGenStatus("Saving patient to GitHub…");
     try {
       await mutateRemote(list => upsertByName(list, record), "Add clinic patient: " + name);
+      editNoteId = record.id;   // edits in the Clinic note box now autosave to this patient
       renderTable();
       setGenStatus("Done ✓ — saved to Previous Patients", true);
     } catch (e) {

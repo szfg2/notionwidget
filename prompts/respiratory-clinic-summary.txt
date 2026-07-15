@@ -1,0 +1,41 @@
+## Context
+Create a SHORT, dense summary of a respiratory clinic patient for a clinic list table. Maximum character economy: this feeds a small table cell, so compress hard. The bold labels are the only visual anchor when scanning between consults.
+
+## Output format — follow exactly
+- Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
+- Output ONLY the summary — no preamble, no explanation, no closing remarks.
+- Produce labelled blocks in this order: Followup Reason, Past RES history, B/G, Active RES Issues, Other Issues, Relevant Ix.
+- Each block starts on its own line with NO blank lines between blocks — one block per line, directly under the previous one.
+- Each block label is in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
+  **Followup Reason:** ...
+  **Past RES history:** ...
+  **B/G:** ...
+  **Active RES Issues:** ...
+  **Other Issues:** ...
+  **Relevant Ix:** ...
+- These labels are the ONLY bold text and must appear NOWHERE else in the summary.
+- Omit any block that has no content — do not print an empty label.
+- NEVER write placeholder phrases for missing information — no "not reported", "not provided", "not available", "not documented", "unknown" or anything similar. If the information is absent, leave it out entirely.
+
+## What goes in each block
+- **Followup Reason:** the reason for referral / follow-up in ONE short line — the same single line that goes on the clinic note's "Reason For Referral / Followup Reason" line (e.g. "f/u RUL nodule surveillance" or "new referral — chronic cough 6/12").
+- **Past RES history:** ALL respiratory-related past medical conditions on ONE line, with any previous pulmonary function, imaging findings and treatment (e.g. "COPD GOLD B (FEV1 55% '24), ex-smoker 30py, on LAMA/LABA; prev TB '02 treated; CT '24 UL fibrocalcific scarring"). Include prior TB, asthma, ILD, OSA, bronchiectasis, LTOT/NIV use etc. as relevant.
+- **B/G:** the patient's NON-respiratory past medical conditions on ONE line — the three or four most significant. Chain with ">" for progressions and "c/b" for "complicated by" (e.g. "DM/HTN/HLD; IHD s/p PCI '22; CKD 3a"). Compress hard: drop articles and filler, use accepted shortforms.
+- **Active RES Issues:** up to THREE respiratory issues currently being followed or worked up, most important first, all on ONE line separated by " | " (e.g. "8mm RUL nodule — surveillance | chronic cough, ?UACS | mild OSA declining CPAP"). The label appears ONCE at the start; the issues themselves are not bold.
+- **Other Issues:** active non-respiratory issues relevant to clinic care on ONE line, separated by " | " (e.g. "poorly controlled DM HbA1c 9.2 | AF on apixaban"). Omit stable background conditions already in B/G.
+- **Relevant Ix:** investigations ALREADY DONE that bear on the current issue(s), in short form on ONE line separated by "; " — each with modality/test, date and key result (e.g. "CT 3/25 8mm RUL solid nodule, stable vs 9/24; PET 5/25 non-avid; FEV1 62% 4/25; sputum AFB ×3 −ve"). Pending tests belong here only with "pending" stated (e.g. "bronch washings pending").
+
+## Compression rules (apply to the whole summary)
+- Maximum character economy — aim well under 120 words; density over prose. Drop articles (a/the), filler ("presented with", "was noted to have", "no clinical features of"), and redundant words.
+- Dates as d/m or m/yy (e.g. 25/5 or 3/25), never dd/mm/yyyy.
+- Use medical shortforms freely: f/u, infxn, collxn, B/L, s/p, c/b, abx, BC (blood culture), PFT, LTOT, NIV, CPAP, HRCT, UACS, GORD. Keep organism names in FULL (e.g. Micrococcus luteus) — never abbreviate organisms.
+- Use "+"/"−" for positive/negative findings and "?" prefix for query/suspected.
+- No units for laboratory values.
+
+## Example of a good summary (illustrates format and tone ONLY — never reuse its content)
+**Followup Reason:** f/u RUL nodule surveillance + persistent cough
+**Past RES history:** COPD GOLD B (FEV1 55% '24), ex-smoker 30py, on LAMA/LABA; prev TB '02 treated; CT '24 UL fibrocalcific scarring
+**B/G:** DM/HTN/HLD; IHD s/p PCI '22; CKD 3a
+**Active RES Issues:** 8mm RUL nodule — surveillance | chronic cough ?UACS vs GORD | 2 exac past yr
+**Other Issues:** poorly controlled DM HbA1c 9.2 | AF on apixaban
+**Relevant Ix:** CT 3/25 8mm RUL solid nodule, stable vs 9/24; PET 5/25 non-avid; FEV1 62% 4/25; sputum AFB ×3 −ve
