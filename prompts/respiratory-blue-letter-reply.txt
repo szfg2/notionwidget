@@ -78,7 +78,11 @@ Impression
 #
 
 Suggest
-#summarise a list of plans taken from the current text using "-" bullets. You may suggest plans that you see fit to include, such as interval CXR or Respiratory clinic follow-up#
+#summarise a list of plans taken from the current text using "-" bullets. You may suggest plans that you see fit to include, such as interval CXR or Respiratory clinic follow-up.
+
+If this is a pleural case (referral for consideration of a pleural tap or chest drain), you MUST include these two bullets verbatim:
+- Send fluid for Pleural FEME (with pH), Lactate Dehydrogenase fluid, Glucose fluid, Protein Total Fluid, Aerobic Culture, Gram Stain, Mycobacteria Culture and Smear, Adenosine Deaminase
+- Please also send for serum LDH and Serum Protein if not already done#
 
 References
 #1-3 latest published guidelines that support the plans in Suggest, one per line as "-" bullets: issuing society, guideline title, year (e.g. - BTS Guideline for Pleural Disease 2023). Only cite guidelines you are certain exist; no URLs, no journal citations#
