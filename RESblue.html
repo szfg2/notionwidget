@@ -144,8 +144,12 @@
   }
   .job-item {
     display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
-    font-size: 13.5px; padding: 2px 0;
+    font-size: 13.5px; padding: 3px 7px; margin: 0 -7px;
+    border-radius: 6px; cursor: pointer;
+    transition: background-color .12s;
   }
+  .job-item:hover { background: var(--surface-2); }
+  .job-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .job-item .job-who { color: var(--text); font-weight: 600; white-space: nowrap; }
   .job-item .job-sep { color: var(--faint); }
   .job-item .job-task { color: var(--muted); flex: 1 1 200px; min-width: 0; }
@@ -314,6 +318,13 @@
   }
   .patients td.loc { white-space: nowrap; font-weight: 600; }
   .patients td.name { white-space: nowrap; }
+  /* pulse a row that was jumped to from the jobs banner */
+  .patients tr.flash > td { animation: rowFlash 2.2s ease-out; }
+  @keyframes rowFlash {
+    0%, 35% { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+    100% { background: transparent; }
+  }
+
   .patients .editable {
     cursor: pointer;
     border-bottom: 1px dashed transparent;
@@ -368,6 +379,12 @@
     color: var(--text);
   }
   .letter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  /* review-note editor (two inputs + generated note) */
+  .note-editor .field { margin-bottom: 10px; }
+  .note-editor .field label.lbl { margin-bottom: 4px; }
+  .note-editor textarea { min-height: 64px; }
+  .note-editor .letter-pre { border-top: 1px solid var(--border); padding-top: 10px; }
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
 
@@ -614,7 +631,7 @@
       <div class="error" id="archiveError" style="margin:10px 0 0"></div>
       <div id="archiveFolders" style="margin-top:12px"></div>
       <div class="empty-note" id="archiveEmpty" style="display:none">Nothing archived yet — patients move here automatically once the day they were created has passed.</div>
-      <div class="out-foot">One folder per day, stored in the repo under <code>resblue-archive/</code>. Job lists stay editable here and autosave the same way, and ticking <b>Show in banner</b> works on archived patients too; everything else is read-only. Delete all in Patient List does not touch this archive.</div>
+      <div class="out-foot">One folder per day, stored in the repo under <code>resblue-archive/</code>. Job lists stay editable here and autosave the same way, ticking <b>Show in banner</b> works on archived patients too, and <b>double-click a Location</b> to change it; everything else is read-only. Delete all in Patient List does not touch this archive.</div>
     </div>
 
   </div>
@@ -639,7 +656,12 @@ const CONFIG = {
   HISTORY_MODEL: "claude-sonnet-4-6",
   HISTORY_MAX_TOKENS: 1024,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
-  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
+  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
+  // Review notes — clinician fills results/vitals + suggestions, Claude writes
+  // the note against the template. Sonnet, same as the letter.
+  REVIEW_PROMPT: "prompts/respiratory-review-note.txt",
+  PLEURAL_REVIEW_PROMPT: "prompts/respiratory-pleural-review-note.txt",
+  REVIEW_MAX_TOKENS: 2048
 };
 
 /* Instruction that shapes the "Ask about this case" answers (matches index.html). */
@@ -719,7 +741,11 @@ $("saveSettings").addEventListener("click", () => {
   set(K.ghBranch, $("ghBranch").value.trim() || "main");
   set(K.path, $("ghPath").value.trim() || "resblue-patients.json");
   $("settingsSaved").textContent = "Saved ✓";
-  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1500);
+  // let the ✓ register, then close the dropdown
+  setTimeout(() => {
+    $("settingsSaved").textContent = "";
+    $("settingsBox").open = false;
+  }, 700);
 });
 
 /* ============================================================== *
@@ -930,18 +956,18 @@ async function mutateArchiveRemote(day, mutator, message) {
  * ============================================================== */
 function jobItems() {
   const items = [];
-  const add = (p, day) => {
+  const add = (p, day, source) => {
     if (!p.jobsPinned) return;   // only patients ticked "Show in banner"
     for (const raw of (p.jobs || "").split("\n")) {
       const job = raw.replace(/^[-•*\s]+/, "").trim();
       if (!job) continue;
-      items.push({ who: [p.location, p.name].filter(Boolean).join(" ") || "—", job, day });
+      items.push({ who: [p.location, p.name].filter(Boolean).join(" ") || "—", job, day, source, id: p.id });
     }
   };
   const today = dateKey(Date.now());
-  for (const p of patients) add(p, dateKey(p.created) || today);
+  for (const p of patients) add(p, dateKey(p.created) || today, "list");
   for (const day of [...archiveCache.keys()].sort((a, b) => b.localeCompare(a))) {
-    for (const p of archiveCache.get(day) || []) add(p, day);
+    for (const p of archiveCache.get(day) || []) add(p, day, "archive");
   }
   return items;
 }
@@ -960,6 +986,13 @@ function renderJobsBanner() {
   for (const it of items) {
     const row = document.createElement("div");
     row.className = "job-item";
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    row.title = "Open this patient in " + (it.source === "list" ? "the Patient List" : "Previous Patients");
+    row.addEventListener("click", () => focusPatient(it));
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusPatient(it); }
+    });
     const who = document.createElement("span");
     who.className = "job-who";
     who.textContent = it.who;
@@ -980,6 +1013,43 @@ function renderJobsBanner() {
     }
     el.appendChild(row);
   }
+}
+
+// Bring a row into view and pulse it, so a click from the banner lands
+// somewhere obvious.
+function flashRow(tr) {
+  if (!tr) return false;
+  tr.scrollIntoView({ behavior: "smooth", block: "center" });
+  tr.classList.remove("flash");
+  void tr.offsetWidth;            // restart the animation if it's already running
+  tr.classList.add("flash");
+  setTimeout(() => tr.classList.remove("flash"), 2200);
+  return true;
+}
+
+// Clicking a banner line jumps to that patient's row — in the Patient List, or
+// in Previous Patients with the right day folder opened.
+function focusPatient(it) {
+  if (it.source === "list") {
+    setTab("prev");
+    flashRow($("ptBody").querySelector('tr[data-id="' + it.id + '"]'));
+    return;
+  }
+  setTab("archive");
+  const open = () => {
+    const det = document.querySelector('details.arch-day[data-day="' + it.day + '"]');
+    if (!det) return false;
+    det.open = true;
+    if (det._build) det._build();   // build the rows now rather than waiting on the toggle event
+    return flashRow(det.querySelector('tr[data-id="' + it.id + '"]'));
+  };
+  // setTab kicks off loadArchive when the folders aren't built yet — retry
+  // briefly so the click works on a cold tab too.
+  if (open()) return;
+  let tries = 0;
+  const timer = setInterval(() => {
+    if (open() || ++tries > 20) clearInterval(timer);
+  }, 150);
 }
 
 // Best-effort: the banner never blocks the page, so a failure here is silent
@@ -1304,6 +1374,152 @@ function flashCopied(btn, label) {
 }
 
 /* ============================================================== *
+ *  Review notes — two inputs (results/vitals + suggestions),      *
+ *  merged with the case context to fill a template               *
+ * ============================================================== */
+// Prompt templates are fetched once and reused across every generate.
+const promptCache = new Map();
+async function loadPrompt(url, signal) {
+  if (promptCache.has(url)) return promptCache.get(url);
+  const r = await fetch(url, { cache: "no-store", signal });
+  if (!r.ok) throw new Error("Couldn't load prompt: " + url);
+  const t = await r.text();
+  promptCache.set(url, t);
+  return t;
+}
+
+// Builds a "Create … Note" button plus its expandable editor row. The row has
+// two inputs — latest results/vitals and suggested plans — which Claude merges
+// with the stored (de-identified) case context to fill the note template at
+// promptUrl. Returns { btn, row } for the caller to slot into the actions cell
+// and the tbody. Purely on-demand; nothing here is saved to GitHub.
+function noteControl(p, label, promptUrl, colSpan) {
+  const btn = document.createElement("button");
+  btn.className = "ghost-btn";
+  btn.type = "button";
+  btn.textContent = label;
+
+  const row = document.createElement("tr");
+  row.className = "letter-row";
+  row.style.display = "none";
+  const td = document.createElement("td");
+  td.colSpan = colSpan;
+  td.className = "note-editor";
+
+  const head = document.createElement("div");
+  head.className = "letter-head";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.style.margin = "0";
+  eyebrow.textContent = label.replace(/^Create /, "");
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "ghost-btn";
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy";
+  copyBtn.style.display = "none";
+  head.appendChild(eyebrow);
+  head.appendChild(copyBtn);
+
+  const note = document.createElement("p");
+  note.className = "ask-note";
+  note.textContent = "Enter this review's results/vitals and your suggested plans; Claude merges them with the stored case context to write the note. Nothing identifying is sent.";
+
+  const mkField = (labelText, placeholder) => {
+    const field = document.createElement("div");
+    field.className = "field";
+    const lbl = document.createElement("label");
+    lbl.className = "lbl";
+    lbl.textContent = labelText;
+    const box = document.createElement("textarea");
+    box.placeholder = placeholder;
+    field.appendChild(lbl);
+    field.appendChild(box);
+    return { field, box };
+  };
+  const results = mkField("Latest results & vitals",
+    "Today's obs, oxygen device/flow, bloods, pleural fluid results…");
+  const suggest = mkField("Suggestions",
+    "Your plans — one per line…");
+
+  const genBtn = document.createElement("button");
+  genBtn.className = "generate";
+  genBtn.type = "button";
+  genBtn.textContent = "Generate note";
+
+  const err = document.createElement("div");
+  err.className = "ask-error";
+
+  const out = document.createElement("div");
+  out.className = "letter-pre";
+  out.style.display = "none";
+
+  td.appendChild(head);
+  td.appendChild(note);
+  td.appendChild(results.field);
+  td.appendChild(suggest.field);
+  td.appendChild(genBtn);
+  td.appendChild(err);
+  td.appendChild(out);
+  row.appendChild(td);
+
+  let noteText = "";
+  let controller = null;
+  const setLoading = (on) => {
+    if (on) {
+      genBtn.classList.add("is-cancel");
+      genBtn.innerHTML = '<span class="spinner"></span>Cancel';
+    } else {
+      genBtn.classList.remove("is-cancel");
+      genBtn.textContent = noteText ? "Regenerate" : "Generate note";
+    }
+  };
+
+  genBtn.addEventListener("click", async () => {
+    if (controller) { controller.abort(); return; }
+    err.style.display = "none";
+    const key = get(K.claude) || $("claudeKey").value.trim();
+    if (!key) {
+      $("settingsBox").open = true;
+      err.textContent = "Add your Claude (Anthropic) API key in Settings first.";
+      err.style.display = "block";
+      return;
+    }
+    controller = new AbortController();
+    setLoading(true);
+    try {
+      const sys = await loadPrompt(promptUrl, controller.signal);
+      const userMessage = caseContextOf(p) +
+        "\n\nLATEST RESULTS & VITALS (entered at this review):\n" + (results.box.value.trim() || "(none entered)") +
+        "\n\nSUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || "(none entered)");
+      const text = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.REVIEW_MAX_TOKENS, controller.signal);
+      noteText = text || "";
+      out.textContent = noteText || "(No text returned.)";
+      out.style.display = "";
+      copyBtn.style.display = noteText ? "" : "none";
+    } catch (e) {
+      if (e.name !== "AbortError") { err.textContent = e.message || String(e); err.style.display = "block"; }
+    } finally {
+      controller = null;
+      setLoading(false);
+    }
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(noteText); } catch (e) {}
+    flashCopied(copyBtn);
+  });
+
+  btn.addEventListener("click", () => {
+    const open = row.style.display !== "none";
+    row.style.display = open ? "none" : "";
+    btn.textContent = open ? label : "Hide";
+    if (!open) results.box.focus();
+  });
+
+  return { btn, row };
+}
+
+/* ============================================================== *
  *  Previous patients — table                                     *
  * ============================================================== */
 async function loadPatients(auto) {
@@ -1353,14 +1569,24 @@ function timeNow() {
   const t = new Date();
   return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
 }
-// Click-to-edit cell for location / name. Click swaps in an input; Enter or
-// clicking away commits and saves to GitHub, Escape cancels.
-function editableCell(td, p, field) {
+// Click-to-edit cell for location / name. The trigger swaps in an input; Enter
+// or clicking away commits and saves to GitHub, Escape cancels. Defaults to the
+// live list on single click; the archive passes dblclick and its own saver.
+function editableCell(td, p, field, opts) {
+  const o = opts || {};
+  const trigger = o.trigger || "click";
+  const setStatus = o.setStatus || setListStatus;
+  const showErr = o.showError || showListError;
+  const save = o.save || ((v) => mutateRemote(list => {
+    const rec = list.find(x => x.id === p.id);
+    if (rec) rec[field] = v;
+    return list;
+  }, "Update patient " + field));
   const span = document.createElement("span");
   span.className = "editable";
-  span.title = "Click to edit";
+  span.title = o.title || "Click to edit";
   span.textContent = p[field] || "—";
-  span.addEventListener("click", () => {
+  span.addEventListener(trigger, () => {
     const input = document.createElement("input");
     input.type = "text";
     input.className = "cell-edit";
@@ -1377,16 +1603,14 @@ function editableCell(td, p, field) {
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
       span.textContent = v || "—";
-      setListStatus("Saving…");
-      mutateRemote(list => {
-        const rec = list.find(x => x.id === p.id);
-        if (rec) rec[field] = v;
-        return list;
-      }, "Update patient " + field).then(() => {
-        setListStatus("Saved ✓ " + timeNow(), true);
+      renderJobsBanner();   // the banner labels rows with location + name
+      setStatus("Saving…");
+      Promise.resolve(save(v)).then(() => {
+        renderJobsBanner();
+        setStatus("Saved ✓ " + timeNow(), true);
       }).catch(e => {
-        setListStatus("");
-        showListError("Save failed: " + (e.message || e));
+        setStatus("");
+        showErr("Save failed: " + (e.message || e));
       });
     };
     input.addEventListener("keydown", (e) => {
@@ -1428,6 +1652,7 @@ function renderTable() {
   $("emptyNote").style.display = patients.length ? "none" : "";
   for (const p of patients) {
     const tr = document.createElement("tr");
+    tr.dataset.id = p.id;
 
     const tdLoc = document.createElement("td");
     tdLoc.className = "loc";
@@ -1470,6 +1695,8 @@ function renderTable() {
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
     letterBtn.textContent = "Letter";
+    const review = noteControl(p, "Create Review Note", CONFIG.REVIEW_PROMPT, 5);
+    const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
     const delBtn = document.createElement("button");
     delBtn.className = "ghost-btn danger";
     delBtn.type = "button";
@@ -1477,9 +1704,13 @@ function renderTable() {
     tdAct.appendChild(askBtn);
     tdAct.appendChild(histBtn);
     tdAct.appendChild(letterBtn);
+    tdAct.appendChild(review.btn);
+    tdAct.appendChild(pleural.btn);
     tdAct.appendChild(delBtn);
     tr.appendChild(tdAct);
     body.appendChild(tr);
+    body.appendChild(review.row);
+    body.appendChild(pleural.row);
 
     // expandable letter row
     const trLetter = document.createElement("tr");
@@ -1900,6 +2131,7 @@ async function loadArchive(auto) {
     for (const day of days) {
       const det = document.createElement("details");
       det.className = "arch-day";
+      det.dataset.day = day;
       const sum = document.createElement("summary");
       sum.textContent = fmtDayHeading(day);
       const delDay = document.createElement("button");
@@ -1944,11 +2176,13 @@ async function loadArchive(auto) {
       // Rows are built on first open — the data is already cached, this just
       // keeps the DOM small when there are many days.
       let built = false;
-      det.addEventListener("toggle", () => {
-        if (!det.open || built) return;
+      const build = () => {
+        if (built) return;
         built = true;
         renderArchiveDay(bodyDiv, archiveCache.get(day) || [], day);
-      });
+      };
+      det._build = build;   // so a banner click can build without waiting on the toggle event
+      det.addEventListener("toggle", () => { if (det.open) build(); });
       box.appendChild(det);
     }
     setArchiveStatus("Synced ✓ " + timeNow(), true);
@@ -2022,10 +2256,21 @@ function renderArchiveDay(container, list, day) {
   const body = document.createElement("tbody");
   for (const p of list) {
     const tr = document.createElement("tr");
+    tr.dataset.id = p.id;
 
     const tdLoc = document.createElement("td");
     tdLoc.className = "loc";
-    tdLoc.textContent = p.location || "—";
+    editableCell(tdLoc, p, "location", {
+      trigger: "dblclick",
+      title: "Double-click to edit",
+      setStatus: setArchiveStatus,
+      showError: showArchiveError,
+      save: (v) => mutateArchiveRemote(day, list => {
+        const rec = list.find(x => x.id === p.id);
+        if (rec) rec.location = v;
+        return list;
+      }, "Update patient location: " + day)
+    });
     tr.appendChild(tdLoc);
 
     const tdName = document.createElement("td");
@@ -2056,9 +2301,15 @@ function renderArchiveDay(container, list, day) {
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
     letterBtn.textContent = "Letter";
+    const review = noteControl(p, "Create Review Note", CONFIG.REVIEW_PROMPT, 5);
+    const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
     tdAct.appendChild(letterBtn);
+    tdAct.appendChild(review.btn);
+    tdAct.appendChild(pleural.btn);
     tr.appendChild(tdAct);
     body.appendChild(tr);
+    body.appendChild(review.row);
+    body.appendChild(pleural.row);
 
     const trLetter = document.createElement("tr");
     trLetter.className = "letter-row";
