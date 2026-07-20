@@ -485,6 +485,7 @@
     <div class="card">
       <div class="gen-row">
         <button class="ghost-btn" id="refreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <button class="ghost-btn" id="hideAllBtn" type="button">Hide all notes</button>
         <button class="ghost-btn danger" id="deleteAllBtn" type="button">Delete all patients</button>
         <span class="status" id="listStatus"></span>
@@ -1080,6 +1081,55 @@ async function loadPatients(auto) {
   }
 }
 $("refreshBtn").addEventListener("click", () => loadPatients(false));
+
+/* ============================================================== *
+ *  Print — clean landscape table of the clinic patient list      *
+ * ============================================================== */
+$("printBtn").addEventListener("click", () => {
+  if (!patients.length) { setListStatus("Nothing to print."); return; }
+  const rows = patients.map(p => {
+    return "<tr>" +
+      '<td class="name">' + escapeHtml(p.name || "") +
+        (p.created ? '<div class="rowmeta">' + escapeHtml(fmtDate(p.created)) + "</div>" : "") + "</td>" +
+      '<td class="sum">' + summaryHtml(p.summary || "") + "</td>" +
+      '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
+      "</tr>";
+  }).join("");
+  const now = new Date();
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>Respiratory Clinic Patients</title><style>" +
+    "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
+    "h1{font-size:9pt;margin:0 0 2px;}" +
+    ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
+    "table{width:100%;border-collapse:collapse;}" +
+    "th,td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top;}" +
+    "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
+    "td.name{white-space:nowrap;font-weight:600;}" +
+    "td.name .rowmeta{font-weight:400;color:#666;font-size:5.5pt;margin-top:2px;}" +
+    "td.sum{line-height:1.35;}" +
+    "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.4;}" +
+    "strong{font-weight:700;}" +
+    "tr{page-break-inside:avoid;}" +
+    "@page{size:A4 landscape;margin:18mm;}" +
+    "</style></head><body>" +
+    "<h1>Respiratory Clinic Patients</h1>" +
+    '<p class="meta">' + patients.length + " patient" + (patients.length === 1 ? "" : "s") + " · printed " +
+      now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
+    "<table><thead><tr><th>Name</th><th>Summarised history</th><th>Job list</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table></body></html>";
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.right = "0"; frame.style.bottom = "0";
+  frame.style.width = "0"; frame.style.height = "0"; frame.style.border = "0";
+  document.body.appendChild(frame);
+  frame.onload = () => {
+    setTimeout(() => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      setTimeout(() => frame.remove(), 1000);
+    }, 50);
+  };
+  frame.srcdoc = html;
+});
 
 function timeNow() {
   const t = new Date();
