@@ -849,6 +849,18 @@ function fmtDate(iso) {
   return d.getDate() + "/" + (d.getMonth() + 1) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
+// The inline editors below commit on blur, but switching to another window
+// (SCM) also fires blur — which would close the editor every time obs are
+// copied across. When the whole window lost focus, hold the editor open and
+// restore the caret on return instead. isDone() lets a commit that happened
+// some other way in the meantime cancel the refocus.
+function refocusOnReturn(el, isDone) {
+  window.addEventListener("focus", () => {
+    if (isDone() || !el.isConnected) return;
+    el.focus();
+  }, { once: true });
+}
+
 // Click-to-edit cell for location / name. Click swaps in an input; Enter or
 // clicking away commits and saves to GitHub, Escape cancels.
 function editableCell(td, p, field, listKey) {
@@ -889,7 +901,10 @@ function editableCell(td, p, field, listKey) {
       if (e.key === "Enter") { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") finish(false);
     });
-    input.addEventListener("blur", () => finish(true));
+    input.addEventListener("blur", () => {
+      if (!document.hasFocus()) { refocusOnReturn(input, () => done); return; }
+      finish(true);
+    });
   });
   td.appendChild(span);
 }
@@ -1058,7 +1073,13 @@ function editableBlock(td, div, p, field, listKey, renderFn, template) {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") finish(false);
     });
-    box.addEventListener("blur", () => finish(true));
+    box.addEventListener("blur", () => {
+      // Toggling to SCM blurs the textarea without the user leaving the field.
+      // Stay open and put the cursor back when the window returns, so obs can
+      // be copied across a few values at a time.
+      if (!document.hasFocus()) { refocusOnReturn(box, () => done); return; }
+      finish(true);
+    });
   });
 }
 
