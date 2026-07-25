@@ -522,10 +522,12 @@ const CONFIG = {
   SUMMARY_MAX_TOKENS: 2048,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
   // case" box in index.html, because clinical reasoning benefits from it.
-  TOPICS_MODEL: "claude-opus-4-8",
-  TOPICS_MAX_TOKENS: 2048,
-  ASK_MODEL: "claude-opus-4-8",
-  ASK_MAX_TOKENS: 2048,
+  // Opus 5 thinks by default and thinking shares these budgets with the answer,
+  // so leave headroom — you are only billed for tokens actually generated.
+  TOPICS_MODEL: "claude-opus-5",
+  TOPICS_MAX_TOKENS: 8192,
+  ASK_MODEL: "claude-opus-5",
+  ASK_MAX_TOKENS: 8192,
   MEMO_MAX_TOKENS: 1024,
   NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
   SUMMARY_PROMPT: "prompts/respiratory-clinic-summary.txt",

@@ -515,7 +515,7 @@
  *  ▶ DEFAULT_MODEL: model for generating NOTES. Change it here.   *
  *      Test cheap with Haiku, then switch to Opus when ready:     *
  *        "claude-haiku-4-5-20251001"  (current default)           *
- *        "claude-opus-4-8"            (production)                *
+ *        "claude-opus-5"              (production)                *
  *  ▶ ASK_MODEL: model for the "Ask about this case" box.          *
  *      Defaults to Opus, independent of the note model above,     *
  *      because clinical reasoning benefits from the stronger one. *
@@ -523,8 +523,10 @@
 const CONFIG = {
   DEFAULT_MODEL: "claude-sonnet-4-6",
   MAX_TOKENS: 8192,
-  ASK_MODEL: "claude-opus-4-8",
-  ASK_MAX_TOKENS: 2048,
+  ASK_MODEL: "claude-opus-5",
+  // Opus 5 thinks by default and thinking shares this budget with the answer,
+  // so leave headroom — you are only billed for tokens actually generated.
+  ASK_MAX_TOKENS: 8192,
   PROMPTS_INDEX: "prompts/index.json",
   PROMPTS_DIR: "prompts/",
   // "Update existing" mode uses this single fixed template (not shown in the

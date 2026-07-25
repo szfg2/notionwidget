@@ -568,8 +568,10 @@ const CONFIG = {
   OBJECTIVE_MAX_TOKENS: 1024,
   // Ask uses the stronger model, same as the "Ask about this case" box in
   // index.html, because clinical reasoning benefits from it.
-  ASK_MODEL: "claude-opus-4-8",
-  ASK_MAX_TOKENS: 2048,
+  ASK_MODEL: "claude-opus-5",
+  // Opus 5 thinks by default and thinking shares this budget with the answer,
+  // so leave headroom — you are only billed for tokens actually generated.
+  ASK_MAX_TOKENS: 8192,
   TRIAGE_PROMPT: "prompts/icu-triage-note.txt",
   SUMMARY_PROMPT: "prompts/icu-ward-round-summary.txt",
   OBJECTIVE_PROMPT: "prompts/icu-objective-status.txt"
