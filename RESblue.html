@@ -452,6 +452,103 @@
   details.arch-day .day-del { margin-left: auto; align-self: center; }
   details.arch-day .day-body { padding: 0 12px 12px; }
 
+  /* ===== Common Condition Histories — static bedside reference ===== */
+  .ref-sticky { position: sticky; top: 0; z-index: 30; background: var(--bg); padding-top: 4px; }
+  .ref-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
+  .ref-pick button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 12.5px;
+    font-family: var(--sans);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .ref-pick button:hover { color: var(--text); border-color: var(--muted); }
+  .ref-pick button.on {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .ref-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ref-tools input[type="text"] { flex: 1 1 240px; max-width: 360px; font-size: 13px; padding: 7px 10px; }
+  .ref-count { font-size: 12px; color: var(--faint); }
+
+  .ref-title { font-size: 16px; font-weight: 650; margin: 0 0 10px; }
+  details.ref-group { border-top: 1px solid var(--border); }
+  details.ref-group:first-of-type { border-top: none; }
+  details.ref-group > summary {
+    cursor: pointer; list-style: none; user-select: none;
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 11px 2px; font-size: 13.5px; font-weight: 600; color: var(--text);
+  }
+  details.ref-group > summary::-webkit-details-marker { display: none; }
+  details.ref-group > summary::before { content: "▸"; color: var(--faint); font-size: 11px; }
+  details.ref-group[open] > summary::before { content: "▾"; }
+  details.ref-group > summary:hover { color: var(--accent-strong); }
+  details.ref-group > summary .n { margin-left: auto; font-size: 11.5px; font-weight: 400; color: var(--faint); }
+  .ref-body { padding: 0 2px 13px 17px; }
+  ul.ref-q { list-style: none; margin: 0; padding: 0; }
+  ul.ref-q li {
+    position: relative; padding-left: 15px; margin-bottom: 8px;
+    font-size: 14px; line-height: 1.5; color: var(--text);
+  }
+  ul.ref-q li::before { content: "–"; position: absolute; left: 0; color: var(--faint); }
+  ul.ref-q li em { font-style: normal; color: var(--warn); font-size: 12.5px; }
+  ul.ref-q li strong { color: var(--accent-strong); font-weight: 600; }
+  ul.ref-q li.ref-note { color: var(--warn); font-size: 12.5px; }
+  ul.ref-q li.ref-note::before { content: "!"; font-weight: 700; color: var(--warn); }
+  .ref-hit-cond {
+    font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--accent-strong); margin: 18px 0 2px;
+  }
+  .ref-hit-cond:first-child { margin-top: 0; }
+
+  /* floating dictation bar — stays on screen on every tab while the mic is live */
+  .rec-bar {
+    display: none;
+    position: fixed;
+    left: 50%; bottom: 18px; transform: translateX(-50%);
+    z-index: 80;
+    align-items: center; gap: 12px;
+    max-width: calc(100vw - 24px);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 8px 10px 8px 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    font-size: 13px;
+  }
+  .rec-bar.on { display: flex; }
+  /* keep the bar from sitting over the last of the page while it's up */
+  body.rec-open .wrap { padding-bottom: 104px; }
+  .rec-bar.live { border-color: var(--danger); }
+  .rec-bar .rec-live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none;
+    animation: recPulse 1.1s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .rec-bar .rec-live-dot { animation: none; } }
+  .rec-bar .rec-who {
+    background: none; border: none; padding: 0;
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--text); cursor: pointer;
+    max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rec-bar .rec-who:hover { color: var(--accent-strong); text-decoration: underline; }
+  .rec-bar .rec-phase { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rec-bar.live .rec-phase { color: var(--danger); }
+  .rec-bar .rec-stop {
+    background: var(--danger); color: #17100c;
+    border: 1px solid transparent; border-radius: 999px;
+    padding: 6px 15px; font-size: 12.5px; font-weight: 600;
+    font-family: var(--sans); cursor: pointer; white-space: nowrap;
+  }
+  .rec-bar .rec-stop.grey { background: transparent; color: var(--muted); border-color: var(--border-strong); font-weight: 400; }
+  .rec-bar .rec-stop.grey:hover { color: var(--text); border-color: var(--muted); }
+
   /* mobile — stack each patient row into a card so nothing scrolls sideways */
   @media (max-width: 700px) {
     .wrap { padding: 18px 12px 48px; }
@@ -504,6 +601,16 @@
     .md table { display: block; overflow-x: auto; }
 
     details.arch-day .day-body { padding: 0 8px 10px; }
+
+    /* reference tab + dictation bar go full width at the bedside */
+    .ref-tools input[type="text"] { max-width: none; }
+    .ref-body { padding-left: 8px; }
+    .rec-bar {
+      left: 10px; right: 10px; bottom: 10px;
+      transform: none; border-radius: 12px; max-width: none;
+      padding: 9px 10px 9px 14px;
+    }
+    .rec-bar .rec-who { max-width: none; flex: 1 1 auto; text-align: left; }
   }
 </style>
 </head>
@@ -557,6 +664,7 @@
     <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
     <button class="mode-tab" id="tabPrev" type="button">Patient List</button>
     <button class="mode-tab" id="tabArchive" type="button">Previous Patients</button>
+    <button class="mode-tab" id="tabRef" type="button">Common Condition Histories</button>
   </div>
 
   <!-- =========================  CREATE NEW PATIENT  ========================= -->
@@ -696,6 +804,36 @@
 
   </div>
 
+  <!-- =========================  COMMON CONDITION HISTORIES  ========================= -->
+  <div id="refTab" style="display:none">
+
+    <div class="ref-sticky">
+      <div class="card" style="margin-bottom:12px">
+        <div class="ref-pick" id="refPick"></div>
+        <div class="ref-tools">
+          <input type="text" id="refSearch" placeholder="Search every condition — e.g. asbestos, weight loss, inhaler" autocomplete="off" spellcheck="false">
+          <button class="ghost-btn" id="refExpand" type="button">Collapse all</button>
+          <span class="ref-count" id="refCount"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="refBody"></div>
+      <div class="out-foot">Prompts for a focused respiratory clerking — a starting point, not an exhaustive list, and no substitute for your own judgement. Press <b>Dictate</b> on a patient in Patient List → History taking and the recording bar stays on screen here, so you can read while the mic keeps running.</div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Floating dictation bar — fixed to the viewport so a recording started in
+     History taking stays visible (and stoppable) from any tab. -->
+<div class="rec-bar" id="recBar">
+  <span class="rec-live-dot" id="recBarDot"></span>
+  <button type="button" class="rec-who" id="recBarWho" title="Jump back to this patient"></button>
+  <span class="rec-phase" id="recBarPhase"></span>
+  <button type="button" class="rec-stop" id="recBarBtn">Stop</button>
 </div>
 
 <script>
@@ -807,7 +945,8 @@ const K = {
   openai: "dictation_openai_key",     // shared with dictation.html (Whisper)
   ghBranch: "dictation_gh_branch",
   path: "resblue_gh_path",            // this page's own file
-  listView: "resblue_list_view"       // "full" | "hx" — Patient List column layout
+  listView: "resblue_list_view",      // "full" | "hx" — Patient List column layout
+  refCond: "resblue_ref_condition"    // last condition opened in the reference tab
 };
 
 const $ = (id) => document.getElementById(id);
@@ -853,25 +992,33 @@ $("saveSettings").addEventListener("click", () => {
 /* ============================================================== *
  *  Tabs                                                          *
  * ============================================================== */
-const TABS = { create: ["tabCreate", "createTab"], prev: ["tabPrev", "prevTab"], archive: ["tabArchive", "archiveTab"] };
+const TABS = {
+  create: ["tabCreate", "createTab"],
+  prev: ["tabPrev", "prevTab"],
+  archive: ["tabArchive", "archiveTab"],
+  ref: ["tabRef", "refTab"]
+};
 function setTab(t) {
   for (const k in TABS) {
     $(TABS[k][0]).classList.toggle("active", k === t);
     $(TABS[k][1]).style.display = k === t ? "" : "none";
   }
-  if (t === "prev" && get(K.ghToken)) loadPatients(true);
+  // Don't re-sync while a dictation is running — reloading re-renders the table,
+  // which would tear down the row that owns the microphone.
+  if (t === "prev" && get(K.ghToken) && !recBar.busy()) loadPatients(true);
   if (t === "archive" && get(K.ghToken)) loadArchive(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabPrev").addEventListener("click", () => setTab("prev"));
 $("tabArchive").addEventListener("click", () => setTab("archive"));
+$("tabRef").addEventListener("click", () => setTab("ref"));
 
 /* ============================================================== *
  *  Patient List view — full table vs history-taking mode         *
  * ============================================================== */
 const LIST_FOOT = {
   full: "Job list edits autosave to GitHub a moment after you stop typing. Tick <b>Show in banner</b> to lift a patient's jobs into the banner at the top of the page. The list syncs across all your devices. Patients created before today are filed automatically into Previous Patients, under the date they were created.",
-  hx: "History taking mode — location, name and a clerking history for each patient. <b>Draft</b> rewrites what's already documented into bedside lines, with a <b>to ask</b> block at the bottom for what the notes don't answer; everything is then editable and autosaves to GitHub, so type over it as you clerk. <b>Dictate</b> records you at the bedside, transcribes it through Whisper and merges it into the lines above — answered <b>to ask</b> points move up into the history automatically. Drafts and merges use only documented or dictated information — check the negatives against the patient."
+  hx: "History taking mode — location, name and a clerking history for each patient. <b>Draft</b> rewrites what's already documented into bedside lines, with a <b>to ask</b> block at the bottom for what the notes don't answer; everything is then editable and autosaves to GitHub, so type over it as you clerk. <b>Dictate</b> records you at the bedside, transcribes it through Whisper and merges it into the lines above — answered <b>to ask</b> points move up into the history automatically. Drafts and merges use only documented or dictated information — check the negatives against the patient. The mic keeps running if you switch to <b>Common Condition Histories</b> — a bar at the bottom of the screen holds the timer and Stop button."
 };
 function setListView(v) {
   listView = v === "hx" ? "hx" : "full";
@@ -2309,13 +2456,18 @@ function historyCell(td, p) {
     }
     recCtl = ctl;
     hxRecorder = ctl;
+    // One token per press — identifies this dictation to the floating bar.
+    const token = {};
     dictateBtn.classList.add("recording");
     dictateBtn.innerHTML = '<span class="rec-dot"></span>Stop';
     stat.classList.remove("ok");
+    recBar.recording(token, patientLabel(p), () => focusPatientRow(p.id), () => ctl.stop());
     const started = Date.now();
     const tick = () => {
       const s = Math.floor((Date.now() - started) / 1000);
-      stat.textContent = "Recording " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      const clock = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      stat.textContent = "Recording " + clock;
+      recBar.time(token, clock);
     };
     tick();
     const timer = setInterval(tick, 1000);
@@ -2325,15 +2477,18 @@ function historyCell(td, p) {
     recCtl = null;
     if (hxRecorder === ctl) hxRecorder = null;
     setDictateIdle();
-    if (!blob) { stat.textContent = ""; return; }
+    if (!blob) { stat.textContent = ""; recBar.release(token); return; }
 
     dictateCtl = new AbortController();
     dictateBtn.innerHTML = '<span class="spinner grey" style="display:inline-block;vertical-align:-2px"></span> Cancel';
+    const cancel = () => { if (dictateCtl) dictateCtl.abort(); };
     try {
       stat.textContent = "Transcribing…";
+      recBar.working(token, "Transcribing…", cancel);
       const transcript = await transcribeBlob(blob, dictateCtl.signal);
       if (!transcript) { stat.textContent = "Nothing heard."; return; }
       stat.textContent = "Merging into history…";
+      recBar.working(token, "Merging into history…", cancel);
       const merged = await mergeDictation(p, box.value, transcript, dictateCtl.signal);
       if (!merged) { stat.textContent = ""; return; }
       box.value = merged;
@@ -2345,6 +2500,7 @@ function historyCell(td, p) {
     } finally {
       dictateCtl = null;
       setDictateIdle();
+      recBar.release(token);
     }
   });
 
@@ -2876,9 +3032,524 @@ $("printBtn").addEventListener("click", () => {
 });
 
 /* ============================================================== *
+ *  Common Condition Histories — static bedside reference         *
+ * ============================================================== */
+// Pure lookup: nothing here is sent to Claude and nothing is stored per patient.
+// A group entry is a question string, or { note } for a standing-out reminder.
+// Inline **bold** highlights a question worth asking verbatim; *italics* are an
+// aside to the clinician, not something to read out.
+const HX_REF = [
+{
+  id: "asthma",
+  name: "Asthma",
+  groups: [
+    { t: "Is it actually asthma?", q: [
+      "When did the breathing problems first start — childhood, or as an adult?",
+      "Are the symptoms there every day, or do they come and go completely between attacks?",
+      "Which do you get: wheeze, cough, chest tightness, breathlessness — and which is worst?",
+      "Are they worse at night or first thing in the morning?",
+      "What sets them off — exercise, cold air, dust, cats/dogs, smoke, perfume, an infection?",
+      "Do symptoms get better on their own, or only with a reliever?",
+      "Have you ever been told you have eczema, hay fever, or allergic rhinitis?",
+      "Any asthma or allergy in the family?"
+    ]},
+    { t: "Current control (GINA, last 4 weeks)", q: [
+      "How many days a week do you get daytime symptoms?",
+      "How many nights a month does it wake you?",
+      "How often do you use your reliever inhaler in a week?",
+      "Is there anything you've stopped doing because of your breathing — stairs, exercise, work?"
+    ]},
+    { t: "Exacerbations and future risk", q: [
+      "How many attacks have you had in the last year?",
+      "How many courses of prednisolone in the last year?",
+      "Any A&E visits, admissions, ICU, or ever intubated for asthma?",
+      "Have you ever had a sudden severe attack with no warning?",
+      "Any time off work or school for this?"
+    ]},
+    { t: "Treatment and technique", q: [
+      "What inhalers are you on now, and what dose — show me on the box?",
+      "On an average week, how many days do you actually take the preventer?",
+      "Are you using a reliever-only regimen, or MART?",
+      "Can you show me how you take it? *(watch technique — do not accept \"I know how\")*",
+      "Do you use a spacer?",
+      "Any oral steroids, montelukast, theophylline, or biologics — now or before?",
+      "Do you rinse your mouth after the steroid inhaler? Hoarse voice or oral thrush?",
+      "Can you afford the inhalers / are you collecting your repeats?"
+    ]},
+    { t: "Triggers, exposures, aggravators", q: [
+      "Do you smoke, or vape? Anyone smoking at home? Ever smoked, and how much?",
+      "What do you do for work — any dusts, fumes, flour, isocyanates, latex, cleaning chemicals, spray painting?",
+      "**Are you better on days off work and on holiday?** *(occupational asthma screen)*",
+      "Any new pets, renovation, mould, or damp at home?",
+      "Do aspirin or NSAIDs make you wheeze? Any reaction to alcohol?",
+      "Any beta-blockers — including eye drops for glaucoma?"
+    ]},
+    { t: "Mimics and comorbidities", q: [
+      "Blocked nose, post-nasal drip, loss of smell, nasal polyps, sinus problems?",
+      "Heartburn, acid coming up, cough after meals or lying flat?",
+      "Is the tightness in your throat rather than your chest? Does it come on suddenly with a noisy in-breath? *(inducible laryngeal obstruction / VCD)*",
+      "Do you get tingling in your fingers or around your mouth, or need to sigh a lot? *(dysfunctional breathing)*",
+      "Do you cough up phlegm most days, and how much? Any recurrent chest infections? *(bronchiectasis / ABPA)*",
+      "Have you ever coughed up brown plugs? Any known fungal allergy? *(ABPA)*",
+      "Any weight gain, snoring, daytime sleepiness? Any anxiety or panic attacks?",
+      "Any rash, numbness, or nasal crusting with a high eosinophil count? *(EGPA)*"
+    ]},
+    { t: "Wrap-up", q: [
+      "What worries you most about your asthma?",
+      "Do you have a written action plan? Do you know what to do in an attack?",
+      "Are your flu and COVID vaccinations up to date?"
+    ]}
+  ]
+},
+{
+  id: "copd",
+  name: "COPD",
+  groups: [
+    { t: "Confirming the diagnosis and the exposure", q: [
+      "Have you ever had a breathing test / spirometry, and where?",
+      "When did you first notice you were getting short of breath?",
+      "Do you smoke now, or have you stopped — when did you stop?",
+      "How many sticks a day, for how many years? *(compute pack-years)*",
+      "Ever used a water pipe, kretek, vape, or cannabis?",
+      "Growing up, did you cook or heat with wood, charcoal, or coal indoors? *(biomass)*",
+      "What work have you done — dusts, fumes, welding, mining, construction, farming?",
+      "Any TB in the past, or treated for TB? *(post-TB obstructive disease — common here)*",
+      "Were you a premature baby, or often chesty as a child?",
+      "Any emphysema or liver disease in the family, or COPD at a young age? *(alpha-1)*"
+    ]},
+    { t: "Symptom burden", q: [
+      "On the flat, do you walk slower than people your age, or have to stop for breath? *(mMRC — grade it)*",
+      "Can you climb one flight of stairs without stopping?",
+      "Are you breathless washing or dressing? Can you leave the house?",
+      "Do you cough up phlegm — every day? What colour, how much, and is that your normal?",
+      "Any wheeze? Does it vary day to day, or with the weather?",
+      "Any chest tightness or fatigue? How is your sleep?"
+    ]},
+    { t: "Exacerbations", q: [
+      "In the last 12 months, how many times have your symptoms suddenly got worse and needed treatment?",
+      "How many needed antibiotics? How many needed steroids?",
+      "How many hospital admissions, and any needing a breathing mask (NIV) or ICU?",
+      "What was the last one like, and when? How long did it take to get back to normal?",
+      "Do you keep a rescue pack at home? Do you know when to start it?"
+    ]},
+    { t: "Treatment", q: [
+      "What inhalers are you on — show me the boxes? Any nebuliser at home?",
+      "Can you show me how you use it? Do you have enough breath in to use a dry powder device?",
+      "Do you take it every day, or only when breathless?",
+      "Any home oxygen — how many hours a day, and what flow? Who set it up?",
+      "Have you done pulmonary rehabilitation? Would you go?",
+      "Any long-term azithromycin, carbocisteine, roflumilast, or long-term prednisolone?"
+    ]},
+    { t: "Comorbidity and complications", q: [
+      "Any chest pain, heart problems, previous heart attack, or heart failure?",
+      "Any ankle swelling, and is it new or worse?",
+      "Weight loss, or loss of appetite? How much and over how long?",
+      "Any coughing up blood?",
+      "Do you snore, stop breathing at night, or fall asleep in the day?",
+      "Any broken bones, back pain, or osteoporosis? On steroids long term?",
+      "How is your mood — do you feel low, or anxious about the breathing?"
+    ]},
+    { t: "Function, support, and planning", q: [
+      "Who is at home with you? Any stairs?",
+      "Can you shop, cook, wash yourself? Who helps?",
+      "Have you had flu, COVID, pneumococcal, and RSV vaccinations?",
+      "If you got very unwell, have you thought about what treatment you would or wouldn't want?"
+    ]},
+    { t: "Red flags — always ask", q: [
+      { note: "New or increasing haemoptysis, focal chest pain, hoarse voice, unintentional weight loss, new bone pain, headache/confusion on waking, or morning headaches." }
+    ]}
+  ]
+},
+{
+  id: "effusion",
+  name: "Pleural effusion",
+  groups: [
+    { t: "The presentation", q: [
+      "When did the breathlessness start, and how quickly did it come on?",
+      "Is it worse lying flat, or on one side?",
+      "Any chest pain — sharp and worse on breathing in, or a dull constant ache? *(pleuritic vs chest-wall invasion)*",
+      "Any fever, sweats, or rigors? Night sweats soaking the sheets?",
+      "Cough — dry or productive? Any blood?",
+      "How much weight have you lost, over how long, without trying?",
+      "Has this happened before? Has fluid ever been drained, and what did they say it was?"
+    ]},
+    { t: "Is it a transudate? — screen the \"big four\"", q: [
+      "Any heart problems, heart failure, or a weak heart pump? Ankle swelling, orthopnoea, PND?",
+      "Any liver disease, hepatitis, or heavy alcohol use? Any abdominal swelling?",
+      "Any kidney disease? Are you on dialysis — peritoneal or haemodialysis?",
+      "Any frothy urine or facial puffiness? *(nephrotic)*",
+      "Recently started or stopped a diuretic?",
+      "Any thyroid problems?"
+    ]},
+    { t: "Infection — including TB", q: [
+      "Was there a chest infection before this started? Were you treated, and with what?",
+      "Any previous TB, or TB treatment? Any contact with someone with TB?",
+      "Where have you lived and travelled? Any time in a TB-endemic country?",
+      "Any prolonged fever, night sweats, weight loss over weeks to months?",
+      "Are you diabetic, on steroids, or immunosuppressed? Any HIV risk or previous test?",
+      "Any dental work, choking episodes, alcohol excess, or reduced consciousness? *(anaerobic empyema)*"
+    ]},
+    { t: "Malignancy", q: [
+      "Do you smoke, or have you ever? How much?",
+      "**Have you ever worked with asbestos — shipyards, boilers, insulation, construction, brake linings, demolition? Did anyone in the house work with it?**",
+      { note: "Take the asbestos history job by job. Mesothelioma latency is decades, so \"that was in the 1970s\" is the answer you are looking for, not a reason to move on." },
+      "Any previous cancer of any kind, and when — breast, ovary, lymphoma, kidney, colon?",
+      "Any lumps, breast changes, or change in bowel or urinary habit?",
+      "Any bone pain, headaches, seizures, or new weakness? *(metastatic disease)*"
+    ]},
+    { t: "Other causes worth excluding", q: [
+      "Any leg swelling or pain, long flights, recent immobility, or previous clots? Are you on the pill or HRT? *(PE)*",
+      "Any joint pain, stiffness, rashes, dry eyes or mouth, mouth ulcers? *(RA, SLE)*",
+      "Any severe abdominal pain, pancreatitis, or vomiting/retching? *(pancreatitis, oesophageal rupture)*",
+      "Any recent surgery, chest trauma, CABG, line insertion, or ablation?",
+      "Any recent childbirth, IVF, or ovarian problems? *(Meigs, OHSS)*",
+      "What medications are you on — including methotrexate, amiodarone, nitrofurantoin, dasatinib, phenytoin, and any new drug in the last 6 months?"
+    ]},
+    { t: "Fitness for a procedure", q: [
+      "Are you on any blood thinners — warfarin, aspirin, clopidogrel, a DOAC? When was the last dose?",
+      "Any bleeding problems, or family history of them?",
+      "Can you sit forward over a table for 20 minutes? Can you lie flat?",
+      "Have you had a drain or aspiration before — how did it go? Any pain problems?",
+      "What are you hoping we can do about this — do you mainly want the breathlessness fixed, or an answer as to what it is?"
+    ]}
+  ]
+},
+{
+  id: "pneumonia",
+  name: "Pneumonia",
+  groups: [
+    { t: "The illness", q: [
+      "When exactly did you start feeling unwell, and how fast did it come on?",
+      "Fever, chills, shaking rigors — and how high?",
+      "Cough — dry or with phlegm? What colour? Any blood, and how much?",
+      "Chest pain on breathing in — which side?",
+      "How breathless are you now compared with a week ago? Breathless at rest, or on moving?",
+      "Any headache, muscle aches, diarrhoea, vomiting, or a rash?"
+    ]},
+    { t: "Severity and red flags — ask/observe now", q: [
+      "Are you more confused or drowsy than usual? *(ask a relative)*",
+      "Are you drinking and eating? Passing urine normally?",
+      "Any dizziness on standing? Any chest pain at rest?",
+      "Can you complete a sentence in one breath?",
+      "Any known frailty, falls, or recent decline in what you can do?"
+    ]},
+    { t: "Where and how did they get it?", q: [
+      "Have you been in hospital, a nursing home, or a day unit in the last 3 months?",
+      "Any antibiotics in the last 3 months — which ones?",
+      "Where have you travelled in the last month? Any hotel, cruise, spa, or air-conditioning cooling towers? *(Legionella)*",
+      "Any contact with someone with a similar illness, flu, COVID, or TB?",
+      "Any birds, parrots, poultry, farm animals, or sheep? *(Chlamydia psittaci, Coxiella)*",
+      "Any occupational exposure — abattoir, farming, construction, water systems?"
+    ]},
+    { t: "Aspiration", q: [
+      "Do you ever choke or cough on food or drink? Does swallowing feel stuck?",
+      "Any stroke, Parkinson's, dementia, or motor neurone disease?",
+      "Any seizures, blackouts, or heavy drinking with vomiting?",
+      "How is your dental health? When did you last see a dentist?",
+      "Any reflux, or vomiting before this started? Any NG or PEG tube?"
+    ]},
+    { t: "Host — how immunosuppressed are they?", q: [
+      "Are you on steroids? What dose and for how long?",
+      "Any methotrexate, azathioprine, biologics, rituximab, or JAK inhibitors?",
+      "Any cancer, chemotherapy, or radiotherapy — when was the last cycle?",
+      "Any transplant, or on anti-rejection drugs?",
+      "Any HIV test ever, and any risk factors? Any splenectomy?",
+      "Do you have diabetes, and how is the control? Any kidney or liver disease?",
+      "Do you drink, and how much? Any injecting drug use?"
+    ]},
+    { t: "Underlying lung", q: [
+      "Any COPD, asthma, bronchiectasis, or previous TB?",
+      "Do you cough up phlegm most days even when well?",
+      "Any previous Pseudomonas or resistant bug grown from sputum?",
+      "Any previous pneumonias — and always the same part of the chest? *(obstruction, aspiration, sequestration)*",
+      "Any home oxygen or NIV?"
+    ]},
+    { t: "If it's not getting better — non-resolving pneumonia", q: [
+      "How many days of the right antibiotic have they actually had?",
+      "Any new fever spike, or new pleuritic pain? *(empyema)*",
+      "Any weight loss, hoarse voice, or haemoptysis over months? *(obstructing tumour)*",
+      "Any new drug started before this? *(drug-induced pneumonitis)*",
+      "Any joint pain, rash, sinus symptoms, haematuria? *(vasculitis)*",
+      "Any mould, damp, birds, feather bedding, or hot tub at home? *(hypersensitivity pneumonitis)*",
+      "Any asthma or high eosinophils? *(eosinophilic pneumonia)*"
+    ]},
+    { t: "Wrap-up", q: [
+      "Any drug allergies — and what actually happened?",
+      "Flu, COVID, pneumococcal, RSV vaccinations?",
+      "Who is at home? Would you manage at home if we treated you as an outpatient?",
+      "If you got much worse, what would you want us to do? *(ceiling of care — document it)*"
+    ]}
+  ]
+},
+{
+  id: "nodule",
+  name: "Lung nodule",
+  groups: [
+    { t: "First — is it new?", q: [
+      "Have you ever had a chest X-ray or CT before — any hospital, any country, including health screening, pre-employment or insurance?",
+      "Any scan done for something else — kidney stones, calcium score, abdominal CT?",
+      { note: "Chase the old films. This changes management more than anything else you will ask." }
+    ]},
+    { t: "Risk of malignancy", q: [
+      "Do you smoke? How many a day, from what age — and if you stopped, when?",
+      "Any other cancer, ever? What, when, and what treatment?",
+      "Any lung cancer in the family?",
+      "Any asbestos exposure — shipyards, insulation, construction, brake linings?",
+      "Have you been told you have emphysema or lung scarring?"
+    ]},
+    { t: "Symptoms", q: [
+      "Any new or changed cough? Any blood, even streaks?",
+      "Any chest, shoulder or arm pain? Any hoarseness?",
+      "Any weight loss — how much, over how long, without trying?",
+      "Any bone pain, headaches, fits, or new weakness?",
+      "Any lumps in the neck? Any droopy eyelid, or new face/arm swelling?"
+    ]},
+    { t: "Benign mimics", q: [
+      "Any previous TB, TB treatment, or TB contact? Where have you lived?",
+      "Any pneumonia in the past — in the same part of the chest?",
+      "Any rheumatoid arthritis, or nodules under the skin?",
+      "Any respiratory infection just before the scan? *(may simply resolve)*"
+    ]},
+    { t: "Fitness and the conversation", q: [
+      "How far can you walk on the flat? Can you climb two flights?",
+      "Can you lie flat and hold still for 20–30 minutes? *(biopsy, PET)*",
+      "Are you on blood thinners — warfarin, aspirin, clopidogrel, a DOAC?",
+      "Any heart problems? Any previous lung surgery or collapsed lung? Diabetic? *(affects PET)*",
+      "Would you be willing to have treatment if this turned out to be cancer?",
+      "What have you been told already, and what's worrying you most?",
+      "Would you like help with stopping smoking — today?"
+    ]}
+  ]
+},
+{
+  id: "pneumothorax",
+  name: "Pneumothorax",
+  groups: [
+    { t: "The presentation", q: [
+      "When exactly did it start, and what were you doing at the time?",
+      "Did it come on suddenly, or build up over hours?",
+      "Which side is the pain? Is it sharp and worse on breathing in?",
+      "How breathless are you now — at rest, or only on moving?",
+      "Is it getting better, the same, or worse since it started?",
+      "Any dizziness, feeling faint, or palpitations? *(tension — check obs now)*",
+      "Any cough, fever, or coloured phlegm? *(infection, secondary cause)*"
+    ]},
+    { t: "Primary or secondary?", q: [
+      "Do you have any known lung problem — COPD, asthma, TB, bronchiectasis, cystic fibrosis, lung fibrosis?",
+      "Any previous TB or TB treatment?",
+      "Do you smoke, vape, or smoke cannabis? How much, and for how long? *(the dominant modifiable recurrence risk)*",
+      "Any HIV risk or known immunosuppression? *(PCP-related)*",
+      "Any cancer, or lung metastases?",
+      "Roughly how tall are you, and what's your build? *(tall, thin, young — primary)*"
+    ]},
+    { t: "Previous episodes and procedures", q: [
+      "Has this happened before — which side, how many times, and when?",
+      "How was it treated — observation, needle aspiration, chest drain, or surgery?",
+      "Have you ever had pleurodesis or a VATS/bullectomy? Which side?",
+      "Did it take a long time to heal, or was there a persistent air leak?"
+    ]},
+    { t: "Triggers and iatrogenic causes", q: [
+      "Any chest injury, fall, or rib fracture recently?",
+      "Any recent procedure — central line, pacemaker, lung or breast biopsy, acupuncture, nerve block?",
+      "Are you on NIV or CPAP, or have you been ventilated recently?",
+      "Have you been diving, flying, or at altitude? Any heavy lifting or straining?",
+      "Any recent vigorous coughing or vomiting?"
+    ]},
+    { t: "Underlying syndromes — don't miss these", q: [
+      "Has anyone in your family had a collapsed lung? *(Birt-Hogg-Dubé, familial pneumothorax)*",
+      "Any small bumps or skin-coloured spots on the face or neck? Any kidney tumours in you or the family? *(BHD)*",
+      "Are you unusually tall with long limbs, or very flexible joints? Any aortic or eye problems? *(Marfan, Ehlers-Danlos)*",
+      "*(If female)* Does this happen around your period? Any endometriosis or pelvic pain? *(catamenial)*",
+      "*(If female)* Any known LAM, tuberous sclerosis, or seizures/learning difficulty?",
+      "Any early emphysema or liver disease in the family? *(alpha-1)*"
+    ]},
+    { t: "What happens next", q: [
+      "What do you do for work — do you fly, dive, or work at altitude or in a pressurised environment?",
+      { note: "If they dive: say now that recurrent primary pneumothorax bars diving unless definitively treated surgically." },
+      "When were you last on a plane, and do you have travel booked?",
+      "Are you on any blood thinners?",
+      "Do you live alone? How far are you from a hospital? *(matters for ambulatory or conservative management)*",
+      "Would you consider an operation if this came back?",
+      "Would you like help with stopping smoking — today?"
+    ]}
+  ]
+}
+];
+
+let refActive = HX_REF[0].id;
+
+// escape, then **bold** and *italic* — the only markup the reference uses
+function refInline(s) {
+  return escapeHtml(s)
+    .replace(/\*\*(?!\s)([^*]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(?!\s)([^*]+?)\*/g, "<em>$1</em>");
+}
+const refText = (item) => (typeof item === "string" ? item : item.note);
+const refQuestionCount = (items) => items.filter(i => typeof i === "string").length;
+
+function refGroupEl(title, items) {
+  const d = document.createElement("details");
+  d.className = "ref-group";
+  d.open = true;
+  const s = document.createElement("summary");
+  s.appendChild(document.createTextNode(title));
+  const n = document.createElement("span");
+  n.className = "n";
+  const qn = refQuestionCount(items);
+  n.textContent = qn + (qn === 1 ? " question" : " questions");
+  s.appendChild(n);
+  d.appendChild(s);
+
+  const body = document.createElement("div");
+  body.className = "ref-body";
+  const ul = document.createElement("ul");
+  ul.className = "ref-q";
+  items.forEach(it => {
+    const li = document.createElement("li");
+    if (typeof it !== "string") li.className = "ref-note";
+    li.innerHTML = refInline(refText(it));
+    ul.appendChild(li);
+  });
+  body.appendChild(ul);
+  d.appendChild(body);
+  return d;
+}
+
+function renderRefPick(searching) {
+  const wrap = $("refPick");
+  wrap.innerHTML = "";
+  HX_REF.forEach(c => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = c.name;
+    b.classList.toggle("on", !searching && c.id === refActive);
+    b.addEventListener("click", () => {
+      $("refSearch").value = "";
+      refActive = c.id;
+      set(K.refCond, c.id);
+      renderRef();
+      $("refBody").scrollIntoView({ block: "start" });
+    });
+    wrap.appendChild(b);
+  });
+}
+
+// One condition at a time, or — when the search box has text — every question
+// that matches, across all conditions, still grouped so the context is obvious.
+function renderRef() {
+  const term = $("refSearch").value.trim().toLowerCase();
+  const body = $("refBody");
+  body.innerHTML = "";
+  renderRefPick(!!term);
+  $("refExpand").textContent = "Collapse all";
+
+  if (term) {
+    let hits = 0;
+    HX_REF.forEach(c => {
+      const groups = c.groups
+        .map(g => ({ t: g.t, q: g.q.filter(i => refText(i).toLowerCase().includes(term)) }))
+        .filter(g => g.q.length);
+      if (!groups.length) return;
+      const h = document.createElement("div");
+      h.className = "ref-hit-cond";
+      h.textContent = c.name;
+      body.appendChild(h);
+      groups.forEach(g => { hits += g.q.length; body.appendChild(refGroupEl(g.t, g.q)); });
+    });
+    if (!hits) {
+      const p = document.createElement("div");
+      p.className = "empty-note";
+      p.textContent = "Nothing matches “" + term + "”.";
+      body.appendChild(p);
+    }
+    $("refCount").textContent = hits ? hits + " match" + (hits === 1 ? "" : "es") : "";
+    return;
+  }
+
+  const cond = HX_REF.find(c => c.id === refActive) || HX_REF[0];
+  const title = document.createElement("h2");
+  title.className = "ref-title";
+  title.textContent = cond.name;
+  body.appendChild(title);
+  cond.groups.forEach(g => body.appendChild(refGroupEl(g.t, g.q)));
+  const total = cond.groups.reduce((a, g) => a + refQuestionCount(g.q), 0);
+  $("refCount").textContent = total + " questions";
+}
+
+$("refSearch").addEventListener("input", renderRef);
+$("refExpand").addEventListener("click", () => {
+  const groups = [...$("refBody").querySelectorAll("details.ref-group")];
+  const anyClosed = groups.some(d => !d.open);
+  groups.forEach(d => { d.open = anyClosed; });
+  $("refExpand").textContent = anyClosed ? "Collapse all" : "Expand all";
+});
+
+/* ============================================================== *
+ *  Floating dictation bar                                        *
+ * ============================================================== */
+// Mirrors whichever row currently holds the microphone, so a dictation started
+// in History taking stays visible and stoppable from the reference tab. Each
+// press of Dictate takes a fresh token; a stale row can never hide or relabel a
+// bar that a newer recording has taken over.
+const recBar = (() => {
+  const el = $("recBar"), dot = $("recBarDot"), who = $("recBarWho"),
+        phase = $("recBarPhase"), btn = $("recBarBtn");
+  let owner = null, action = null, jump = null;
+  btn.addEventListener("click", () => { if (action) action(); });
+  who.addEventListener("click", () => { if (jump) jump(); });
+  const open = (on) => { el.classList.toggle("on", on); document.body.classList.toggle("rec-open", on); };
+  return {
+    recording(token, label, goTo, stop) {
+      owner = token; action = stop; jump = goTo;
+      who.textContent = label;
+      phase.textContent = "00:00";
+      btn.textContent = "Stop";
+      btn.classList.remove("grey");
+      dot.style.display = "";
+      el.classList.add("live");
+      open(true);
+    },
+    time(token, t) { if (owner === token) phase.textContent = t; },
+    working(token, text, cancel) {
+      if (owner !== token) return;
+      action = cancel;
+      phase.textContent = text;
+      btn.textContent = "Cancel";
+      btn.classList.add("grey");
+      dot.style.display = "none";
+      el.classList.remove("live");
+      open(true);
+    },
+    release(token) {
+      if (owner !== token) return;
+      owner = null; action = null; jump = null;
+      el.classList.remove("live");
+      open(false);
+    },
+    busy() { return owner !== null; }
+  };
+})();
+
+function patientLabel(p) {
+  return [p.location, p.name].filter(Boolean).join(" ") || "Unnamed patient";
+}
+
+// Clicking the bar's patient name brings you back to the row it belongs to.
+function focusPatientRow(id) {
+  setTab("prev");
+  if (listView !== "hx") setListView("hx");    // re-renders; the history box refills from the cache
+  setTimeout(() => {
+    const tr = [...$("ptBody").querySelectorAll("tr")].find(r => r.dataset.id === String(id));
+    if (tr) tr.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 60);
+}
+
+/* ============================================================== *
  *  Init                                                          *
  * ============================================================== */
 loadSettings();
+refActive = (HX_REF.find(c => c.id === get(K.refCond)) || HX_REF[0]).id;
+renderRef();
 setListView(get(K.listView) || "full");    // restores the Patient List layout
 if (get(K.ghToken)) loadPatients(true);   // also fills the archive cache + jobs banner
 </script>
