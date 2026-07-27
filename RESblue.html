@@ -874,6 +874,15 @@ const CONFIG = {
   REVIEW_MAX_TOKENS: 2048
 };
 
+/* Appended to every system prompt this page sends. It lives here rather than in
+   prompts/*.txt because those files are shared with GWList.html — editing them
+   would change that page's output too. */
+const NO_EMDASH =
+  "\n\n## PUNCTUATION — applies to this and every response\n" +
+  "Never use an em dash (—) anywhere in your output, for any reason. Use a comma, a colon, " +
+  "a semicolon, brackets, or a full stop instead, or rephrase the sentence so no dash is needed. " +
+  "This applies everywhere, including inside headings, bullet points, and table cells.";
+
 /* Instruction that shapes the "Ask about this case" answers (matches index.html). */
 const ASK_SYSTEM =
   "You are an experienced physician assisting a clinician at the bedside. " +
@@ -1069,6 +1078,16 @@ $("output").addEventListener("input", updateCount);
 /* ============================================================== *
  *  Claude API                                                    *
  * ============================================================== */
+// Belt and braces on em dashes: NO_EMDASH stops Claude reaching for one in the
+// first place, and this rewrites any that still slip through. Only horizontal
+// whitespace is consumed, so line breaks and bullet indentation survive. En
+// dashes are deliberately left alone — ranges like "100–200 mL" are wanted.
+function stripEmDashes(text) {
+  return String(text || "")
+    .replace(/^([^\S\r\n]*)—[^\S\r\n]*/gm, "$1- ")   // opening a line: becomes the bullet, indent kept
+    .replace(/[^\S\r\n]*—[^\S\r\n]*/g, " - ");       // anywhere else: a spaced hyphen
+}
+
 async function callClaude(key, model, system, userMessage, maxTokens, signal) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -1082,13 +1101,13 @@ async function callClaude(key, model, system, userMessage, maxTokens, signal) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: system + NO_EMDASH, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userMessage }]
     })
   });
   const data = await res.json();
   if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  return stripEmDashes((data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim());
 }
 
 /* ============================================================== *
@@ -1597,7 +1616,7 @@ $("askBtn").addEventListener("click", async () => {
         // Static instructions are the reusable prefix → cache them. The per-patient
         // case context changes, so it goes in a separate, uncached block.
         system: [
-          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+          { type: "text", text: ASK_SYSTEM + NO_EMDASH, cache_control: { type: "ephemeral" } },
           { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
         ],
         messages: askMessages.map(m => ({ role: m.role, content: m.content }))
@@ -1605,7 +1624,7 @@ $("askBtn").addEventListener("click", async () => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    const text = stripEmDashes((data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n"));
     askMessages.push({ role: "assistant", content: text || "(No response.)" });
     renderThread();
   } catch (e) {
@@ -2254,7 +2273,7 @@ function renderFullRow(body, p) {
             // Static instructions are the reusable prefix → cache them. The per-patient
             // case context changes, so it goes in a separate, uncached block.
             system: [
-              { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+              { type: "text", text: ASK_SYSTEM + NO_EMDASH, cache_control: { type: "ephemeral" } },
               { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
             ],
             messages: rowMessages.map(m => ({ role: m.role, content: m.content }))
@@ -2262,7 +2281,7 @@ function renderFullRow(body, p) {
         });
         const resBody = await res.json();
         if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
-        const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+        const text = stripEmDashes((resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n"));
         rowMessages.push({ role: "assistant", content: text || "(No response.)" });
         renderRowThread();
       } catch (e) {
@@ -3370,6 +3389,73 @@ const HX_REF = [
       "Are you on any blood thinners?",
       "Do you live alone? How far are you from a hospital? *(matters for ambulatory or conservative management)*",
       "Would you consider an operation if this came back?",
+      "Would you like help with stopping smoking — today?"
+    ]}
+  ]
+},
+{
+  id: "haemoptysis",
+  name: "Haemoptysis",
+  groups: [
+    { t: "Is it really haemoptysis?", q: [
+      "Did you cough it up, or bring it up from your stomach — or did it come from your nose or mouth?",
+      "Was it frothy and mixed through the phlegm, or dark like coffee grounds, or mixed with food?",
+      "Did you feel sick or vomit before it came up?",
+      "Any nosebleeds, bleeding gums, or recent dental work?",
+      "Any sore throat? Is it only there first thing in the morning?",
+      "Did you see it yourself, or is this what someone told you? Do you have a photo, or the tissue?"
+    ]},
+    { t: "How much, and is it settling?", q: [
+      "How much each time — streaks in the phlegm, a teaspoon, an eggcup, a cupful? Any clots?",
+      "How much altogether in the last 24 hours?",
+      "How many days has this been going on, and how many episodes?",
+      "Is it getting more, getting less, or staying the same?",
+      "Is it pure blood, or blood mixed into phlegm? Fresh red, or old brown?",
+      "Are you coughing up blood now?",
+      "Can you clear it, or does it feel like you are choking or drowning?",
+      "Which side does it feel like it is coming from?",
+      { note: "Any airway compromise, or roughly >100–200 mL in 24 hours, is massive haemoptysis. Resuscitate, sit them with the bleeding side down, and call for help before finishing the history." }
+    ]},
+    { t: "Infection — including TB", q: [
+      "Any fever, night sweats, or weight loss over the last few weeks?",
+      "Any previous TB, or TB treatment? Any contact with someone with TB?",
+      "Where have you lived and travelled?",
+      "Do you cough up phlegm most days even when well? How much, and what colour?",
+      "Have you had chest infections over and over, or ever since childhood? *(bronchiectasis)*",
+      "Any pneumonia recently — were you treated, and did it clear?",
+      "Have you ever been told you have a cavity, or scarring, on a chest X-ray? *(aspergilloma in an old cavity)*",
+      "Are you diabetic, on steroids, or immunosuppressed? Any HIV risk or previous test?",
+      "Any foul-tasting sputum, poor dentition, or choking episodes? *(abscess, anaerobes)*"
+    ]},
+    { t: "Malignancy", q: [
+      "Do you smoke, or have you ever? How many a day, for how many years?",
+      "Any weight loss — how much, over how long, without trying?",
+      "Any hoarse voice, or chest or shoulder pain?",
+      "Any lumps in the neck? Any bone pain, headaches, or new weakness?",
+      "Any previous cancer of any kind, and when?",
+      "Any asbestos, or occupational dust or fume exposure?",
+      "Have you ever had a chest X-ray or CT before, and where?",
+      { note: "In a smoker over 40 with haemoptysis, get the old films and think cancer until proven otherwise — even if the current film looks normal." }
+    ]},
+    { t: "Other causes worth excluding", q: [
+      "Any leg swelling or pain, long flights, immobility, or previous clots? Any sudden breathlessness or pleuritic pain? *(PE)*",
+      "Any breathlessness lying flat, waking at night short of breath, or ankle swelling? Any heart murmur, valve problem, or rheumatic fever as a child? *(mitral stenosis, LV failure)*",
+      "Any blood in your urine? Any rash, joint pains, or numbness? *(vasculitis, anti-GBM)*",
+      "Any nasal crusting, sinus problems, or repeated nosebleeds? *(GPA)*",
+      "Do you bruise easily, or bleed a lot from small cuts? Any bleeding problems in the family?",
+      "**What blood thinners are you on — warfarin, aspirin, clopidogrel, a DOAC? When was the last dose, and what was the last INR?**",
+      "Any NSAIDs, or anything new started recently?",
+      "Do you use cocaine, or anything else inhaled or smoked?",
+      "Any recent bronchoscopy, lung biopsy, chest trauma, or intubation?",
+      "Any chance you inhaled something, or any choking episode? *(foreign body)*",
+      "*(If female)* Does it happen around your period? *(catamenial)*"
+    ]},
+    { t: "What happens next", q: [
+      "Are you on blood thinners we may need to hold — and why were they started?",
+      "Have you had a CT or bronchoscopy before? When, and what did it show?",
+      "Can you lie flat for a scan?",
+      "Any contrast allergy, or kidney problems?",
+      "Do you live alone? How far are you from a hospital if this happens again?",
       "Would you like help with stopping smoking — today?"
     ]}
   ]

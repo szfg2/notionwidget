@@ -40,8 +40,8 @@ Currently
 #suggest 3 to 4 questions that I must ask during the consult#
 
 O/E
-#chest findings — write "Lungs clear" only if documented as clear; otherwise copy the stated findings, e.g. reduced breath sounds right base#
-Nil peripheral or sacral oedema
+Walked into clinic
+#chest findings — write "Lungs clear" unless abnormal chest findings are documented, in which case copy the stated findings instead, e.g. reduced breath sounds right base#
 
 Impression
 #write out the likely main respiratory diagnosis as 1. followed by "-" point form to support the diagnosis, e.g.
@@ -51,4 +51,10 @@ Impression
 #
 
 Plan
-#summarise a list of outpatient plans using "-" bullets. You may suggest plans that you see fit to include, such as interval CXR or Respiratory clinic follow-up#
+#"-" bullets, in two parts run together as one list with no sub-headings.
+
+First, the items to chase on the day. Take the plan from the previous clinic note and turn every investigation, test or task that was ordered to happen at or before this visit into an item to trace, e.g. a previous plan of "review 6/52 with CXR on arrival" becomes:
+- Trace CXR meant to be done on arrival
+Do the same for bloods, spirometry / lung function, CT, sputum, sleep studies, referrals and any other outstanding order. Never write a result for an investigation that has not yet been reported, and never assume the test was actually done.
+
+Then, the forward plans from this visit — changes to inhaled or oral therapy, further investigations to order, referrals, and the follow-up interval together with what should be done before or on arrival at the next visit. You may suggest plans you see fit to include, such as interval CXR or Respiratory clinic follow-up#
