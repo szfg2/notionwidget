@@ -3,6 +3,15 @@ Turn the information already documented about a referred respiratory patient int
 
 This is a working draft the clinician edits while actually talking to the patient, so it must contain ONLY what the source material states. Never invent a symptom, a negative, a duration or a number.
 
+## Scope — keep it SHORT
+This is the history taken from the patient at the bedside, nothing else. It covers ONLY:
+- the current presenting symptoms and their timeline
+- the important documented positives and negatives that go with them
+- smoking, exposures, occupation, alcohol, social and travel history — the things asked at the bedside
+- the "to ask" block at the end
+
+Everything else is deliberately left out. Do NOT include past medical history, past respiratory diagnoses, previous admissions or intubations, medications, inhalers, home oxygen or NIV, allergies, examination findings, bloods, imaging or any other investigation. Those already sit elsewhere in the record. If one of them still needs to be asked about at the bedside, it belongs under "--- to ask ---", not in the history.
+
 ## Output format — follow exactly
 - Plain text. No Markdown, no bullets, no dashes, no numbering, no bold, no headings.
 - ONE point per line. Nothing else on that line.
@@ -14,23 +23,22 @@ This is a working draft the clinician edits while actually talking to the patien
   1. Presenting complaint and its timeline
   2. Character and severity of that complaint — exertional tolerance, orthopnoea, PND, what makes it better or worse
   3. Associated symptoms and the negatives that were documented — chest pain, cough and sputum, haemoptysis, wheeze, fever, LOA/LOW, leg swelling
-  4. Exposures and risk — smoking (with pack-years if stated), occupation, TB contact, pets/birds, travel, asbestos
-  5. Relevant background — previous similar episodes, prior admissions or intubations, home oxygen/NIV, baseline function and ADLs
-  6. Current medications and allergies, only if documented
-- Aim for 12-25 lines in total across all blocks.
+  4. Smoking, exposures and social history — smoking with pack-years if stated, alcohol, occupation and occupational dust/asbestos exposure, TB contact, pets and birds, recent travel, who they stay with and whether independent in ADLs
+- Aim for 12-22 lines in total across all blocks. Shorter is better than padded.
 
 ## Never do
 - Never write a negative that is not documented. If nothing in the source says whether there was chest pain, chest pain does not appear as "No chest pain" — it goes in the "to ask" block instead.
 - Never write placeholders — no "not documented", "not stated", "unknown", "nil mentioned", "(?)" inline.
 - Never copy the referral letter's wording verbatim in long form; compress it into lines.
 - Never add an assessment, impression, differential or plan. This is history only.
+- Never pad the history with past medical history, medications or results to make it look complete. A short history is fine if that is all the source gives you.
 
 ## The "to ask" block
 After the history blocks, output a blank line, then this divider on its own line:
 
 --- to ask ---
 
-Under it, list the points that still need to be asked at the bedside — the ones that would most change the differential, the severity assessment, or the answer to the referring team's question, and that the source does not answer. Same style: one short fragment per line, phrased as the thing being asked about, not as a full question. 5-10 lines. Examples of the style: "Orthopnoea / PND", "Smoking — pack-years, quit date", "TB contact", "Exercise tolerance before this admission", "Pets or birds at home".
+Under it, list the points that still need to be asked at the bedside — the ones that would most change the differential, the severity assessment, or the answer to the referring team's question, and that the source does not answer. Same style: one short fragment per line, phrased as the thing being asked about, not as a full question. 5-10 lines. Where the source says nothing about smoking, exposures, occupation, alcohol, social circumstances or travel, those go here rather than into the history. Examples of the style: "Orthopnoea / PND", "Smoking, pack-years, quit date", "TB contact", "Exercise tolerance before this admission", "Pets or birds at home".
 
 ## Example of the finished style (format and tone ONLY — never reuse this content)
 Presents with SOB for 2 days
@@ -47,23 +55,21 @@ Cough on and off, whitish sputum
 No haemoptysis
 No wheeze
 No chest pain
-No giddiness or syncope
 No fever
 No LOA or LOW
 No leg swelling
 
-Non smoker
-No occupational dust exposure
+Ex-smoker 20py, quit 2019
+Occasional alcohol
+Retired storeman, no dust or asbestos exposure
 No TB contact
-
-Previous admission for similar 2023, treated as pneumonia
-No home oxygen
-Independent in ADLs, stays with wife
+No pets or birds at home
+No recent travel
+Stays with wife, independent in ADLs
 
 --- to ask ---
 Exercise tolerance over the past 6 months
 Nocturnal symptoms, sleep quality
-Pets or birds at home
-Recent travel
+Second-hand smoke at home
+Renovation or mould exposure
 Inhaler use and technique
-Compliance with current medications

@@ -99,6 +99,8 @@
   }
   .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
   .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  .ghost-btn:disabled { opacity: .4; cursor: default; }
+  .ghost-btn:disabled:hover { color: var(--muted); border-color: var(--border-strong); }
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
   /* settings — compact pill in the header, opens as a dropdown panel */
@@ -275,6 +277,15 @@
     background: #161616;
   }
   .out-foot { font-size: 11.5px; color: var(--faint); margin-top: 7px; }
+
+  /* commonly used texts — reusable blocks, one card each */
+  textarea.text-block {
+    min-height: 150px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: #161616;
+  }
 
   /* ask about this case */
   .ask-card { border-color: var(--border-strong); }
@@ -665,6 +676,7 @@
     <button class="mode-tab" id="tabPrev" type="button">Patient List</button>
     <button class="mode-tab" id="tabArchive" type="button">Previous Patients</button>
     <button class="mode-tab" id="tabRef" type="button">Common Condition Histories</button>
+    <button class="mode-tab" id="tabTexts" type="button">Commonly Used Texts</button>
   </div>
 
   <!-- =========================  CREATE NEW PATIENT  ========================= -->
@@ -825,6 +837,28 @@
 
   </div>
 
+  <!-- =========================  COMMONLY USED TEXTS  ========================= -->
+  <div id="textsTab" style="display:none">
+
+    <div class="card">
+      <div class="ref-tools">
+        <input type="text" id="textsSearch" placeholder="Search your texts — e.g. drain, consent, lignocaine" autocomplete="off" spellcheck="false">
+        <button class="ghost-btn" id="textsRefresh" type="button">↻ Refresh</button>
+        <span class="status" id="textsStatus"></span>
+        <span class="ref-count" id="textsCount"></span>
+      </div>
+      <div class="error" id="textsError" style="margin:10px 0 0"></div>
+    </div>
+
+    <div id="textsBody"></div>
+    <div class="empty-note" id="textsEmpty" style="display:none">No block matches that search.</div>
+
+    <div class="card">
+      <div class="out-foot">Blocks of text you paste into the notes over and over — write each one once, then Copy it whenever you need it. Edits autosave to <code>resblue-texts.json</code> in the same repo as the patient list, so they follow you to every device. Keep them generic: no patient identifiers.</div>
+    </div>
+
+  </div>
+
 </div>
 
 <!-- Floating dictation bar — fixed to the viewport so a recording started in
@@ -943,7 +977,10 @@ const HX_MERGE_INSTRUCTIONS =
   "- The dictation is a speech transcript: correct obvious mis-hearings of clinical terms from context, and " +
   "ignore filler, false starts and self-corrections (take the corrected version).\n" +
   "- Add nothing that is not in the current draft or the dictation. The background case information is there " +
-  "to help you interpret the dictation — never mine it for new lines.";
+  "to help you interpret the dictation — never mine it for new lines.\n" +
+  "- The scope rules above restrict what you may pull OUT of the record when drafting. They do not apply to the " +
+  "dictation: if the clinician dictates background, medications or a result, keep it as a line, in the same " +
+  "clipped style, near the point it relates to.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
 const K = {
@@ -1005,7 +1042,8 @@ const TABS = {
   create: ["tabCreate", "createTab"],
   prev: ["tabPrev", "prevTab"],
   archive: ["tabArchive", "archiveTab"],
-  ref: ["tabRef", "refTab"]
+  ref: ["tabRef", "refTab"],
+  texts: ["tabTexts", "textsTab"]
 };
 function setTab(t) {
   for (const k in TABS) {
@@ -1016,11 +1054,355 @@ function setTab(t) {
   // which would tear down the row that owns the microphone.
   if (t === "prev" && get(K.ghToken) && !recBar.busy()) loadPatients(true);
   if (t === "archive" && get(K.ghToken)) loadArchive(true);
+  if (t === "texts") { sizeAllTexts(); loadTexts(true); }
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabPrev").addEventListener("click", () => setTab("prev"));
 $("tabArchive").addEventListener("click", () => setTab("archive"));
 $("tabRef").addEventListener("click", () => setTab("ref"));
+$("tabTexts").addEventListener("click", () => setTab("texts"));
+
+/* ============================================================== *
+ *  Commonly Used Texts — blocks to paste straight into the notes *
+ * ============================================================== */
+// Reusable wording (procedure preps, consent) lives in resblue-texts.json beside
+// the patient list, so every device sees the same blocks. The wording below is
+// the shipped starting point — edit a block in the tab and that version is saved
+// to the repo and wins from then on, on every device. A localStorage copy is
+// kept only so the tab paints instantly and still reads at the bedside if GitHub
+// is unreachable; GitHub stays the source of truth.
+const TEXTS_PATH = "resblue-texts.json";
+const TEXTS_CACHE = "resblue_texts_cache_v2";
+const DEFAULT_TEXTS = [
+  {
+    id: "prep_pleural_tap",
+    title: "Prep for Pleural Tap",
+    body: `For bedside diagnostic pleural tap at pm:
+
+Kindly prepare,
+- ultrasound machine from ward 38
+- simple dressing set
+- Rocket Pleural Thoracentesis 6F catheter x 1 vs Grey cannulae x 1
+- three way connector
+- Blue needle x1
+- Green needle x 1
+- Chlorhexidine
+- 10mL 1% lidocaine
+- 50ml syringe with LUER lock x1. If not, 30mL syringe with LUER lock x 2
+- 10mL syringe x 1
+- Gauze pack x x1
+- Big tegaderm x 1
+- 6 sterile collection bottles
+> Send pleural fluid for cell count, biochemistry, LDH, protein, gram stain and aerobic culture, AFB smear and culture, ADA, cytology.`
+  },
+  {
+    id: "prep_chest_drain",
+    title: "Prep for Chest Drain",
+    body: `Suggest:
+For ____ chest drain insertion today
+Kindly prepare following items for bedside chest drain insertion today
+1. Bedside ultrasound
+2. T&S set + Suture Silk 2-0
+3. Hexanol
+4. Gauze 2 packs
+5. Sterile drape X2 sets
+6. Sterile glove size 7 X2
+7. Sterile gown X2 sets
+8. Lidocaine 10ml
+9. 10ml syringe X2
+10. 50ml syringe X2 (with luer lock)
+11. Blue needle X1
+12. Green needle X1
+13. Tegaderm big size X3
+14. Specimen bottle X6
+15. EDTA Tube x 1
+16. Blood culture bottles x 1 each
+17. ABG syringe x 1
+18. Underwater seal (chest tube box)
+19. Sterile water
+20. Wayne's catheter 14F
+21. Sharps box
+
+Please inform me once items are at bedside.`
+  },
+  {
+    id: "proc_pleural_tap",
+    title: "Procedure for Pleural Tap",
+    body: `Pleural Tap
+
+Bedside US of ___ hemithorax performed
+Free flowing anechoic moderate sized pleural effusion
+No septations or loculations
+Safe window identified and marked
+Patient cleaned and draped
+10ml Lignocaine injected into subcutaneous, skin and pleural space
+Aspirated free flowing straw colored fluid
+Small incision made
+Thoracocentesis with 16G grey cannula / Rocket Thoracetensis 6F Catheter successful first pass
+Aspirated free flowing straw colored fluid
+Stylet removed and catheter in situ, total of ____ of straw colored pleural fluid aspirated
+Cannula removed intact
+Specimens sent as ordered
+Patient tolerated procedure well
+No immediate complications
+
+Plan
+Q1H vitals x4 then Q4H if stable
+CXR stat
+Pleural investigations as ordered.`
+  },
+  {
+    id: "proc_chest_drain",
+    title: "Procedure for Chest Drain",
+    body: `Cook Wayne's Pleural Catheter Insertion
+
+Procedurist:
+Supervisor:
+
+Bedside US performed:
+- Targeted bedside ultrasound performed in upright sitting of the ___ hemi-thorax.
+- Surface marking was made
+
+Procedure:
+Aseptic Technique
+Area of insertion cleaned with chlorhexidine and draped
+Puncture site selected and marked under US guidance
+10mL of 1% lignocaine infiltrated
+1st pass successful, ___ fluid aspirated
+Guidewire inserted smoothly with no resistance felt
+Tract was dilated
+Wayne catheter inserted smoothly and guidewire was removed
+Anchored at 3rd marking
+
+Connected to underwater seal with oscillations noted
+___ of fluid taken for sampling
+Patient tolerated procedure well
+
+Plan/
+Q1H vitals x4 then Q4H if stable
+Drain 500mls per shift then clamp
+CXR stat
+Pleural fluid investigations as ordered.`
+  },
+  {
+    id: "consent_bronchoscopy",
+    title: "Consent for Bronchoscopy",
+    body: `S/T patient
+-explained indications, risks, benefits and alternatives
+-explained that bronch is for diagnostic purposes, plan for BAL/TBLB/EBUS; however there is always a possibility of non-diagnostic specimen or inadequate specimen requiring repeat biopsy
+-explained that procedure can be done as day surgery case, and patient needs to be accompanied home following procedure with responsible adult as sedation will be given, procedure is not done under GA.
+-emphasized procedure risks entail bleeding which if severe and life-threatening may require emergent procedures including surgery, pneumothorax which may require chest drain insertion; respiratory failure requiring intubation and mechanical ventilation in intensive care
+-sedation risks entail allergy, hypoventilation, desaturation, arrhythmias, hypotension; AMI/CVA and death.
+-however, other options such as interval scan/trial of therapy/observing for symptoms would not provide any diagnosis and furthermore a delayed diagnosis may result in disease progression and poorer outcomes. Patient understands and agreeable to proceed.`
+  }
+];
+
+let textBlocks = [];              // [{ id, title, body }] — what the cards show
+let textsLoaded = false;          // remote fetched at least once this session
+const textTimers = new Map();     // id -> pending autosave
+
+// The default titles keep their order and are always present; a block that only
+// exists remotely (added by hand in the repo) is appended rather than dropped.
+// A saved block always wins, including one deliberately cleared to empty — the
+// shipped wording is only the fallback for a block the file has never seen.
+function mergeTexts(remote) {
+  const byId = new Map((Array.isArray(remote) ? remote : [])
+    .filter(b => b && b.id).map(b => [b.id, b]));
+  const merged = DEFAULT_TEXTS.map(d => {
+    const r = byId.get(d.id);
+    return {
+      id: d.id,
+      title: (r && r.title) || d.title,
+      body: r && typeof r.body === "string" ? r.body : (d.body || "")
+    };
+  });
+  const known = new Set(DEFAULT_TEXTS.map(d => d.id));
+  for (const r of byId.values()) {
+    if (!known.has(r.id)) merged.push({ id: r.id, title: r.title || r.id, body: r.body || "" });
+  }
+  return merged;
+}
+
+function showTextsError(msg) {
+  const el = $("textsError");
+  el.textContent = msg || "";
+  el.style.display = msg ? "block" : "none";
+}
+function setTextsStatus(msg, ok) {
+  const el = $("textsStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+
+// Grow a block to fit its wording so a long procedure note is readable without
+// scrolling inside the box. Only works once the tab is on screen, so it is also
+// run when the tab is opened.
+function autoSizeText(box) {
+  box.style.height = "auto";
+  const h = Math.min(Math.max(box.scrollHeight + 2, 150), 620);
+  box.style.height = h + "px";
+}
+function sizeAllTexts() {
+  for (const card of $("textsBody").children) if (card._box) autoSizeText(card._box);
+}
+
+function textCard(block) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.id = block.id;
+
+  const head = document.createElement("div");
+  head.className = "out-head";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = block.title;
+  const tools = document.createElement("div");
+  tools.className = "gen-row";
+  const stat = document.createElement("span");
+  stat.className = "status";
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "ghost-btn";
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy";
+  tools.appendChild(stat);
+  tools.appendChild(copyBtn);
+  head.appendChild(eyebrow);
+  head.appendChild(tools);
+
+  const box = document.createElement("textarea");
+  box.className = "text-block";
+  box.spellcheck = false;
+  box.placeholder = "Empty — type or paste the wording you want for " + block.title.toLowerCase() +
+                    ", and it saves to GitHub as you type.";
+  box.value = block.body || "";
+
+  const syncBtn = () => { copyBtn.disabled = !box.value.trim(); };
+  syncBtn();
+
+  box.addEventListener("input", () => {
+    syncBtn();
+    autoSizeText(box);
+    queueTextSave(block.id, box.value, stat);
+  });
+  copyBtn.addEventListener("click", async () => {
+    if (!box.value.trim()) return;
+    try { await navigator.clipboard.writeText(box.value); }
+    catch (e) { box.select(); document.execCommand("copy"); }
+    flashCopied(copyBtn);
+  });
+
+  card.appendChild(head);
+  card.appendChild(box);
+  card._box = box;
+  card._syncBtn = syncBtn;
+  return card;
+}
+
+// Rebuild only when the blocks themselves changed; otherwise refresh the boxes
+// in place, leaving alone anything being typed into or waiting to save.
+function renderTexts() {
+  const host = $("textsBody");
+  const cards = [...host.children];
+  const same = cards.length === textBlocks.length &&
+               cards.every((c, i) => c.dataset.id === textBlocks[i].id);
+  if (!same) {
+    host.innerHTML = "";
+    for (const b of textBlocks) host.appendChild(textCard(b));
+  } else {
+    cards.forEach((card, i) => {
+      const b = textBlocks[i];
+      const busy = textTimers.has(b.id) || document.activeElement === card._box;
+      if (!busy && card._box.value !== (b.body || "")) {
+        card._box.value = b.body || "";
+        card._syncBtn();
+      }
+    });
+  }
+  if ($("textsTab").style.display !== "none") sizeAllTexts();
+  applyTextSearch();
+}
+
+// Matches on title and body, so searching "lignocaine" finds the block that
+// mentions it even when the heading doesn't.
+function applyTextSearch() {
+  const q = $("textsSearch").value.trim().toLowerCase();
+  let shown = 0;
+  for (const card of $("textsBody").children) {
+    const b = textBlocks.find(x => x.id === card.dataset.id) || {};
+    const hay = ((b.title || "") + "\n" + (card._box ? card._box.value : "")).toLowerCase();
+    const hit = !q || hay.includes(q);
+    card.style.display = hit ? "" : "none";
+    if (hit) shown++;
+  }
+  $("textsEmpty").style.display = shown ? "none" : "";
+  const total = textBlocks.length;
+  $("textsCount").textContent = q ? shown + " of " + total + " blocks" : total + (total === 1 ? " block" : " blocks");
+}
+
+async function loadTexts(auto) {
+  if (auto && textsLoaded) return;
+  if (!get(K.ghToken)) {
+    setTextsStatus(textsLoaded ? "" : "Add your GitHub token in Settings to sync these.");
+    return;
+  }
+  setTextsStatus("Loading…");
+  try {
+    const { list } = await getRemote(TEXTS_PATH);
+    const merged = mergeTexts(list);
+    // Never let an incoming file overwrite what is being typed or still saving.
+    for (const b of merged) {
+      const card = $("textsBody").querySelector('[data-id="' + b.id + '"]');
+      const busy = card && (textTimers.has(b.id) || document.activeElement === card._box);
+      if (busy) b.body = card._box.value;
+    }
+    textBlocks = merged;
+    textsLoaded = true;
+    set(TEXTS_CACHE, JSON.stringify(textBlocks));
+    renderTexts();
+    setTextsStatus("Synced " + timeNow(), true);
+    showTextsError("");
+  } catch (e) {
+    setTextsStatus("");
+    showTextsError("Couldn't load your texts: " + (e.message || e) + " — showing the last copy saved on this device.");
+  }
+}
+
+function queueTextSave(id, value, stat) {
+  const local = textBlocks.find(b => b.id === id);
+  if (local) local.body = value;
+  set(TEXTS_CACHE, JSON.stringify(textBlocks));
+  const say = (msg, ok) => { if (stat) { stat.textContent = msg; stat.classList.toggle("ok", !!ok); } };
+  if (textTimers.has(id)) clearTimeout(textTimers.get(id));
+  say("Editing…");
+  textTimers.set(id, setTimeout(async () => {
+    textTimers.delete(id);
+    say("Saving…");
+    try {
+      // Rebase on the remote file each time, so a block edited on another
+      // device survives a save here.
+      await mutateRemoteFile(TEXTS_PATH, list => {
+        const next = mergeTexts(list);
+        const rec = next.find(b => b.id === id);
+        if (rec) rec.body = value;
+        else next.push({ id, title: (local && local.title) || id, body: value });
+        return next;
+      }, "Update commonly used texts");
+      say("Saved ✓ " + timeNow(), true);
+      showTextsError("");
+    } catch (e) {
+      say("");
+      showTextsError("Autosave failed: " + (e.message || e) + " — the text is kept on this device; press Refresh once you're back online.");
+    }
+  }, 1500));
+}
+
+$("textsSearch").addEventListener("input", applyTextSearch);
+$("textsRefresh").addEventListener("click", () => loadTexts(false));
+
+// Paint from the last copy on this device, then let the tab pull from GitHub.
+try { textBlocks = mergeTexts(JSON.parse(get(TEXTS_CACHE) || "[]")); }
+catch (e) { textBlocks = mergeTexts([]); }
+renderTexts();
 
 /* ============================================================== *
  *  Patient List view — full table vs history-taking mode         *
@@ -1161,21 +1543,24 @@ async function deleteRemote(path, sha, message) {
 }
 // Fetch latest, apply mutator, save. Retries once with a fresh sha on conflict,
 // so a save from another device in between doesn't get clobbered or fail.
-async function mutateRemote(mutator, message) {
+// `path` defaults to the patient list file. Returns the saved list.
+async function mutateRemoteFile(path, mutator, message) {
   const c = ghCfg();
   if (!c.token) throw new Error("Set your GitHub token in Settings first.");
   for (let attempt = 0; attempt < 2; attempt++) {
-    const { sha, list } = await getRemote();
+    const { sha, list } = await getRemote(path);
     const next = mutator(list);
     try {
-      await putRemote(next, sha, message);
-      patients = next;
-      return;
+      await putRemote(next, sha, message, path);
+      return next;
     } catch (e) {
       if (attempt === 0 && (e.status === 409 || e.status === 422)) continue;
       throw e;
     }
   }
+}
+async function mutateRemote(mutator, message) {
+  patients = await mutateRemoteFile(undefined, mutator, message);
 }
 
 // Insert the new record at the top, removing any previous entry with the same
