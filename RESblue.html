@@ -156,6 +156,18 @@
   .job-item .job-sep { color: var(--faint); }
   .job-item .job-task { color: var(--muted); flex: 1 1 200px; min-width: 0; }
   .job-item .job-day { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+  .job-item.adhoc { cursor: default; }
+  .job-item.adhoc:hover { background: transparent; }
+  .job-item input.job-check {
+    flex: none; align-self: center; margin: 0; width: 14px; height: 14px;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .job-item.clearing { opacity: .45; }
+  .job-item.clearing .job-task, .job-item.clearing .job-who { text-decoration: line-through; }
+  .job-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .job-add input[type="text"] { flex: 1 1 auto; font-size: 13px; padding: 6px 9px; }
+  .job-empty { color: var(--faint); font-size: 13px; padding: 3px 0; }
+  .job-err { color: var(--danger); font-size: 12px; margin-top: 8px; }
 
   /* de-id reminder */
   .deid {
@@ -1068,9 +1080,11 @@ $("tabTexts").addEventListener("click", () => setTab("texts"));
 // Reusable wording (procedure preps, consent) lives in resblue-texts.json beside
 // the patient list, so every device sees the same blocks. Both the titles and the
 // wording are yours: edit a block in the tab and it saves to that file, which is
-// the single source of truth. The list below only fixes which blocks exist and
-// the order they appear in. A localStorage copy is kept so the tab paints
-// instantly and still reads at the bedside if GitHub is unreachable.
+// the single source of truth. The list below fixes which blocks exist and the
+// order they appear in; a `body` here is only starter wording for a block the
+// file has never seen, and stops mattering the moment that block is saved. A
+// localStorage copy is kept so the tab paints instantly and still reads at the
+// bedside if GitHub is unreachable.
 const TEXTS_PATH = "resblue-texts.json";
 const TEXTS_CACHE = "resblue_texts_cache_v2";
 const DEFAULT_TEXTS = [
@@ -1078,7 +1092,22 @@ const DEFAULT_TEXTS = [
   { id: "prep_chest_drain",     title: "Prep for Chest Drain" },
   { id: "proc_pleural_tap",     title: "Procedure for Pleural Tap" },
   { id: "proc_chest_drain",     title: "Procedure for Chest Drain" },
-  { id: "consent_bronchoscopy", title: "Consent for Bronchoscopy" }
+  { id: "consent_bronchoscopy", title: "Consent for Bronchoscopy" },
+  {
+    id: "consent_thoracoscopy",
+    title: "Consent for Thoracoscopy",
+    body: `S/T patient
+-explained indications, risks, benefits and alternatives
+-explained that medical thoracoscopy is both diagnostic and therapeutic; plan for drainage of the pleural fluid, direct inspection of the pleural cavity and parietal pleural biopsies; however there is always a possibility of non-diagnostic specimen or inadequate specimen requiring repeat biopsy or surgical (VATS) biopsy
+-explained that talc poudrage pleurodesis may be performed at the same sitting if the lung re-expands and the pleural surfaces appose, to reduce reaccumulation of the effusion
+-explained that a chest drain will be inserted at the end of the procedure to drain residual fluid and air, and will stay in for a few days until the lung is re-expanded and drainage settles; patient therefore requires inpatient admission and this is not a day surgery case
+-explained that procedure is done under local anaesthesia with sedation, procedure is not done under GA
+-emphasized procedure risks entail pain and bleeding which if severe and life-threatening may require emergent procedures including surgery; persistent air leak and incomplete lung re-expansion which may require a prolonged chest drain or surgery; wound or pleural space infection and empyema; surgical emphysema; re-expansion pulmonary oedema; respiratory failure requiring intubation and mechanical ventilation in intensive care
+-explained talc related risks entail fever and pleuritic pain, and rarely ARDS and respiratory failure; pleurodesis may also fail and require a repeat procedure or an indwelling pleural catheter
+-explained risk of tumour seeding along the port site if malignancy is confirmed, which may require prophylactic radiotherapy
+-sedation risks entail allergy, hypoventilation, desaturation, arrhythmias, hypotension; AMI/CVA and death.
+-however, other options such as repeat pleural aspiration, image guided pleural biopsy, indwelling pleural catheter or observing for symptoms would not provide the same tissue diagnosis or definitive treatment of the effusion, and furthermore a delayed diagnosis may result in disease progression and poorer outcomes. Patient understands and agreeable to proceed.`
+  }
 ];
 
 let textBlocks = [];              // [{ id, title, body }] — what the cards show
@@ -1177,6 +1206,7 @@ function textCard(block) {
   card.appendChild(head);
   card.appendChild(box);
   card._box = box;
+  card._title = eyebrow;
   card._syncBtn = syncBtn;
   return card;
 }
@@ -1194,6 +1224,7 @@ function renderTexts() {
   } else {
     cards.forEach((card, i) => {
       const b = textBlocks[i];
+      if (card._title.textContent !== b.title) card._title.textContent = b.title;
       const busy = textTimers.has(b.id) || document.activeElement === card._box;
       if (!busy && card._box.value !== (b.body || "")) {
         card._box.value = b.body || "";
@@ -1510,45 +1541,205 @@ async function mutateArchiveRemote(day, mutator, message) {
  *  Outstanding jobs banner — every patient carrying a job,        *
  *  from the active list and from every archived day               *
  * ============================================================== */
+// Jobs typed straight into the banner, for anything that isn't tied to a patient
+// in the list. Kept in their own file beside the patient list so they sync too.
+const JOBS_PATH = "resblue-jobs.json";
+let adhocJobs = [];
+
 function jobItems() {
   const items = [];
   const add = (p, day, source) => {
     if (!p.jobsPinned) return;   // only patients ticked "Show in banner"
-    for (const raw of (p.jobs || "").split("\n")) {
+    (p.jobs || "").split("\n").forEach((raw, line) => {
       const job = raw.replace(/^[-•*\s]+/, "").trim();
-      if (!job) continue;
-      items.push({ who: [p.location, p.name].filter(Boolean).join(" ") || "—", job, day, source, id: p.id });
-    }
+      if (!job) return;
+      // `line` + `raw` let a tick delete exactly the line it came from
+      items.push({ who: [p.location, p.name].filter(Boolean).join(" ") || "—", job, day, source, id: p.id, line, raw });
+    });
   };
   const today = dateKey(Date.now());
   for (const p of patients) add(p, dateKey(p.created) || today, "list");
   for (const day of [...archiveCache.keys()].sort((a, b) => b.localeCompare(a))) {
     for (const p of archiveCache.get(day) || []) add(p, day, "archive");
   }
+  for (const j of adhocJobs) {
+    if (!j || !j.job) continue;
+    items.push({ who: j.who || "General", job: j.job, source: "adhoc", id: j.id });
+  }
   return items;
 }
+
+async function loadAdhocJobs() {
+  const { list } = await getRemote(JOBS_PATH);
+  adhocJobs = (Array.isArray(list) ? list : []).filter(j => j && j.id && j.job);
+}
+
+function showJobsError(msg) {
+  const el = $("jobsError");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.display = msg ? "block" : "none";
+}
+
+// Drop one line from a jobs box. Matches on position first, then on content, so
+// a line typed since the banner rendered can't shift the wrong job out.
+function removeJobLine(text, idx, raw) {
+  const lines = String(text).split("\n");
+  const bare = (s) => String(s).replace(/^[-•*\s]+/, "").trim();
+  let at = (idx >= 0 && idx < lines.length && lines[idx] === raw) ? idx : lines.indexOf(raw);
+  if (at < 0) at = lines.findIndex(l => bare(l) === bare(raw));
+  if (at < 0) return text;
+  lines.splice(at, 1);
+  return lines.join("\n").trim();
+}
+
+// Keep an open job textarea in step with a tick, unless it's being typed into.
+function syncJobBox(root, id, value) {
+  if (!root) return;
+  const box = root.querySelector('tr[data-id="' + id + '"] textarea.jobbox');
+  if (box && document.activeElement !== box) box.value = value;
+}
+
+// Ticking a job removes it at source: the patient's job list, or the ad-hoc
+// file. The banner updates first and rolls back if the save fails.
+async function clearJobItem(it, row) {
+  row.classList.add("clearing");
+  if (it.source === "adhoc") {
+    const before = adhocJobs;
+    adhocJobs = adhocJobs.filter(j => j.id !== it.id);
+    renderJobsBanner();
+    try {
+      await mutateRemoteFile(JOBS_PATH, list =>
+        (Array.isArray(list) ? list : []).filter(j => j && j.id !== it.id), "Clear job");
+      showJobsError("");
+    } catch (e) {
+      adhocJobs = before;
+      renderJobsBanner();
+      showJobsError("Couldn't clear that job: " + (e.message || e));
+    }
+    return;
+  }
+
+  const fromList = it.source === "list";
+  const p = fromList
+    ? patients.find(x => x.id === it.id)
+    : (archiveCache.get(it.day) || []).find(x => x.id === it.id);
+  if (!p) { renderJobsBanner(); return; }
+
+  const before = p.jobs || "";
+  const next = removeJobLine(before, it.line, it.raw);
+  if (next === before) { renderJobsBanner(); return; }
+
+  // Cancel the pending autosave for this patient — it holds the old text, and
+  // would put the job straight back.
+  const key = fromList ? it.id : it.day + "|" + it.id;
+  const timers = fromList ? jobTimers : archiveJobTimers;
+  if (timers.has(key)) { clearTimeout(timers.get(key)); timers.delete(key); }
+
+  p.jobs = next;
+  syncJobBox(fromList ? $("ptBody") : document.querySelector('details.arch-day[data-day="' + it.day + '"]'), it.id, next);
+  renderJobsBanner();
+  try {
+    const write = (list) => {
+      const rec = list.find(x => x.id === it.id);
+      if (rec) rec.jobs = next;
+      return list;
+    };
+    if (fromList) await mutateRemote(write, "Clear job");
+    else await mutateArchiveRemote(it.day, write, "Clear job: " + it.day);
+    showJobsError("");
+  } catch (e) {
+    p.jobs = before;
+    syncJobBox(fromList ? $("ptBody") : document.querySelector('details.arch-day[data-day="' + it.day + '"]'), it.id, before);
+    renderJobsBanner();
+    showJobsError("Couldn't clear that job: " + (e.message || e));
+  }
+}
+
+// "W46 B12 - chase CT" files the job under that heading; anything without a
+// dash is filed under General.
+async function addAdhocJob(text) {
+  const t = String(text).trim();
+  if (!t) return;
+  const m = t.match(/^(.{1,40}?)\s+[-–—]\s+(.+)$/);
+  const rec = {
+    id: "job_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    who: m ? m[1].trim() : "",
+    job: m ? m[2].trim() : t,
+    created: new Date().toISOString()
+  };
+  adhocJobs = [...adhocJobs, rec];
+  renderJobsBanner();
+  try {
+    await mutateRemoteFile(JOBS_PATH, list =>
+      [...(Array.isArray(list) ? list : []).filter(j => j && j.id), rec], "Add job");
+    showJobsError("");
+  } catch (e) {
+    adhocJobs = adhocJobs.filter(j => j.id !== rec.id);
+    renderJobsBanner();
+    showJobsError("Couldn't add that job: " + (e.message || e));
+  }
+}
+
+// The add box is built once and re-hung on every render, so typing into it
+// survives the banner redrawing underneath.
+const jobAddInput = document.createElement("input");
+jobAddInput.type = "text";
+jobAddInput.placeholder = "Add a job — e.g. chase CT report, or W46 B12 - review CXR";
+jobAddInput.autocomplete = "off";
+const jobAddBtn = document.createElement("button");
+jobAddBtn.className = "ghost-btn";
+jobAddBtn.type = "button";
+jobAddBtn.textContent = "Add";
+function submitAdhocJob() {
+  const v = jobAddInput.value;
+  if (!v.trim()) return;
+  jobAddInput.value = "";
+  addAdhocJob(v);
+}
+jobAddBtn.addEventListener("click", submitAdhocJob);
+jobAddInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); submitAdhocJob(); }
+});
 
 function renderJobsBanner() {
   const el = $("jobsBanner");
   const items = jobItems();
+  const focused = document.activeElement === jobAddInput;
+  const err = $("jobsError") ? $("jobsError").textContent : "";
   el.innerHTML = "";
-  if (!items.length) { el.style.display = "none"; return; }
-  el.style.display = "";
+  el.style.display = "";      // stays up even when empty, so a job can be added
   const head = document.createElement("span");
   head.className = "eyebrow";
-  head.textContent = "📋 Outstanding jobs · " + items.length;
+  head.textContent = "📋 Outstanding jobs" + (items.length ? " · " + items.length : "");
   el.appendChild(head);
   const today = dateKey(Date.now());
   for (const it of items) {
     const row = document.createElement("div");
-    row.className = "job-item";
-    row.tabIndex = 0;
-    row.setAttribute("role", "button");
-    row.title = "Open this patient in " + (it.source === "list" ? "the Patient List" : "Previous Patients");
-    row.addEventListener("click", () => focusPatient(it));
-    row.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusPatient(it); }
+    const adhoc = it.source === "adhoc";
+    row.className = "job-item" + (adhoc ? " adhoc" : "");
+
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "job-check";
+    tick.title = "Done — clear this job";
+    tick.addEventListener("click", (e) => e.stopPropagation());   // don't jump to the patient
+    tick.addEventListener("change", () => {
+      if (!tick.checked) return;
+      tick.disabled = true;
+      clearJobItem(it, row);
     });
+    row.appendChild(tick);
+
+    if (!adhoc) {
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.title = "Open this patient in " + (it.source === "list" ? "the Patient List" : "Previous Patients");
+      row.addEventListener("click", () => focusPatient(it));
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); focusPatient(it); }
+      });
+    }
     const who = document.createElement("span");
     who.className = "job-who";
     who.textContent = it.who;
@@ -1569,6 +1760,26 @@ function renderJobsBanner() {
     }
     el.appendChild(row);
   }
+  if (!items.length) {
+    const none = document.createElement("div");
+    none.className = "job-empty";
+    none.textContent = "Nothing outstanding.";
+    el.appendChild(none);
+  }
+
+  const addRow = document.createElement("div");
+  addRow.className = "job-add";
+  addRow.appendChild(jobAddInput);
+  addRow.appendChild(jobAddBtn);
+  el.appendChild(addRow);
+  if (focused) jobAddInput.focus();
+
+  const errEl = document.createElement("div");
+  errEl.className = "job-err";
+  errEl.id = "jobsError";
+  errEl.textContent = err;
+  errEl.style.display = err ? "block" : "none";
+  el.appendChild(errEl);
 }
 
 // Bring a row into view and pulse it, so a click from the banner lands
@@ -1618,6 +1829,7 @@ async function refreshJobsBanner() {
       for (const day of [...archiveCache.keys()]) if (!days.includes(day)) archiveCache.delete(day);
       await Promise.all(days.map(d => loadArchiveDay(d, true).catch(() => [])));
     } catch (e) { /* keep whatever the banner already shows */ }
+    try { await loadAdhocJobs(); } catch (e) { /* ditto for the ad-hoc jobs */ }
   }
   renderJobsBanner();
 }
@@ -3905,6 +4117,7 @@ loadSettings();
 refActive = (HX_REF.find(c => c.id === get(K.refCond)) || HX_REF[0]).id;
 renderRef();
 setListView(get(K.listView) || "full");    // restores the Patient List layout
+renderJobsBanner();                        // shows the add-a-job box before anything loads
 if (get(K.ghToken)) loadPatients(true);   // also fills the archive cache + jobs banner
 </script>
 </body>
