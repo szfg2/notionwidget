@@ -1066,135 +1066,19 @@ $("tabTexts").addEventListener("click", () => setTab("texts"));
  *  Commonly Used Texts — blocks to paste straight into the notes *
  * ============================================================== */
 // Reusable wording (procedure preps, consent) lives in resblue-texts.json beside
-// the patient list, so every device sees the same blocks. The wording below is
-// the shipped starting point — edit a block in the tab and that version is saved
-// to the repo and wins from then on, on every device. A localStorage copy is
-// kept only so the tab paints instantly and still reads at the bedside if GitHub
-// is unreachable; GitHub stays the source of truth.
+// the patient list, so every device sees the same blocks. Both the titles and the
+// wording are yours: edit a block in the tab and it saves to that file, which is
+// the single source of truth. The list below only fixes which blocks exist and
+// the order they appear in. A localStorage copy is kept so the tab paints
+// instantly and still reads at the bedside if GitHub is unreachable.
 const TEXTS_PATH = "resblue-texts.json";
 const TEXTS_CACHE = "resblue_texts_cache_v2";
 const DEFAULT_TEXTS = [
-  {
-    id: "prep_pleural_tap",
-    title: "Prep for Pleural Tap",
-    body: `For bedside diagnostic pleural tap at pm:
-
-Kindly prepare,
-- ultrasound machine from ward 38
-- simple dressing set
-- Rocket Pleural Thoracentesis 6F catheter x 1 vs Grey cannulae x 1
-- three way connector
-- Blue needle x1
-- Green needle x 1
-- Chlorhexidine
-- 10mL 1% lidocaine
-- 50ml syringe with LUER lock x1. If not, 30mL syringe with LUER lock x 2
-- 10mL syringe x 1
-- Gauze pack x x1
-- Big tegaderm x 1
-- 6 sterile collection bottles
-> Send pleural fluid for cell count, biochemistry, LDH, protein, gram stain and aerobic culture, AFB smear and culture, ADA, cytology.`
-  },
-  {
-    id: "prep_chest_drain",
-    title: "Prep for Chest Drain",
-    body: `Suggest:
-For ____ chest drain insertion today
-Kindly prepare following items for bedside chest drain insertion today
-1. Bedside ultrasound
-2. T&S set + Suture Silk 2-0
-3. Hexanol
-4. Gauze 2 packs
-5. Sterile drape X2 sets
-6. Sterile glove size 7 X2
-7. Sterile gown X2 sets
-8. Lidocaine 10ml
-9. 10ml syringe X2
-10. 50ml syringe X2 (with luer lock)
-11. Blue needle X1
-12. Green needle X1
-13. Tegaderm big size X3
-14. Specimen bottle X6
-15. EDTA Tube x 1
-16. Blood culture bottles x 1 each
-17. ABG syringe x 1
-18. Underwater seal (chest tube box)
-19. Sterile water
-20. Wayne's catheter 14F
-21. Sharps box
-
-Please inform me once items are at bedside.`
-  },
-  {
-    id: "proc_pleural_tap",
-    title: "Procedure for Pleural Tap",
-    body: `Pleural Tap
-
-Bedside US of ___ hemithorax performed
-Free flowing anechoic moderate sized pleural effusion
-No septations or loculations
-Safe window identified and marked
-Patient cleaned and draped
-10ml Lignocaine injected into subcutaneous, skin and pleural space
-Aspirated free flowing straw colored fluid
-Small incision made
-Thoracocentesis with 16G grey cannula / Rocket Thoracetensis 6F Catheter successful first pass
-Aspirated free flowing straw colored fluid
-Stylet removed and catheter in situ, total of ____ of straw colored pleural fluid aspirated
-Cannula removed intact
-Specimens sent as ordered
-Patient tolerated procedure well
-No immediate complications
-
-Plan
-Q1H vitals x4 then Q4H if stable
-CXR stat
-Pleural investigations as ordered.`
-  },
-  {
-    id: "proc_chest_drain",
-    title: "Procedure for Chest Drain",
-    body: `Cook Wayne's Pleural Catheter Insertion
-
-Procedurist:
-Supervisor:
-
-Bedside US performed:
-- Targeted bedside ultrasound performed in upright sitting of the ___ hemi-thorax.
-- Surface marking was made
-
-Procedure:
-Aseptic Technique
-Area of insertion cleaned with chlorhexidine and draped
-Puncture site selected and marked under US guidance
-10mL of 1% lignocaine infiltrated
-1st pass successful, ___ fluid aspirated
-Guidewire inserted smoothly with no resistance felt
-Tract was dilated
-Wayne catheter inserted smoothly and guidewire was removed
-Anchored at 3rd marking
-
-Connected to underwater seal with oscillations noted
-___ of fluid taken for sampling
-Patient tolerated procedure well
-
-Plan/
-Q1H vitals x4 then Q4H if stable
-Drain 500mls per shift then clamp
-CXR stat
-Pleural fluid investigations as ordered.`
-  },
-  {
-    id: "consent_bronchoscopy",
-    title: "Consent for Bronchoscopy",
-    body: `S/T patient
--explained indications, risks, benefits and alternatives
--explained that bronch is for diagnostic purposes, plan for BAL/TBLB/EBUS; however there is always a possibility of non-diagnostic specimen or inadequate specimen requiring repeat biopsy
--explained that procedure can be done as day surgery case, and patient needs to be accompanied home following procedure with responsible adult as sedation will be given, procedure is not done under GA.
--emphasized procedure risks entail bleeding which if severe and life-threatening may require emergent procedures including surgery, pneumothorax which may require chest drain insertion; respiratory failure requiring intubation and mechanical ventilation in intensive care
--sedation risks entail allergy, hypoventilation, desaturation, arrhythmias, hypotension; AMI/CVA and death.
--however, other options such as interval scan/trial of therapy/observing for symptoms would not provide any diagnosis and furthermore a delayed diagnosis may result in disease progression and poorer outcomes. Patient understands and agreeable to proceed.`
-  }
+  { id: "prep_pleural_tap",     title: "Prep for Pleural Tap" },
+  { id: "prep_chest_drain",     title: "Prep for Chest Drain" },
+  { id: "proc_pleural_tap",     title: "Procedure for Pleural Tap" },
+  { id: "proc_chest_drain",     title: "Procedure for Chest Drain" },
+  { id: "consent_bronchoscopy", title: "Consent for Bronchoscopy" }
 ];
 
 let textBlocks = [];              // [{ id, title, body }] — what the cards show
@@ -1203,8 +1087,7 @@ const textTimers = new Map();     // id -> pending autosave
 
 // The default titles keep their order and are always present; a block that only
 // exists remotely (added by hand in the repo) is appended rather than dropped.
-// A saved block always wins, including one deliberately cleared to empty — the
-// shipped wording is only the fallback for a block the file has never seen.
+// The saved file always wins, including a block deliberately cleared to empty.
 function mergeTexts(remote) {
   const byId = new Map((Array.isArray(remote) ? remote : [])
     .filter(b => b && b.id).map(b => [b.id, b]));
