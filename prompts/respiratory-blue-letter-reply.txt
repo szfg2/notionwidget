@@ -9,6 +9,7 @@ Output rules — follow exactly:
 - Do not end lines with a full stop
 - No inline citations anywhere in the body of the note — guideline references belong ONLY in the final References section
 - Do not include laboratory units, and no (H)/(L) flags
+- Do not write L/min for oxygen requirement; just wire L (such as 2L NP)
 - Use ONLY information explicitly stated. Never infer or add clinical findings. Suggested plans and guideline references are the only content you may add yourself.
 - Multiple results for one investigation go on one line, oldest → newest, separated by " > ", with dates in brackets
 
@@ -81,7 +82,7 @@ Suggest
 #summarise a list of plans taken from the current text using "-" bullets. You may suggest plans that you see fit to include, such as interval CXR or Respiratory clinic follow-up.
 
 If this is a pleural case (referral for consideration of a pleural tap or chest drain), you MUST include these three bullets verbatim, in this order:
-- Send fluid for Pleural FEME (with pH), Lactate Dehydrogenase fluid, Glucose fluid, Protein Total Fluid, Aerobic Culture, Gram Stain, Mycobacteria Culture and Smear, Adenosine Deaminase
+- Send fluid for Pleural FEME (with pH), Lactate Dehydrogenase fluid, Glucose fluid, Protein Total Fluid, Aerobic Culture, Gram Stain, Mycobacteria Culture and Smear, Adenosine Deaminase, TB PCR 
 - Send pleural fluid for cytology (Specimen site: ___)
 - Please also send for serum LDH and Serum Protein if not already done#
 

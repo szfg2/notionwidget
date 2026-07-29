@@ -135,6 +135,20 @@
   .settings-grid label.lbl { margin-top: 10px; }
   .pill { font-size: 12px; color: var(--muted); }
 
+  /* settings — repo location, folded away since it never changes */
+  details.adv { margin: 12px 0 2px; }
+  details.adv > summary {
+    cursor: pointer; list-style: none; user-select: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted);
+  }
+  details.adv > summary::-webkit-details-marker { display: none; }
+  details.adv > summary::before { content: "▸"; font-size: 10px; color: var(--faint); }
+  details.adv[open] > summary::before { content: "▾"; }
+  details.adv > summary:hover { color: var(--text); }
+  .adv-body { display: flex; flex-direction: column; gap: 10px; margin-top: 9px; }
+  .adv-body label.lbl { margin-top: 0; }
+
   /* jobs banner — outstanding jobs across the list and every archived day */
   .jobs-banner {
     background: var(--surface);
@@ -659,16 +673,23 @@
 
         <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
         <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
-        <div class="hint">Shared with dictation.html, along with owner / repo / branch below.</div>
+        <div class="hint">Shared with dictation.html. Saves to <code>szfg2/patient-data</code> unless changed under Where it saves.</div>
 
-        <div class="row2" style="margin-top:6px">
-          <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
-          <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="patient-data"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
-          <div class="field"><label class="lbl">Patient list file</label><input type="text" id="ghPath" placeholder="resblue-patients.json"></div>
-        </div>
+        <details class="adv">
+          <summary>Where it saves</summary>
+          <div class="adv-body">
+            <div class="row2">
+              <div class="field"><label class="lbl">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
+              <div class="field"><label class="lbl">Repo to save into</label><input type="text" id="ghRepo" placeholder="patient-data"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label class="lbl">Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
+              <div class="field"><label class="lbl">Patient list file</label><input type="text" id="ghPath" placeholder="resblue-patients.json"></div>
+            </div>
+            <div class="hint">Shared with dictation.html, GWList and ICUList — changing them here changes them for those pages too. The defaults are correct; open this only if something is saving to the wrong place.</div>
+          </div>
+        </details>
+
         <div class="hint">Keys live only in this browser (localStorage). The patient list is saved to the repo above as one JSON file shared across your devices. ⚠ In a <b>public</b> repo that file is publicly readable — use bed numbers / initials only, never real identifiers.</div>
         <div class="gen-row" style="margin-top:10px">
           <button class="ghost-btn" id="saveSettings" type="button">Save settings</button>
