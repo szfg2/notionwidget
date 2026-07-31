@@ -82,39 +82,46 @@
 
   .hint { font-size: 12px; color: var(--faint); margin: 8px 0 0; }
 
-  /* Results */
-  .results { position: sticky; bottom: 14px; margin-top: 20px; }
-  .results .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.35); margin-bottom: 0; }
-  .results-grid { display: grid; gap: 14px; align-items: start; }
+  /* Workspace — the working view: paste on the left, interpretation over
+     explanation on the right. Everything else lives below the fold. */
+  .workspace { display: grid; gap: 14px; margin-bottom: 26px; }
+  .ws-right { display: grid; gap: 14px; min-height: 0; }
+  .workspace .card { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
+  /* the two output cards carry the accent frame; the paste box stays neutral */
+  .ws-right .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.28); }
+  .workspace .card > .btnrow { flex: 0 0 auto; }
+  #paste_in, textarea#out { flex: 1 1 auto; min-height: 90px; }
+  #why_list { flex: 1 1 auto; min-height: 60px; overflow-y: auto; padding-right: 6px; }
 
-  /* With an explanation to show, sit the two cards side by side and widen the
-     block past the 820px column so both stay readable. */
   @media (min-width: 900px) {
-    .results.split {
-      width: min(1180px, calc(100vw - 40px));
-      margin-left: calc(50% - min(1180px, 100vw - 40px) / 2);
+    /* Break out of the 820px reading column so each half is genuinely half. */
+    .workspace {
+      width: min(1320px, calc(100vw - 40px));
+      margin-left: calc(50% - min(1320px, 100vw - 40px) / 2);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      /* Sized so the input cards start just below the fold. */
+      height: calc(100vh - 152px);
+      min-height: 500px;
+      max-height: 860px;
     }
-    .results.split .results-grid {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-      align-items: stretch;
-    }
-    /* Let the interpretation box grow to the height the explanation sets. */
-    .results.split .results-grid > .card { display: flex; flex-direction: column; }
-    .results.split textarea#out { flex: 1 1 auto; }
-    .results.split #why_list { max-height: 42vh; overflow-y: auto; padding-right: 6px; }
+    .ws-right { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   }
-  /* Too narrow to split: the stacked pair is too tall to pin to the viewport. */
+  /* Narrow: one column, natural heights, scroll the page instead. */
   @media (max-width: 899px) {
-    .results.split { position: static; }
+    #paste_in, textarea#out { min-height: 130px; }
+    #why_list { max-height: 46vh; }
   }
 
-  textarea#out {
+  textarea#out, textarea#paste_in {
     width: 100%; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--border-strong); border-radius: 8px; padding: 11px;
     font-family: var(--mono); font-size: 13.5px; line-height: 1.6; resize: vertical;
-    min-height: 120px; white-space: pre-wrap;
+    white-space: pre-wrap; outline: none;
   }
+  textarea#paste_in { font-size: 13px; line-height: 1.55; }
+  textarea#paste_in:focus { border-color: var(--accent); }
   .placeholder { color: var(--faint); }
+  .why-empty { margin: 0; font-size: 12.5px; color: var(--faint); }
 
   .btnrow { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
   button {
@@ -122,6 +129,8 @@
     color: var(--text); border-radius: 8px; padding: 9px 15px; cursor: pointer;
   }
   button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:disabled:hover { border-color: var(--border-strong); }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
   button.primary:hover { background: var(--accent-strong); }
   button.copied { border-color: var(--accent); color: var(--accent); }
@@ -156,25 +165,47 @@
 <div class="wrap">
   <header class="app">
     <h1>PFT Interpreter</h1>
-    <p class="sub">Enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score), or paste the raw report below to auto-fill. Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live — that logic runs entirely in your browser. <a href="index.html">Document Generator →</a> · <a href="dictation.html">Dictation →</a></p>
+    <p class="sub">Paste the raw report on the left to auto-fill, or scroll down and enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score). Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live — that logic runs entirely in your browser. <a href="index.html">Document Generator →</a> · <a href="dictation.html">Dictation →</a></p>
   </header>
 
-  <!-- 0 · PASTE / AUTO-FILL -->
-  <div class="card">
-    <span class="eyebrow">0 · Paste report (auto-fill with Claude)</span>
-    <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to Anthropic's API — the fields and interpretation stay in your browser.</p>
-    <div class="field" style="margin-top:10px">
-      <label class="lbl">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
-      <input type="password" id="api_key" placeholder="sk-ant-..." autocomplete="off">
-    </div>
-    <div class="field" style="margin-top:10px">
+  <!-- WORKSPACE · raw report left, interpretation over explanation right -->
+  <div class="workspace">
+
+    <div class="card">
+      <span class="eyebrow">Paste report (auto-fill with Claude)</span>
+      <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to Anthropic's API — the fields and interpretation stay in your browser.</p>
+      <div class="field" style="margin:10px 0 10px">
+        <label class="lbl">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
+        <input type="password" id="api_key" placeholder="sk-ant-..." autocomplete="off">
+      </div>
       <label class="lbl">Raw report text</label>
-      <textarea id="paste_in" placeholder="Paste the full PFT report here…" style="width:100%; background:var(--surface-2); color:var(--text); border:1px solid var(--border-strong); border-radius:8px; padding:11px; font-family:var(--mono); font-size:13px; line-height:1.55; resize:vertical; min-height:120px;"></textarea>
+      <textarea id="paste_in" placeholder="Paste the full PFT report here…"></textarea>
+      <div class="btnrow">
+        <button id="fillBtn" class="primary">Auto-fill from report</button>
+        <span class="pill" id="fill_msg"></span>
+      </div>
     </div>
-    <div class="btnrow">
-      <button id="fillBtn" class="primary">Auto-fill from report</button>
-      <span class="pill" id="fill_msg"></span>
+
+    <div class="ws-right">
+      <div class="card">
+        <span class="eyebrow">Interpretation</span>
+        <textarea id="out" readonly></textarea>
+        <div class="btnrow">
+          <button id="copyBtn" class="primary">Copy</button>
+          <button id="clearBtn">Clear all</button>
+          <span class="pill" id="msg"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="eyebrow">Explanation · why each line was generated</span>
+        <div id="why_list"></div>
+        <div class="btnrow">
+          <button id="copyWhyBtn">Copy explanation</button>
+        </div>
+      </div>
     </div>
+
   </div>
 
   <!-- 1 · SPIROMETRY -->
@@ -335,30 +366,6 @@
     <span class="eyebrow">9 · FeNO</span>
     <div class="grid g2">
       <div class="field"><label class="lbl">FeNO (ppb)</label><input type="number" step="any" id="feno"></div>
-    </div>
-  </div>
-
-  <!-- RESULTS · interpretation left, explanation right -->
-  <div class="results" id="results_block">
-    <div class="results-grid">
-      <div class="card">
-        <span class="eyebrow">Interpretation</span>
-        <textarea id="out" readonly></textarea>
-        <div class="btnrow">
-          <button id="copyBtn" class="primary">Copy</button>
-          <button id="clearBtn">Clear all</button>
-          <span class="pill" id="msg"></span>
-        </div>
-      </div>
-
-      <div class="card" id="why_card" style="display:none">
-        <span class="eyebrow">Explanation · why each line was generated</span>
-        <p class="hint" style="margin-top:0">Each interpretation sentence with the values and thresholds that produced it. Working only — not part of the report text.</p>
-        <div id="why_list" style="margin-top:6px"></div>
-        <div class="btnrow">
-          <button id="copyWhyBtn">Copy explanation</button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -771,16 +778,20 @@ function build() {
 }
 
 // Build the Explanation card: one row per interpretation line, with its reasoning.
+// The card holds its slot in the workspace grid, so an empty state is a message
+// rather than a hidden card.
 function renderWhy(items) {
-  const card = $("why_card"), list = $("why_list"), block = $("results_block");
+  const list = $("why_list");
   list.textContent = "";
   if (!items.length) {
-    card.style.display = "none";
-    block.classList.remove("split");   // back to the single centred column
+    const p = document.createElement("p");
+    p.className = "why-empty";
+    p.textContent = "Each interpretation sentence appears here with the values and thresholds that produced it.";
+    list.appendChild(p);
+    $("copyWhyBtn").disabled = true;
     return;
   }
-  card.style.display = "";
-  block.classList.add("split");
+  $("copyWhyBtn").disabled = false;
   items.forEach((it, i) => {
     const row = document.createElement("div");
     row.className = "why-item";
@@ -814,7 +825,7 @@ function render() {
   if (!items.length) {
     out.value = "";
     out.classList.add("placeholder");
-    out.setAttribute("placeholder", "Fill in the values above — the interpretation appears here.");
+    out.setAttribute("placeholder", "Paste a report on the left, or fill in the values below — the interpretation appears here.");
   } else {
     out.classList.remove("placeholder");
     out.value = items.map(it => it.text).join("\n");
