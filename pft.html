@@ -56,6 +56,15 @@
 
   label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
 
+  /* label with a control sitting beside it (e.g. the raw-report clear tick) */
+  .lblrow { display: flex; align-items: center; gap: 12px; }
+  .clearbox { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .clearbox input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .clearbox label { font-size: 12px; color: var(--faint); cursor: pointer; user-select: none; }
+  .clearbox label:hover { color: var(--muted); }
+  .clearbox input:disabled { cursor: default; opacity: .45; }
+  .clearbox input:disabled + label { color: var(--border-strong); cursor: default; }
+
   input[type="number"], input[type="text"], select {
     width: 100%; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--border-strong); border-radius: 8px;
@@ -178,7 +187,13 @@
         <label class="lbl">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
         <input type="password" id="api_key" placeholder="sk-ant-..." autocomplete="off">
       </div>
-      <label class="lbl">Raw report text</label>
+      <div class="lblrow">
+        <label class="lbl" for="paste_in">Raw report text</label>
+        <span class="clearbox">
+          <input type="checkbox" id="paste_clear" disabled>
+          <label for="paste_clear">Clear</label>
+        </span>
+      </div>
       <textarea id="paste_in" placeholder="Paste the full PFT report here…"></textarea>
       <div class="btnrow">
         <button id="fillBtn" class="primary">Auto-fill from report</button>
@@ -889,6 +904,21 @@ $("clearBtn").addEventListener("click", () => {
    is still produced locally by build() / render().
    ============================================================ */
 
+/* Clear tick beside "Raw report text" — empties the paste box only, leaving the
+   extracted values alone. It is an action rather than a state, so it unticks
+   itself, and it stays disabled while there is nothing to clear. */
+function syncPasteClear() {
+  $("paste_clear").disabled = $("paste_in").value === "";
+}
+$("paste_clear").addEventListener("change", () => {
+  $("paste_in").value = "";
+  $("paste_clear").checked = false;
+  setFillMsg("", false);
+  syncPasteClear();
+  $("paste_in").focus();
+});
+$("paste_in").addEventListener("input", syncPasteClear);
+
 // Persist the API key locally so it isn't re-entered each time.
 const savedKey = localStorage.getItem("anthropic_api_key");
 if (savedKey) $("api_key").value = savedKey;
@@ -1035,6 +1065,7 @@ $("fillBtn").addEventListener("click", async () => {
 });
 
 render();
+syncPasteClear();   // browsers can restore textarea content across a reload
 </script>
 </body>
 </html>
