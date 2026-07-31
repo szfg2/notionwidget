@@ -104,6 +104,17 @@
   button.copied { border-color: var(--accent); color: var(--accent); }
   .pill { font-size: 12px; color: var(--muted); }
 
+  /* Explanation */
+  .why-item {
+    display: grid; grid-template-columns: 20px 1fr; gap: 10px;
+    padding: 11px 0; border-top: 1px solid var(--border);
+  }
+  .why-item:first-child { border-top: none; padding-top: 2px; }
+  .why-n { font-family: var(--mono); font-size: 11px; color: var(--accent); line-height: 1.75; text-align: right; }
+  .why-line { margin: 0 0 4px; font-size: 13.5px; color: var(--text); }
+  .why-because { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .why-because em { font-style: normal; color: var(--text); }
+
   /* Flow-volume loop reference */
   .fvl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 12px; }
   @media (max-width: 560px) { .fvl-grid { grid-template-columns: 1fr; } }
@@ -317,6 +328,16 @@
     </div>
   </div>
 
+  <!-- EXPLANATION -->
+  <div class="card" id="why_card" style="display:none">
+    <span class="eyebrow">Explanation · why each line was generated</span>
+    <p class="hint" style="margin-top:0">Each interpretation sentence with the values and thresholds that produced it. Working only — not part of the report text.</p>
+    <div id="why_list" style="margin-top:6px"></div>
+    <div class="btnrow">
+      <button id="copyWhyBtn">Copy explanation</button>
+    </div>
+  </div>
+
   <!-- REFERENCE · FLOW-VOLUME LOOPS -->
   <div class="card" style="margin-top:24px">
     <span class="eyebrow">Reference · Flow-volume loop patterns</span>
@@ -442,8 +463,24 @@ function grade(z) {
   return "severe";
 }
 
+// Tidy a number for the explanation text.
+function v(n) {
+  if (n == null) return "—";
+  return String(Math.round(n * 1000) / 1000);
+}
+
+const Z_BANDS = "z-score bands: mild ≥ −2.5, moderate −2.51 to −4, severe < −4";
+
+// Severity clause for a z-graded finding, spelling out the fallback when no z was entered.
+function zWhy(z, sev, what) {
+  if (z == null) return "No " + what + " z-score was entered, so severity defaults to " + sev + ".";
+  return what + " z-score " + v(z) + " → " + sev + " (" + Z_BANDS + ").";
+}
+
+// Each entry is { text, why }: the report sentence and the reasoning behind it.
 function build() {
   const lines = [];
+  const add = (text, why) => lines.push({ text: text, why: why });
 
   /* ---- shared spirometry facts ---- */
   const fev1 = num("fev1_act"), fev1Lln = num("fev1_lln"), fev1Z = num("fev1_z");
@@ -473,14 +510,20 @@ function build() {
       // FEV1/FVC < LLN → obstruction. Severity by FEV1 z; FEV1 >= LLN treated as mild.
       let sev = fev1Low ? grade(fev1Z) : "mild";
       if (!sev) sev = "mild";
-      lines.push("Spirometry shows " + sev + " airflow obstruction.");
+      const sevWhy = fev1Low
+        ? zWhy(fev1Z, sev, "FEV1")
+        : "FEV1 " + v(fev1) + " L is at or above its LLN of " + v(fev1Lln) + " L, so severity is taken as mild.";
+      add("Spirometry shows " + sev + " airflow obstruction.",
+          "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% — the defining criterion for airflow obstruction. " + sevWhy);
     } else if (fev1Low || fvcLow) {
       // Ratio normal but FEV1/FVC reduced.
       if (!haveLV) {
         if (fvcLow) {
-          lines.push("Spirometry suggests a possible underlying restrictive ventilatory impairment. Please evaluate further with DLCO and lung volumes.");
+          add("Spirometry suggests a possible underlying restrictive ventilatory impairment. Please evaluate further with DLCO and lung volumes.",
+              "FEV1/FVC " + v(ratio) + "% is at or above its LLN of " + v(ratioLln) + "% so there is no obstruction, but FVC " + v(fvc) + " L is below its LLN of " + v(fvcLln) + " L. A low FVC with a preserved ratio raises restriction, but spirometry cannot confirm it — no TLC was entered.");
         } else {
-          lines.push("Preserved ratio impaired spirometry (PRISm). Please evaluate further with DLCO and lung volumes.");
+          add("Preserved ratio impaired spirometry (PRISm). Please evaluate further with DLCO and lung volumes.",
+              "FEV1 " + v(fev1) + " L is below its LLN of " + v(fev1Lln) + " L while FVC " + v(fvc) + " L and the FEV1/FVC ratio " + v(ratio) + "% are both normal — that combination is PRISm by definition. No TLC was entered, so early restriction and a non-specific pattern cannot yet be separated.");
         }
       }
       // If lung volumes ARE provided, the pattern is resolved in the Lung volumes section below.
@@ -488,7 +531,8 @@ function build() {
       // Spirometry WNL. When lung volumes reveal restriction, the finding is
       // reported as one combined sentence in the Lung volumes section below.
       if (!(haveLV && tlcLow)) {
-        lines.push("Spirometry is within normal limits.");
+        add("Spirometry is within normal limits.",
+            "All three indices are at or above their LLNs: FEV1 " + v(fev1) + " vs " + v(fev1Lln) + " L, FVC " + v(fvc) + " vs " + v(fvcLln) + " L, FEV1/FVC " + v(ratio) + " vs " + v(ratioLln) + "%.");
       }
     }
   }
@@ -497,25 +541,37 @@ function build() {
   const fvcSit = num("fvc_sit"), fvcSup = num("fvc_sup");
   if (fvcSit != null && fvcSup != null && fvcSit > 0) {
     const drop = (fvcSit - fvcSup) / fvcSit * 100;
+    const dropWhy = "Sitting FVC " + v(fvcSit) + " L → supine FVC " + v(fvcSup) + " L is a fall of " + drop.toFixed(1) + "%. ";
     if (drop >= 15) {
-      lines.push("FVC showed a significant drop of ≥15% from the sitting to supine position which is suggestive of diaphragmatic weakness. Please correlate clinically.");
+      add("FVC showed a significant drop of ≥15% from the sitting to supine position which is suggestive of diaphragmatic weakness. Please correlate clinically.",
+          dropWhy + "That meets the ≥15% threshold: lying flat loads the diaphragm with abdominal contents, so a weak diaphragm loses vital capacity supine.");
     } else {
-      lines.push("There was no significant drop in the FVC from the sitting to supine position.");
+      add("There was no significant drop in the FVC from the sitting to supine position.",
+          dropWhy + "That is below the 15% threshold for significant diaphragmatic weakness.");
     }
   }
 
   /* ---- 2 · BRONCHODILATOR ---- */
   const bf1p = num("bdr_fev1_pre"), bf1o = num("bdr_fev1_post"), bf1pr = num("bdr_fev1_pred");
   const bfcp = num("bdr_fvc_pre"), bfco = num("bdr_fvc_post"), bfcpr = num("bdr_fvc_pred");
-  let bdrChanges = [];
-  if (bf1p != null && bf1o != null && bf1pr != null && bf1pr > 0) bdrChanges.push(Math.abs(bf1o - bf1p) / bf1pr * 100);
-  if (bfcp != null && bfco != null && bfcpr != null && bfcpr > 0) bdrChanges.push(Math.abs(bfco - bfcp) / bfcpr * 100);
+  let bdrChanges = [], bdrDetail = [];
+  if (bf1p != null && bf1o != null && bf1pr != null && bf1pr > 0) {
+    const pct = Math.abs(bf1o - bf1p) / bf1pr * 100;
+    bdrChanges.push(pct);
+    bdrDetail.push("FEV1 " + v(bf1p) + " → " + v(bf1o) + " L, a change of " + v(Math.round((bf1o - bf1p) * 1000) / 1000) + " L = " + pct.toFixed(1) + "% of the predicted " + v(bf1pr) + " L");
+  }
+  if (bfcp != null && bfco != null && bfcpr != null && bfcpr > 0) {
+    const pct = Math.abs(bfco - bfcp) / bfcpr * 100;
+    bdrChanges.push(pct);
+    bdrDetail.push("FVC " + v(bfcp) + " → " + v(bfco) + " L, a change of " + v(Math.round((bfco - bfcp) * 1000) / 1000) + " L = " + pct.toFixed(1) + "% of the predicted " + v(bfcpr) + " L");
+  }
   if (bdrChanges.length) {
     const maxChange = Math.max.apply(null, bdrChanges);
+    const bdrWhy = bdrDetail.join("; ") + ". ERS/ATS 2022 expresses the response as a percentage of predicted and calls it significant when FEV1 or FVC changes by more than 10%; the larger change here is " + maxChange.toFixed(1) + "%";
     if (maxChange > 10) {
-      lines.push("There is significant bronchodilator response to 400mcg of inhaled salbutamol.");
+      add("There is significant bronchodilator response to 400mcg of inhaled salbutamol.", bdrWhy + " → significant.");
     } else {
-      lines.push("There is no significant bronchodilator response to 400mcg of inhaled salbutamol.");
+      add("There is no significant bronchodilator response to 400mcg of inhaled salbutamol.", bdrWhy + " → not significant.");
     }
   }
 
@@ -523,12 +579,16 @@ function build() {
   const dlco = num("dlco_act"), dlcoLln = num("dlco_lln"), dlcoZ = num("dlco_z");
   if (dlco != null && dlcoLln != null) {
     const corr = $("dlco_corr").checked ? "corrected" : "uncorrected";
+    const corrWhy = " The Hb checkbox is " + ($("dlco_corr").checked ? "ticked, so the value is reported as corrected for Hb." : "unticked, so the value is reported as uncorrected for Hb — the uncorrected DLCO is what grades severity.");
     if (dlco >= dlcoLln) {
-      lines.push("Normal DLCO " + corr + " for Hb.");
+      add("Normal DLCO " + corr + " for Hb.",
+          "DLCO " + v(dlco) + " is at or above its LLN of " + v(dlcoLln) + "." + corrWhy);
     } else {
       const adverb = { mild: "mildly", moderate: "moderately", severe: "severely" };
-      const sev = adverb[grade(dlcoZ)] || "mildly";
-      lines.push("DLCO " + corr + " for Hb is " + sev + " reduced.");
+      const band = grade(dlcoZ);
+      const sev = adverb[band] || "mildly";
+      add("DLCO " + corr + " for Hb is " + sev + " reduced.",
+          "DLCO " + v(dlco) + " is below its LLN of " + v(dlcoLln) + ". " + zWhy(dlcoZ, band || "mild", "DLCO") + corrWhy);
     }
   }
 
@@ -540,35 +600,58 @@ function build() {
     exp:  "There appears to be truncation of the expiratory limb of the flow-volume loop which may suggest a possible underlying variable intrathoracic obstruction. Please correlate clinically.",
     biphasic: "There appears to be a biphasic pattern in both limbs of the flow-volume loop which may suggest a possible unilateral mainstem bronchus obstruction. Please correlate clinically."
   };
-  if (fvl && fvlText[fvl]) lines.push(fvlText[fvl]);
+  const fvlWhy = {
+    insp: "You selected a flattened inspiratory limb with a preserved expiratory limb. Extrathoracic airways are pulled shut by the negative pressure of inspiration and held open on expiration, so a variable extrathoracic lesion (e.g. vocal cord dysfunction, extrathoracic tracheal lesion) limits inspiratory flow only.",
+    both: "You selected truncation of both limbs. A plateau in both phases means airway calibre does not change with the pressure swings of the respiratory cycle — the hallmark of a fixed lesion (e.g. tracheal stenosis, large goitre).",
+    exp:  "You selected a flattened expiratory limb with a preserved inspiratory limb. Intrathoracic airways are compressed when pleural pressure exceeds airway pressure during expiration, so a variable intrathoracic (central) lesion limits expiratory flow only.",
+    biphasic: "You selected biphasic/notched contours on both limbs. Two lungs emptying and filling at different rates give the double-humped loop that suggests unilateral mainstem bronchus obstruction."
+  };
+  if (fvl && fvlText[fvl]) add(fvlText[fvl], fvlWhy[fvl] + " This is a shape-based read of the loop rather than a numeric threshold, which is why the sentence asks for clinical correlation.");
 
   /* ---- 5 · LUNG VOLUMES ---- */
   if (haveLV) {
+    // Which measurement raised the trapping flag, for the explanation text.
+    const trapWhy = rvtlcHigh
+      ? "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%"
+      : (rvHigh ? "RV " + v(rv) + " is above its ULN of " + v(rvUln) : "");
+
     if (tlcHigh && rvtlcHigh) {
+      const hyperWhy = "TLC " + v(tlc) + " is above its ULN of " + v(tlcUln) + " → hyperinflation, and RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%. ";
       if (ratioLow && trappingSignal) {
-        lines.push("Lung volumes show air-trapping and hyperinflation.");
+        add("Lung volumes show air-trapping and hyperinflation.",
+            hyperWhy + "With obstruction on spirometry (FEV1/FVC " + v(ratio) + "% below its LLN of " + v(ratioLln) + "%), that raised residual volume is reported as air-trapping alongside the hyperinflation.");
       } else {
-        lines.push("Lung volumes show hyperinflation.");
+        add("Lung volumes show hyperinflation.",
+            hyperWhy + "The FEV1/FVC ratio " + v(ratio) + "% is not below its LLN of " + v(ratioLln) + "%, so without obstruction the raised RV/TLC is not called air-trapping.");
       }
     } else if (ratioLow && tlcLow) {
       const sev = grade(fev1Z) || "mild";
-      lines.push("There is " + sev + " mixed obstructive and restrictive ventilatory impairment.");
+      add("There is " + sev + " mixed obstructive and restrictive ventilatory impairment.",
+          "Both criteria are met: FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% (obstruction) and TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + " (restriction). " + zWhy(fev1Z, sev, "FEV1") + " Mixed patterns are graded on FEV1.");
     } else if (tlcLow) {
       const sev = grade(tlcZ) || "mild";
       const type = rvtlcHigh ? "complex" : "simple";
+      const typeWhy = rvtlcHigh
+        ? "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%, so the restriction is complex — volume is lost but residual volume is disproportionately preserved."
+        : "RV/TLC is not above its ULN, so the restriction is simple — all compartments shrink together.";
+      const base = "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", which is what defines restriction. " + zWhy(tlcZ, sev, "TLC") + " " + typeWhy;
       if (spiroNormal) {
-        lines.push("Normal spirometry but lung volumes show " + sev + " " + type + " restriction.");
+        add("Normal spirometry but lung volumes show " + sev + " " + type + " restriction.",
+            base + " Spirometry alone was normal (FEV1, FVC and the ratio all at or above their LLNs), so the two findings are reported as one sentence.");
       } else {
-        lines.push("There is " + sev + " " + type + " restriction.");
+        add("There is " + sev + " " + type + " restriction.", base);
       }
     } else if (!ratioLow && (fev1Low || fvcLow)) {
       // ratio normal, TLC normal/high, reduced FEV1/FVC → non-specific
       const sev = grade(fev1Z) || "mild";
-      lines.push("There is " + sev + " non-specific ventilatory impairment.");
+      add("There is " + sev + " non-specific ventilatory impairment.",
+          "FEV1/FVC " + v(ratio) + "% is at or above its LLN of " + v(ratioLln) + "% (no obstruction) and TLC " + v(tlc) + " is not below its LLN of " + v(tlcLln) + " (no restriction), yet " + (fev1Low ? "FEV1 " + v(fev1) + " L is below its LLN of " + v(fev1Lln) + " L" : "FVC " + v(fvc) + " L is below its LLN of " + v(fvcLln) + " L") + ". Reduced volumes that fit neither pattern are labelled non-specific. " + zWhy(fev1Z, sev, "FEV1"));
     } else if (ratioLow && trappingSignal) {
-      lines.push("There is air-trapping.");
+      add("There is air-trapping.",
+          "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% (obstruction) and " + trapWhy + ", while TLC " + v(tlc) + " is not raised — gas is trapped behind narrowed airways without frank hyperinflation.");
     } else {
-      lines.push("Lung volumes are within normal limits.");
+      add("Lung volumes are within normal limits.",
+          "TLC " + v(tlc) + " sits between its LLN of " + v(tlcLln) + (tlcUln != null ? " and its ULN of " + v(tlcUln) : "") + ", with no raised RV or RV/TLC to suggest trapping.");
     }
   }
 
@@ -577,82 +660,137 @@ function build() {
   if (bp === "mch") {
     const drop = num("mch_drop"), pd20 = num("mch_pd20"), diluent = $("mch_diluent").checked;
     if (diluent) {
-      lines.push("There was a significant decrease in lung function following inhalation of the diluent and methacholine was not given.");
+      add("There was a significant decrease in lung function following inhalation of the diluent and methacholine was not given.",
+          "You flagged a >20% FEV1 fall after the diluent alone. The challenge was stopped before any methacholine was administered, so there is no dose to grade — the fall cannot be attributed to methacholine.");
     } else if (drop != null && drop < 20 && pd20 == null) {
-      lines.push("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.");
+      add("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.",
+          "The maximum FEV1 fall was " + v(drop) + "%, short of the 20% required to define a PD20, and no PD20 was reached.");
     } else if (pd20 != null) {
       let sev;
       if (pd20 <= 6) sev = "marked";
       else if (pd20 <= 25) sev = "moderate";
       else if (pd20 <= 100) sev = "mild";
       else if (pd20 <= 400) sev = "borderline";
-      if (sev) lines.push("Methacholine Challenge Test shows " + sev + " airway hyperresponsiveness.");
-      else lines.push("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.");
+      const bands = "PD20 bands: ≤6 marked, ≤25 moderate, ≤100 mild, ≤400 borderline, >400 negative.";
+      if (sev) {
+        add("Methacholine Challenge Test shows " + sev + " airway hyperresponsiveness.",
+            "FEV1 fell 20% at a PD20 of " + v(pd20) + " — the smaller the provoking dose, the more reactive the airway. " + bands);
+      } else {
+        add("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.",
+            "The PD20 of " + v(pd20) + " is above 400, i.e. the 20% fall needed a dose beyond the hyperresponsive range. " + bands);
+      }
     }
   } else if (bp === "sal") {
     const drop = num("sal_drop"), vol = num("sal_vol");
     if (drop != null) {
       if (drop < 15) {
-        lines.push("Hypertonic saline challenge shows no evidence of airway hyperresponsiveness.");
+        add("Hypertonic saline challenge shows no evidence of airway hyperresponsiveness.",
+            "The maximum FEV1 fall was " + v(drop) + "%, below the 15% threshold that defines a positive hypertonic saline challenge.");
       } else if (vol != null) {
         let sev;
         if (vol <= 2) sev = "severe";
         else if (vol <= 6) sev = "moderate";
         else sev = "mild";
-        lines.push("Hypertonic saline challenge shows " + sev + " airway hyperresponsiveness.");
+        add("Hypertonic saline challenge shows " + sev + " airway hyperresponsiveness.",
+            "FEV1 fell " + v(drop) + "%, at or above the 15% threshold, after " + v(vol) + " mL of hypertonic saline. Severity comes from how little saline was needed: ≤2 mL severe, ≤6 mL moderate, >6 mL mild.");
       }
     }
   }
 
   /* ---- 7 · EXERCISE ---- */
   if ($("ex_terminated").checked) {
-    lines.push("Exercise challenge test was terminated early as the patient was unable to continue with the test.");
+    add("Exercise challenge test was terminated early as the patient was unable to continue with the test.",
+        "You ticked the early-termination box. The target workload was never sustained, so any FEV1 fall cannot be graded and the result is reported as incomplete rather than negative.");
   } else {
     const exDrop = num("ex_drop");
     if (exDrop != null) {
-      if (exDrop < 10) lines.push("There is no evidence to suggest exercise-induced bronchoconstriction.");
-      else if (exDrop < 25) lines.push("There is evidence to suggest mild exercise-induced bronchoconstriction.");
-      else if (exDrop < 50) lines.push("There is evidence to suggest moderate exercise-induced bronchoconstriction.");
-      else lines.push("There is evidence to suggest severe exercise-induced bronchoconstriction.");
+      const exBands = "Bands for the post-exercise FEV1 fall: <10% negative, 10–24% mild, 25–49% moderate, ≥50% severe.";
+      if (exDrop < 10) add("There is no evidence to suggest exercise-induced bronchoconstriction.", "The maximum post-exercise FEV1 fall was " + v(exDrop) + "%, below the 10% diagnostic threshold. " + exBands);
+      else if (exDrop < 25) add("There is evidence to suggest mild exercise-induced bronchoconstriction.", "The maximum post-exercise FEV1 fall was " + v(exDrop) + "%. " + exBands);
+      else if (exDrop < 50) add("There is evidence to suggest moderate exercise-induced bronchoconstriction.", "The maximum post-exercise FEV1 fall was " + v(exDrop) + "%. " + exBands);
+      else add("There is evidence to suggest severe exercise-induced bronchoconstriction.", "The maximum post-exercise FEV1 fall was " + v(exDrop) + "%. " + exBands);
     }
   }
 
   /* ---- 8 · RESPIRATORY MUSCLE STRENGTH ---- */
   const mip = num("mip_act"), mipLln = num("mip_lln"), mep = num("mep_act"), mepLln = num("mep_lln");
   if (mip != null && mipLln != null && mep != null && mepLln != null) {
+    const pressures = "MIP " + v(mip) + " vs its lower limit of " + v(mipLln) + ", MEP " + v(mep) + " vs its lower limit of " + v(mepLln) + ".";
     if (mip >= mipLln && mep >= mepLln) {
-      lines.push("Measured maximal respiratory pressures are within normal limits.");
+      add("Measured maximal respiratory pressures are within normal limits.",
+          pressures + " Both are at or above their lower limits.");
     } else {
-      lines.push("Measured maximal respiratory pressures are lower than expected in this patient. Please correlate clinically for the possibility of respiratory muscle weakness.");
+      const which = (mip < mipLln && mep < mepLln) ? "Both are below their lower limits" : (mip < mipLln ? "MIP is below its lower limit (inspiratory muscles)" : "MEP is below its lower limit (expiratory muscles)");
+      add("Measured maximal respiratory pressures are lower than expected in this patient. Please correlate clinically for the possibility of respiratory muscle weakness.",
+          pressures + " " + which + ". These are effort-dependent manoeuvres, so submaximal effort or a poor mouth seal mimics weakness — hence the request for clinical correlation.");
     }
   }
   const mvv = num("mvv_act"), mvvLln = num("mvv_lln");
   if (mvv != null && mvvLln != null) {
-    lines.push(mvv >= mvvLln ? "Normal MVV." : "Reduced MVV.");
+    if (mvv >= mvvLln) {
+      add("Normal MVV.", "MVV " + v(mvv) + " is at or above its LLN of " + v(mvvLln) + ".");
+    } else {
+      add("Reduced MVV.", "MVV " + v(mvv) + " is below its LLN of " + v(mvvLln) + ". MVV is also effort-dependent and falls with obstruction, muscle weakness or poor cooperation.");
+    }
   }
 
   /* ---- 9 · FeNO ---- */
   const feno = num("feno");
   if (feno != null) {
-    if (feno < 25) lines.push("Low FeNO.");
-    else if (feno <= 50) lines.push("Intermediate FeNO.");
-    else lines.push("High FeNO.");
+    const fenoBands = "Adult cut-offs: <25 ppb low, 25–50 ppb intermediate, >50 ppb high.";
+    if (feno < 25) add("Low FeNO.", "FeNO " + v(feno) + " ppb. " + fenoBands + " A low value argues against eosinophilic airway inflammation and against steroid responsiveness.");
+    else if (feno <= 50) add("Intermediate FeNO.", "FeNO " + v(feno) + " ppb. " + fenoBands + " An intermediate value is interpreted against the clinical context rather than in isolation.");
+    else add("High FeNO.", "FeNO " + v(feno) + " ppb. " + fenoBands + " A high value supports eosinophilic airway inflammation and predicts steroid responsiveness.");
   }
 
   return lines;
 }
 
+// Build the Explanation card: one row per interpretation line, with its reasoning.
+function renderWhy(items) {
+  const card = $("why_card"), list = $("why_list");
+  list.textContent = "";
+  if (!items.length) { card.style.display = "none"; return; }
+  card.style.display = "";
+  items.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "why-item";
+
+    const n = document.createElement("span");
+    n.className = "why-n";
+    n.textContent = String(i + 1);
+
+    const body = document.createElement("div");
+    const line = document.createElement("p");
+    line.className = "why-line";
+    line.textContent = it.text;
+    const why = document.createElement("p");
+    why.className = "why-because";
+    why.textContent = it.why || "Reported directly from the value entered.";
+    body.appendChild(line);
+    body.appendChild(why);
+
+    row.appendChild(n);
+    row.appendChild(body);
+    list.appendChild(row);
+  });
+}
+
+let lastItems = [];
+
 function render() {
-  const lines = build();
+  const items = build();
+  lastItems = items;
   const out = $("out");
-  if (!lines.length) {
+  if (!items.length) {
     out.value = "";
     out.classList.add("placeholder");
     out.setAttribute("placeholder", "Fill in the values above — the interpretation appears here.");
   } else {
     out.classList.remove("placeholder");
-    out.value = lines.join("\n");
+    out.value = items.map(it => it.text).join("\n");
   }
+  renderWhy(items);
 }
 
 // Toggle bronchoprovocation sub-fields
@@ -677,6 +815,20 @@ $("copyBtn").addEventListener("click", async () => {
   catch (e) { $("out").select(); document.execCommand("copy"); }
   const b = $("copyBtn"); b.textContent = "Copied ✓"; b.classList.add("copied");
   setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1400);
+});
+
+// Copy the explanation as numbered line + reasoning pairs
+$("copyWhyBtn").addEventListener("click", async () => {
+  if (!lastItems.length) return;
+  const t = lastItems.map((it, i) => (i + 1) + ". " + it.text + "\n   Why: " + (it.why || "—")).join("\n\n");
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }
+  const b = $("copyWhyBtn"); b.textContent = "Copied ✓"; b.classList.add("copied");
+  setTimeout(() => { b.textContent = "Copy explanation"; b.classList.remove("copied"); }, 1400);
 });
 
 // Clear
