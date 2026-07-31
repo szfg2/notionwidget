@@ -84,7 +84,30 @@
 
   /* Results */
   .results { position: sticky; bottom: 14px; margin-top: 20px; }
-  .results .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.35); }
+  .results .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.35); margin-bottom: 0; }
+  .results-grid { display: grid; gap: 14px; align-items: start; }
+
+  /* With an explanation to show, sit the two cards side by side and widen the
+     block past the 820px column so both stay readable. */
+  @media (min-width: 900px) {
+    .results.split {
+      width: min(1180px, calc(100vw - 40px));
+      margin-left: calc(50% - min(1180px, 100vw - 40px) / 2);
+    }
+    .results.split .results-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      align-items: stretch;
+    }
+    /* Let the interpretation box grow to the height the explanation sets. */
+    .results.split .results-grid > .card { display: flex; flex-direction: column; }
+    .results.split textarea#out { flex: 1 1 auto; }
+    .results.split #why_list { max-height: 42vh; overflow-y: auto; padding-right: 6px; }
+  }
+  /* Too narrow to split: the stacked pair is too tall to pin to the viewport. */
+  @media (max-width: 899px) {
+    .results.split { position: static; }
+  }
+
   textarea#out {
     width: 100%; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--border-strong); border-radius: 8px; padding: 11px;
@@ -315,26 +338,27 @@
     </div>
   </div>
 
-  <!-- RESULTS -->
-  <div class="results">
-    <div class="card">
-      <span class="eyebrow">Interpretation</span>
-      <textarea id="out" readonly></textarea>
-      <div class="btnrow">
-        <button id="copyBtn" class="primary">Copy</button>
-        <button id="clearBtn">Clear all</button>
-        <span class="pill" id="msg"></span>
+  <!-- RESULTS · interpretation left, explanation right -->
+  <div class="results" id="results_block">
+    <div class="results-grid">
+      <div class="card">
+        <span class="eyebrow">Interpretation</span>
+        <textarea id="out" readonly></textarea>
+        <div class="btnrow">
+          <button id="copyBtn" class="primary">Copy</button>
+          <button id="clearBtn">Clear all</button>
+          <span class="pill" id="msg"></span>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- EXPLANATION -->
-  <div class="card" id="why_card" style="display:none">
-    <span class="eyebrow">Explanation · why each line was generated</span>
-    <p class="hint" style="margin-top:0">Each interpretation sentence with the values and thresholds that produced it. Working only — not part of the report text.</p>
-    <div id="why_list" style="margin-top:6px"></div>
-    <div class="btnrow">
-      <button id="copyWhyBtn">Copy explanation</button>
+      <div class="card" id="why_card" style="display:none">
+        <span class="eyebrow">Explanation · why each line was generated</span>
+        <p class="hint" style="margin-top:0">Each interpretation sentence with the values and thresholds that produced it. Working only — not part of the report text.</p>
+        <div id="why_list" style="margin-top:6px"></div>
+        <div class="btnrow">
+          <button id="copyWhyBtn">Copy explanation</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -748,10 +772,15 @@ function build() {
 
 // Build the Explanation card: one row per interpretation line, with its reasoning.
 function renderWhy(items) {
-  const card = $("why_card"), list = $("why_list");
+  const card = $("why_card"), list = $("why_list"), block = $("results_block");
   list.textContent = "";
-  if (!items.length) { card.style.display = "none"; return; }
+  if (!items.length) {
+    card.style.display = "none";
+    block.classList.remove("split");   // back to the single centred column
+    return;
+  }
   card.style.display = "";
+  block.classList.add("split");
   items.forEach((it, i) => {
     const row = document.createElement("div");
     row.className = "why-item";
