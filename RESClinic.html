@@ -100,6 +100,40 @@
   .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
+  /* Floating "hide open notes" — pinned to the viewport so it stays reachable
+     however far down the list you have scrolled. Only shown while a note is open. */
+  #hideFab {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 60;
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;   /* never swallow a click while fading out */
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    color: var(--accent-strong);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 8px 26px rgba(0,0,0,.5);
+    transition: opacity .16s ease, transform .16s ease, background .12s, visibility 0s linear .16s;
+  }
+  #hideFab.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+    transition-delay: 0s;
+  }
+  #hideFab:hover { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); }
+  @media (prefers-reduced-motion: reduce) { #hideFab { transition: none; } }
+
   /* settings */
   details.settings summary { cursor: pointer; font-size: 13px; color: var(--accent-strong); list-style: none; user-select: none; }
   details.settings summary::-webkit-details-marker { display: none; }
@@ -535,6 +569,9 @@
 
 </div>
 
+<!-- Floating collapse-all, shown only while notes are open -->
+<button id="hideFab" type="button" title="Collapse every clinic note that is currently open">Hide open notes</button>
+
 <script>
 /* ============================================================== *
  *  CONFIG                                                        *
@@ -669,6 +706,7 @@ function setTab(t) {
   $("tabCreate").classList.toggle("active", !prev);
   $("prevTab").style.display = prev ? "" : "none";
   $("createTab").style.display = prev ? "none" : "";
+  updateHideFab();     // the floating button belongs to the list tab only
   if (prev && get(K.ghToken)) loadPatients(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
@@ -1643,6 +1681,7 @@ function renderTable() {
         if (memoOutWrap.style.display !== "none") autoGrow(memoOut);
         watchNote(p.id, { box: noteBox, sync, say: sayNote });
       }
+      updateHideFab();
     });
 
     delBtn.addEventListener("click", async () => {
@@ -1661,6 +1700,7 @@ function renderTable() {
       }
     });
   }
+  updateHideFab();     // rows were just rebuilt collapsed
 }
 
 /* ============================================================== *
@@ -1868,10 +1908,40 @@ function autoGrow(el) {
 /* ============================================================== *
  *  Hide all notes / Delete all patients                          *
  * ============================================================== */
-$("hideAllBtn").addEventListener("click", () => {
+// Note rows currently expanded.
+function openNoteCount() {
+  if ($("prevTab").style.display === "none") return 0;   // list tab isn't showing
+  let n = 0;
+  document.querySelectorAll("#ptBody tr.letter-row").forEach(tr => { if (tr.style.display !== "none") n++; });
+  return n;
+}
+
+// The floating button earns its place on screen only while something is open.
+function updateHideFab() {
+  const n = openNoteCount();
+  const fab = $("hideFab");
+  fab.textContent = n === 1 ? "Hide open note" : "Hide " + n + " open notes";
+  fab.classList.toggle("show", n > 0);
+}
+
+function hideAllNotes() {
   document.querySelectorAll("#ptBody tr.letter-row").forEach(tr => { tr.style.display = "none"; });
   document.querySelectorAll("#ptBody button.note-toggle").forEach(b => { b.textContent = "Note"; });
   unwatchAll();
+  updateHideFab();
+}
+
+$("hideAllBtn").addEventListener("click", hideAllNotes);
+$("hideFab").addEventListener("click", () => {
+  // Keep the row you were reading in view rather than jumping the page.
+  const first = Array.prototype.find.call(
+    document.querySelectorAll("#ptBody tr.letter-row"),
+    tr => tr.style.display !== "none" && tr.getBoundingClientRect().bottom > 0
+  );
+  const anchor = first ? first.previousElementSibling : null;
+  const before = anchor ? anchor.getBoundingClientRect().top : null;
+  hideAllNotes();
+  if (anchor && before != null) window.scrollBy(0, anchor.getBoundingClientRect().top - before);
 });
 
 $("deleteAllBtn").addEventListener("click", async () => {
@@ -1898,6 +1968,7 @@ $("deleteAllBtn").addEventListener("click", async () => {
  * ============================================================== */
 loadSettings();
 if (get(K.ghToken)) loadPatients(true);
+updateHideFab();
 </script>
 </body>
 </html>
