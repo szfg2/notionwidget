@@ -339,18 +339,22 @@
 
   const SOURCES = [
     {
+      key: "fleischner",
       label: "Fleischner Society 2017 - incidental pulmonary nodules",
       url: "https://pubs.rsna.org/doi/10.1148/radiol.2017161659"
     },
     {
+      key: "bts",
       label: "British Thoracic Society 2015 - pulmonary nodule guideline",
       url: "https://thorax.bmj.com/content/70/Suppl_2/ii1"
     },
     {
+      key: "bts_calculator",
       label: "BTS pulmonary nodule risk calculators",
       url: "https://www.brit-thoracic.org.uk/clinical-resources/guidelines/pulmonary-nodules/pn-risk-calculator/"
     },
     {
+      key: "brock",
       label: "McWilliams et al. 2013 - Brock/PanCan model",
       url: "https://www.nejm.org/doi/full/10.1056/NEJMoa1214726"
     }
@@ -924,7 +928,14 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
     if (data.fleischnerRisk === "uncertain") limitations.push("Fleischner clinical risk remains uncertain; select the interval within the recommended range after clinician review.");
     limitations.push("This output does not replace review of the CT images, radiologist report, patient fitness, preferences or local policy.");
 
-    return { appText, recommendation, rationale, brockText, brockInputs, growthText, limitations, brock, vdt };
+    const relevantSourceKeys = new Set(["fleischner"]);
+    if (brock) ["bts", "bts_calculator", "brock"].forEach(key => relevantSourceKeys.add(key));
+    if (vdt) ["bts", "bts_calculator"].forEach(key => relevantSourceKeys.add(key));
+    if (data.applicability.underSurveillance === true || data.nodule.count > 1) relevantSourceKeys.add("bts");
+    const relevantSources = SOURCES.filter(source => relevantSourceKeys.has(source.key));
+    const hasGrowthAssessment = !!vdt;
+
+    return { appText, recommendation, rationale, brockText, brockInputs, growthText, limitations, brock, vdt, hasGrowthAssessment, relevantSources };
   }
 
   function val(value, suffix) { return value == null || value === "" ? "Not stated" : esc(value + (suffix || "")); }
@@ -957,14 +968,16 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
   function renderResult(data) {
     const r = buildResult(data);
     state.result = r;
+    const brockSection = r.brock
+      ? section("Brock model", r.brockText) + (r.brockInputs ? `<div class="calc-box"><strong>Inputs used:</strong> ${esc(r.brockInputs)}</div>` : "")
+      : "";
+    const growthSection = r.hasGrowthAssessment ? section("Growth assessment", r.growthText) : "";
     let html = section("Guideline applicability", r.appText, applicability(data).length ? "alert" : "") +
       section("Recommendation", r.recommendation, "recommendation") +
       section("Rationale", r.rationale) +
-      section("Brock model", r.brockText) +
-      (r.brockInputs ? `<div class="calc-box"><strong>Inputs used:</strong> ${esc(r.brockInputs)}</div>` : "") +
-      section("Growth assessment", r.growthText) +
+      brockSection + growthSection +
       section("Safety flags / limitations", r.limitations.join(" ")) +
-      `<section class="result-section"><h3>Sources</h3><ul class="source-list">${SOURCES.map(s => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a></li>`).join("")}</ul></section>`;
+      `<section class="result-section"><h3>Sources</h3><ul class="source-list">${r.relevantSources.map(s => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a></li>`).join("")}</ul></section>`;
     $("resultContent").innerHTML = html;
     $("resultStamp").textContent = "Generated " + new Date().toLocaleString() + ". Review extracted facts before use.";
     $("resultCard").hidden = false;
@@ -976,22 +989,23 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
   function recommendationText() {
     if (!state.result) return "";
     const r = state.result;
-    return [
+    const parts = [
       "Guideline applicability: " + r.appText,
       "",
       "Recommendation: " + r.recommendation,
       "",
       "Rationale: " + r.rationale,
-      "",
-      "Brock model: " + r.brockText + (r.brockInputs ? "\nInputs used: " + r.brockInputs : ""),
-      "",
-      "Growth assessment: " + r.growthText,
-      "",
+      ""
+    ];
+    if (r.brock) parts.push("Brock model: " + r.brockText + (r.brockInputs ? "\nInputs used: " + r.brockInputs : ""), "");
+    if (r.hasGrowthAssessment) parts.push("Growth assessment: " + r.growthText, "");
+    parts.push(
       "Safety flags / limitations: " + r.limitations.join(" "),
       "",
       "Sources:",
-      ...SOURCES.map(s => "- " + s.label + ": " + s.url)
-    ].join("\n");
+      ...r.relevantSources.map(s => "- " + s.label + ": " + s.url)
+    );
+    return parts.join("\n");
   }
 
   const EDIT_FIELDS = [
