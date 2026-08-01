@@ -251,6 +251,47 @@
       </div>
     </div>
 
+    <div style="margin-top:18px">
+      <span class="eyebrow">Guideline applicability</span>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="lbl required" for="ctContext">How was the nodule detected?</label>
+          <select id="ctContext" aria-required="true">
+            <option value="">Select CT context</option>
+            <option value="incidental_baseline">Incidental finding - initial/baseline CT</option>
+            <option value="surveillance">Existing incidental nodule under surveillance</option>
+            <option value="screening">Formal lung-cancer screening CT</option>
+            <option value="other">Other / symptomatic pathway</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl required" for="knownCancer">Known current or relevant previous primary cancer?</label>
+          <select id="knownCancer" aria-required="true">
+            <option value="">Select</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl required" for="immunosuppressed">Is the patient immunosuppressed?</label>
+          <select id="immunosuppressed" aria-required="true">
+            <option value="">Select</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl required" for="suspectedInfection">Is acute infection or inflammation suspected?</label>
+          <select id="suspectedInfection" aria-required="true">
+            <option value="">Select</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">These questions are required because they determine whether the Fleischner incidental-nodule pathway applies.</div>
+    </div>
+
     <div class="field" style="margin-top:14px">
       <label class="lbl required" for="caseText">Latest CT report or complete case paste</label>
       <textarea id="caseText" placeholder="Paste the de-identified CT report. You may also include age, sex, smoking history, relevant clinical context and prior imaging here.\n\nDo not include a patient name, NRIC, date of birth, MRN or contact details."></textarea>
@@ -579,7 +620,11 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
       explicitFields: {
         age: $("age").value ? Number($("age").value) : null,
         sex: $("sex").value || null,
-        smoking: $("smoking").value.trim() || null
+        smoking: $("smoking").value.trim() || null,
+        ctContext: $("ctContext").value,
+        knownPrimaryCancer: $("knownCancer").value,
+        immunosuppressed: $("immunosuppressed").value,
+        suspectedInfection: $("suspectedInfection").value
       },
       reportOrCaseText: $("caseText").value.trim(),
       followUpAnswers: state.answers,
@@ -592,14 +637,17 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
     if ($("sex").value) data.sex = $("sex").value;
     if ($("smoking").value.trim()) data.smokingSummary = $("smoking").value.trim();
 
-    const a = state.answers;
     const yn = (v) => v === "yes" ? true : v === "no" ? false : null;
-    if (a.context === "incidental") { data.applicability.incidental = true; data.applicability.screening = false; }
-    if (a.context === "screening") { data.applicability.incidental = false; data.applicability.screening = true; }
-    if (a.context === "other") data.applicability.incidental = false;
-    if (a.knownCancer && a.knownCancer !== "unavailable") data.applicability.knownPrimaryCancer = yn(a.knownCancer);
-    if (a.immunosuppressed && a.immunosuppressed !== "unavailable") data.applicability.immunosuppressed = yn(a.immunosuppressed);
-    if (a.infection && a.infection !== "unavailable") data.applicability.suspectedInfection = yn(a.infection);
+    const context = $("ctContext").value;
+    if (context === "incidental_baseline") { data.applicability.incidental = true; data.applicability.screening = false; data.applicability.underSurveillance = false; }
+    if (context === "surveillance") { data.applicability.incidental = true; data.applicability.screening = false; data.applicability.underSurveillance = true; }
+    if (context === "screening") { data.applicability.incidental = false; data.applicability.screening = true; data.applicability.underSurveillance = false; }
+    if (context === "other") { data.applicability.incidental = false; data.applicability.screening = false; data.applicability.underSurveillance = false; }
+    data.applicability.knownPrimaryCancer = yn($("knownCancer").value);
+    data.applicability.immunosuppressed = yn($("immunosuppressed").value);
+    data.applicability.suspectedInfection = yn($("suspectedInfection").value);
+
+    const a = state.answers;
     if (a.age && a.age !== "unavailable") data.age = finiteNumber(a.age);
     if (a.sex && a.sex !== "unavailable") data.sex = a.sex;
     if (a.smokingCategory && a.smokingCategory !== "unavailable") data.smokingCategory = a.smokingCategory;
@@ -617,6 +665,9 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
 
   async function extractCase(where) {
     if (!$("privacyAck").checked) throw new Error("Confirm that the case is de-identified before continuing.");
+    const requiredInitial = [["ctContext", "CT context"], ["knownCancer", "known-cancer status"], ["immunosuppressed", "immunosuppression status"], ["suspectedInfection", "infection/inflammation status"]];
+    const missingInitial = requiredInitial.find(([id]) => !$(id).value);
+    if (missingInitial) { $(missingInitial[0]).focus(); throw new Error("Complete all guideline applicability questions before continuing (missing " + missingInitial[1] + ")."); }
     if (!$("caseText").value.trim()) throw new Error("Paste the latest CT report or complete case information.");
     const findings = identifierFindings(allCaseText());
     if (findings.length) { showPrivacy(findings); return null; }
@@ -660,12 +711,6 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
     const q = [];
     const unavailable = state.unavailable;
     if (data.age == null && !unavailable.has("age")) q.push({ key: "age", label: "Age", question: "Patient age in years", type: "number", min: 18, max: 110 });
-    if (data.applicability.incidental == null && data.applicability.screening == null && !unavailable.has("context")) {
-      q.push(optionQuestion("context", "CT context", "How was the nodule detected?", [["", "Select&hellip;"], ["incidental", "Incidental CT"], ["screening", "Lung-cancer screening CT"], ["other", "Other / symptomatic pathway"], ["unavailable", "Not available"]]));
-    }
-    if (data.applicability.knownPrimaryCancer == null && !unavailable.has("knownCancer")) q.push(optionQuestion("knownCancer", "Known cancer", "Is there a known current or relevant previous primary cancer?", YES_NO_UNKNOWN));
-    if (data.applicability.immunosuppressed == null && !unavailable.has("immunosuppressed")) q.push(optionQuestion("immunosuppressed", "Immunosuppression", "Is the patient immunosuppressed?", YES_NO_UNKNOWN));
-    if (data.applicability.suspectedInfection == null && !unavailable.has("infection")) q.push(optionQuestion("infection", "Infection", "Is an acute infective/inflammatory cause suspected?", YES_NO_UNKNOWN));
 
     if (data.nodule.diameterMm == null && !unavailable.has("diameterMm")) q.push({ key: "diameterMm", label: "Dominant nodule size", question: "Maximum or mean diameter in mm (do not derive from volume)", type: "number", min: .1, max: 60, step: .1 });
     if (data.nodule.type === "unknown" && !unavailable.has("noduleType")) q.push(optionQuestion("noduleType", "Nodule type", "Attenuation of the dominant nodule", [["", "Select&hellip;"], ["solid", "Solid"], ["ground_glass", "Pure ground-glass"], ["part_solid", "Part-solid"], ["unavailable", "Not available"]]));
@@ -946,7 +991,7 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
     const facts = [
       ["Age / sex", `${data.age != null ? data.age : "Not stated"} / ${data.sex || "not stated"}`],
       ["Smoking", data.smokingSummary || data.smokingCategory || "Not stated"],
-      ["CT context", data.applicability.screening === true ? "Screening" : data.applicability.incidental === true ? "Incidental" : "Not confirmed"],
+      ["CT context", data.applicability.screening === true ? "Screening" : data.applicability.underSurveillance === true ? "Incidental - under surveillance" : data.applicability.incidental === true ? "Incidental - baseline" : "Other / symptomatic"],
       ["Dominant nodule", noduleLabel(data)],
       ["Nodule count", n.count != null ? n.count : "Not stated"],
       ["Location", n.location || (n.upperLobe === true ? "Upper lobe" : "Not stated")],
@@ -1073,7 +1118,7 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
   function resetAll() {
     if (state.controller) state.controller.abort();
     ["age", "smoking", "caseText"].forEach(id => $(id).value = "");
-    $("sex").value = "";
+    ["sex", "ctContext", "knownCancer", "immunosuppressed", "suspectedInfection"].forEach(id => $(id).value = "");
     $("privacyAck").checked = false;
     state.extracted = null; state.answers = {}; state.unavailable.clear(); state.result = null;
     ["privacyCard", "followCard", "factsCard", "editPanel", "resultCard"].forEach(id => $(id).hidden = true);
