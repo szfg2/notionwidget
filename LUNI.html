@@ -626,7 +626,6 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
         messages: [{ role: "user", content: buildUserMessage() }],
         maxTokens: 3200,
-        temperature: 0,
         signal: state.controller.signal
       });
       let data = applyExplicitValues(normalize(parseJSON(text)));
