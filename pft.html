@@ -184,7 +184,14 @@
       <span class="eyebrow">Paste report (auto-fill with Claude)</span>
       <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to Anthropic's API — the fields and interpretation stay in your browser.</p>
       <div class="field" style="margin:10px 0 10px">
-        <label class="lbl">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
+        <label class="lbl" for="provider">Model provider</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </div>
+      <div class="field" style="margin:10px 0 10px">
+        <label class="lbl" id="api_key_label">Anthropic API key <span style="color:var(--faint)">(stored locally in this browser only)</span></label>
         <input type="password" id="api_key" placeholder="sk-ant-..." autocomplete="off">
       </div>
       <div class="lblrow">
@@ -489,6 +496,7 @@
   </div>
 </div>
 
+<script src="provider.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -919,13 +927,23 @@ $("paste_clear").addEventListener("change", () => {
 });
 $("paste_in").addEventListener("input", syncPasteClear);
 
-// Persist the API key locally so it isn't re-entered each time.
-const savedKey = localStorage.getItem("anthropic_api_key");
-if (savedKey) $("api_key").value = savedKey;
+// Persist the API key locally so it isn't re-entered each time. One box,
+// showing whichever provider is selected (see provider.js).
+function syncProviderUI() {
+  const p = AI.current();
+  $("api_key_label").innerHTML = p.keyHint +
+    ' <span style="color:var(--faint)">(stored locally in this browser only)</span>';
+  $("api_key").placeholder = p.keyPlaceholder;
+  $("api_key").value = AI.storedKey() || "";
+}
+$("provider").value = AI.id();
+syncProviderUI();
+$("provider").addEventListener("change", () => {
+  AI.setProvider($("provider").value);
+  syncProviderUI();
+});
 $("api_key").addEventListener("change", () => {
-  const v = $("api_key").value.trim();
-  if (v) localStorage.setItem("anthropic_api_key", v);
-  else localStorage.removeItem("anthropic_api_key");
+  AI.saveKey(AI.id(), $("api_key").value.trim());
 });
 
 // The set of fillable field IDs, grouped so the extraction prompt is explicit.
@@ -1011,41 +1029,27 @@ function setFillMsg(text, isError) {
 $("fillBtn").addEventListener("click", async () => {
   const key = $("api_key").value.trim();
   const report = $("paste_in").value.trim();
-  if (!key) { setFillMsg("Enter your Anthropic API key first.", true); return; }
+  if (!key) { setFillMsg(AI.missingKeyMsg(), true); return; }
   if (!report) { setFillMsg("Paste a report to extract.", true); return; }
-  localStorage.setItem("anthropic_api_key", key);
+  AI.saveKey(AI.id(), key);
 
   const btn = $("fillBtn");
   btn.disabled = true;
   setFillMsg("Extracting…", false);
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        system: EXTRACT_SYSTEM,
-        messages: [{ role: "user", content: report }]
-      })
-    });
-
-    if (!res.ok) {
-      let detail = res.status + " " + res.statusText;
-      try { const e = await res.json(); if (e.error && e.error.message) detail = e.error.message; } catch (_) {}
-      setFillMsg("API error: " + detail, true);
+    let raw;
+    try {
+      raw = await AI.call({
+        key,
+        systems: [{ text: EXTRACT_SYSTEM, cache: true }],
+        messages: [{ role: "user", content: report }],
+        maxTokens: 2000
+      });
+    } catch (apiErr) {
+      setFillMsg("API error: " + (apiErr.message || apiErr), true);
       return;
     }
-
-    const data = await res.json();
-    const textBlock = (data.content || []).find(b => b.type === "text");
-    let raw = textBlock ? textBlock.text.trim() : "";
     // Strip any accidental code fences, then isolate the JSON object.
     raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
     const start = raw.indexOf("{"), end = raw.lastIndexOf("}");

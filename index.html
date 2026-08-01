@@ -6,6 +6,7 @@
 <title>Clinical Document Generator</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <script src="marked.min.js"></script>
+<script src="provider.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -390,8 +391,15 @@
   <div class="card">
     <span class="eyebrow">Connection</span>
     <div class="keyrow">
+      <div class="field" style="flex:0 0 190px">
+        <label class="lbl" for="provider">Model provider</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </div>
       <div class="field">
-        <label class="lbl" for="apiKey">Anthropic API key</label>
+        <label class="lbl" for="apiKey" id="apiKeyLabel">Anthropic API key</label>
         <!-- ====================================================== -->
         <!--  PASTE YOUR API KEY HERE  (option A — recommended)     -->
         <!--  Type it into this field once the page is open.        -->
@@ -562,6 +570,7 @@ const STORE_KEY = "cdg_api_key";
 const els = {
   apiKey: $("apiKey"), remember: $("remember"), toggleKey: $("toggleKey"),
   clearKey: $("clearKey"), modelTag: $("modelTag"), patient: $("patient"),
+  provider: $("provider"), apiKeyLabel: $("apiKeyLabel"),
   clinical: $("clinical"), docType: $("docType"), generate: $("generateBtn"),
   error: $("error"), output: $("output"), outputRich: $("outputRich"),
   copy: $("copyBtn"), count: $("count"),
@@ -797,16 +806,29 @@ function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function safeDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 
-// Init
-els.modelTag.textContent = CONFIG.DEFAULT_MODEL;
-els.apiKey.value = HARDCODED_API_KEY || safeGet(STORE_KEY) || "";
+// Init. One key box, showing whichever provider is selected — switching the
+// dropdown swaps the stored key in and out (see provider.js for the adapter).
+function syncProviderUI() {
+  const p = AI.current();
+  els.apiKeyLabel.textContent = p.keyHint;
+  els.apiKey.placeholder = p.keyPlaceholder;
+  els.modelTag.textContent = AI.model();
+  els.apiKey.value = AI.storedKey() || "";
+}
+els.provider.value = AI.id();
+syncProviderUI();
+if (HARDCODED_API_KEY) els.apiKey.value = HARDCODED_API_KEY;
 
+els.provider.addEventListener("change", () => {
+  AI.setProvider(els.provider.value);
+  syncProviderUI();
+});
 els.apiKey.addEventListener("input", () => {
-  if (els.remember.checked) safeSet(STORE_KEY, els.apiKey.value.trim());
+  if (els.remember.checked) AI.saveKey(AI.id(), els.apiKey.value.trim());
 });
 els.remember.addEventListener("change", () => {
-  if (els.remember.checked) safeSet(STORE_KEY, els.apiKey.value.trim());
-  else safeDel(STORE_KEY);
+  if (els.remember.checked) AI.saveKey(AI.id(), els.apiKey.value.trim());
+  else safeDel(AI.id() === "deepseek" ? AI.LS.deepseek : AI.LS.anthropic);
 });
 els.toggleKey.addEventListener("click", () => {
   const showing = els.apiKey.type === "text";
@@ -814,7 +836,7 @@ els.toggleKey.addEventListener("click", () => {
   els.toggleKey.textContent = showing ? "Show" : "Hide";
 });
 els.clearKey.addEventListener("click", () => {
-  els.apiKey.value = ""; safeDel(STORE_KEY); els.apiKey.focus();
+  els.apiKey.value = ""; safeDel(AI.id() === "deepseek" ? AI.LS.deepseek : AI.LS.anthropic); els.apiKey.focus();
 });
 
 // Clear the active mode's input boxes when the checkbox is ticked, then reset it
@@ -994,7 +1016,7 @@ els.generate.addEventListener("click", async () => {
 
   clearError();
   const key = els.apiKey.value.trim();
-  if (!key) return showError("Enter your Anthropic API key first.");
+  if (!key) return showError(AI.missingKeyMsg());
 
   const isUpdate = mode === "update";
 
@@ -1049,31 +1071,15 @@ els.generate.addEventListener("click", async () => {
       systemPrompt = await sysRes.text();
     }
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: genController.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: CONFIG.DEFAULT_MODEL,
-        max_tokens: maxTokens,
-        // The template is the large, reusable prefix — cache it so repeat
-        // generations of the same document type are cheaper and faster.
-        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: userMessage }]
-      })
+    const text = await AI.call({
+      key,
+      // The template is the large, reusable prefix - cache it so repeat
+      // generations of the same document type are cheaper and faster.
+      systems: [{ text: systemPrompt, cache: true }],
+      messages: [{ role: "user", content: userMessage }],
+      maxTokens: maxTokens,
+      signal: genController.signal
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error((data.error && data.error.message) || ("API error " + res.status));
-    }
-    const text = (data.content || [])
-      .filter(b => b.type === "text").map(b => b.text).join("\n");
     renderOutput(text || "(No text returned.)", renderRich);
     updateCount();
   } catch (e) {
@@ -1209,7 +1215,7 @@ els.askBtn.addEventListener("click", async () => {
   clearAskError();
   const key = els.apiKey.value.trim();
   const q = els.askInput.value.trim();
-  if (!key) return showAskError("Enter your Anthropic API key first.");
+  if (!key) return showAskError(AI.missingKeyMsg());
   if (!q) return showAskError("Type a question first.");
 
   askMessages.push({ role: "user", content: q });
@@ -1224,30 +1230,19 @@ els.askBtn.addEventListener("click", async () => {
     "\n\nLATEST CLINICAL DATA:\n" + (els.clinical.value.trim() || "(none provided)");
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: askController.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: CONFIG.ASK_MODEL,
-        max_tokens: CONFIG.ASK_MAX_TOKENS,
-        // Static instructions are the reusable prefix → cache them. The per-patient
-        // case context changes, so it goes in a separate, uncached block.
-        system: [
-          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
-          { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
-        ],
-        messages: askMessages.map(m => ({ role: m.role, content: m.content }))
-      })
+    const text = await AI.call({
+      key,
+      kind: "ask",
+      // Static instructions are the reusable prefix -> cache them. The per-patient
+      // case context changes, so it goes in a separate, uncached block.
+      systems: [
+        { text: ASK_SYSTEM, cache: true },
+        { text: "--- CASE INFORMATION ---\n" + caseContext }
+      ],
+      messages: askMessages.map(m => ({ role: m.role, content: m.content })),
+      maxTokens: CONFIG.ASK_MAX_TOKENS,
+      signal: askController.signal
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
     askMessages.push({ role: "assistant", content: text || "(No response.)" });
     renderThread();
   } catch (e) {

@@ -80,9 +80,20 @@
     <details class="settings" id="settingsBox">
       <summary id="settingsSummary">⚙ Settings &amp; keys (set once per device)</summary>
       <div style="margin-top:12px">
+        <label>Model provider — for formatting</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+        <div class="hint">Shared across every page (stored as <code>cdg_provider</code>). Whisper transcription always uses OpenAI regardless.</div>
+
         <label>Anthropic (Claude) API key — for formatting</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off">
         <div class="hint">Shared with your index.html (stored as <code>cdg_api_key</code>). If you've used that page, it may already be filled.</div>
+
+        <label>DeepSeek API key — for formatting</label>
+        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off">
+        <div class="hint">Only used when the provider above is set to DeepSeek.</div>
 
         <label>OpenAI API key — for Whisper transcription</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
@@ -156,6 +167,7 @@
   </div>
 </div>
 
+<script src="provider.js"></script>
 <script>
 /* ============================================================ *
  *  CONFIG                                                       *
@@ -170,6 +182,9 @@ const CONFIG = {
 };
 
 /* localStorage keys */
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
+AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+
 const K = {
   claude: "cdg_api_key",        // shared with index.html
   openai: "dictation_openai_key",
@@ -189,7 +204,7 @@ function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
  *  Settings load / save                                        *
  * ============================================================ */
 function loadSettings() {
-  $("claudeKey").value = get(K.claude);
+  AI.fillSettings(SETTINGS_IDS);
   $("openaiKey").value = get(K.openai);
   $("ghToken").value   = get(K.ghToken);
   $("ghOwner").value   = get(K.ghOwner) || "szfg2";
@@ -206,7 +221,7 @@ $("autosaveToggle").addEventListener("change", () => {
   set(K.autosave, $("autosaveToggle").checked ? "1" : "0");
 });
 $("saveSettings").addEventListener("click", () => {
-  set(K.claude, $("claudeKey").value.trim());
+  AI.saveSettings(SETTINGS_IDS);
   set(K.openai, $("openaiKey").value.trim());
   set(K.ghToken, $("ghToken").value.trim());
   set(K.ghOwner, $("ghOwner").value.trim());
@@ -351,8 +366,8 @@ async function getBasePrompt() {
 
 $("genBtn").addEventListener("click", async () => {
   clearErr();
-  const key = get(K.claude);
-  if (!key) { showErr("Add your Claude (Anthropic) API key in Settings."); $("settingsBox").open = true; return; }
+  const key = AI.key();
+  if (!key) { showErr(AI.missingKeyMsg()); $("settingsBox").open = true; return; }
   const transcript = $("transcript").value.trim();
   if (!transcript) { showErr("Nothing to format — record or type a transcript first."); return; }
   const id = $("docType").value;
@@ -370,25 +385,13 @@ $("genBtn").addEventListener("click", async () => {
     const system = base + "\n\n" + template;
     const userMsg = "Template: " + entry.label + "\n\nTranscript:\n" + transcript;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: CONFIG.CLAUDE_MODEL,
-        max_tokens: CONFIG.CLAUDE_MAX_TOKENS,
-        temperature: 0,
-        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: userMsg }]
-      })
+    const text = await AI.call({
+      key,
+      systems: [{ text: system, cache: true }],
+      messages: [{ role: "user", content: userMsg }],
+      maxTokens: CONFIG.CLAUDE_MAX_TOKENS,
+      temperature: 0
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
     const generated = text.trim() || "(No text returned.)";
     $("output").value = generated;
     if ($("autosaveToggle").checked) {

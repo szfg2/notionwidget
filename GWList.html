@@ -6,6 +6,7 @@
 <title>General Ward Round List</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <script src="marked.min.js"></script>
+<script src="provider.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -63,7 +64,7 @@
 
   label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 
-  input[type="password"], input[type="text"], input[type="search"], textarea {
+  input[type="password"], input[type="text"], input[type="search"], textarea, select {
     width: 100%;
     background: var(--surface-2);
     color: var(--text);
@@ -75,7 +76,8 @@
     outline: none;
     transition: border-color .12s ease, box-shadow .12s ease;
   }
-  input:focus, textarea:focus {
+  select { cursor: pointer; }
+  input:focus, textarea:focus, select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
@@ -373,9 +375,20 @@
       <details class="settings" id="settingsBox">
       <summary>⚙ Settings &amp; keys</summary>
       <div class="settings-grid">
+        <label class="lbl">Model provider</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+        <div class="hint">Applies to every page (index, ICU, Blue Letters, Clinic, dictation, PFT). ⚠ DeepSeek is a separate company: the de-identified medical text is processed on their servers under their retention terms, not Anthropic's.</div>
+
         <label class="lbl">Anthropic (Claude) API key</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
         <div class="hint">Shared with index.html, RESblue.html, RESClinic.html and ICUList.html (stored as <code>cdg_api_key</code>) — if you've used those pages, it's already filled.</div>
+
+        <label class="lbl">DeepSeek API key</label>
+        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Only used when the provider above is set to DeepSeek. Both keys can be stored at once, so you can switch back and forth.</div>
 
         <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
         <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
@@ -419,7 +432,7 @@
           <input type="text" id="ptName" placeholder="e.g. TSH or 12A-34" autocomplete="off">
         </div>
       </div>
-      <div class="hint">Location and name are only stored in your GitHub patient list — they are never sent to Claude.</div>
+      <div class="hint">Location and name are only stored in your GitHub patient list — they are never sent to the model provider.</div>
     </div>
 
     <div class="card">
@@ -488,16 +501,19 @@
  *  CONFIG                                                        *
  * ============================================================== */
 const CONFIG = {
-  MODEL: "claude-sonnet-4-6",
   SUMMARY_MAX_TOKENS: 2048,
-  // Ask uses the stronger model, same as the "Ask about this case" box in
-  // index.html, because clinical reasoning benefits from it.
-  ASK_MODEL: "claude-opus-5",
-  // Opus 5 thinks by default and thinking shares this budget with the answer,
-  // so leave headroom — you are only billed for tokens actually generated.
+  // Ask uses the stronger/reasoning model of whichever provider is selected,
+  // same as the "Ask about this case" box in index.html, because clinical
+  // reasoning benefits from it. Reasoning tokens share this budget with the
+  // answer, so leave headroom — you are only billed for tokens generated.
   ASK_MAX_TOKENS: 8192,
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
 };
+
+/* The provider adapter lives in provider.js and is shared with every other
+ * page — the dropdown in Settings switches all of them at once. */
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
+AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
 
 /* Blank objective template for new patients — filled in by hand on rounds. */
 const OBJECTIVE_TEMPLATE = "BP: \nTemp: \nSats: ";
@@ -523,9 +539,9 @@ const SUMMARY_UPDATE_SUFFIX =
   "Course with the new events, dates and day counts, and remove items only when the updates clearly supersede them. " +
   "Output the FULL updated summary in exactly the format above — never output only the changes.";
 
-/* localStorage keys — Claude + GitHub settings shared with the other pages */
+/* localStorage keys — GitHub settings shared with the other pages.
+ * Provider choice and the API keys live in provider.js (AI.LS). */
 const K = {
-  claude: "cdg_api_key",              // shared with index.html + dictation.html + RESblue/RESClinic/ICUList
   ghToken: "dictation_gh_token",      // shared with dictation.html + RESblue/RESClinic/ICUList
   ghOwner: "dictation_gh_owner",
   ghRepo: "dictation_gh_repo",
@@ -554,17 +570,17 @@ const searchTerms = { inpatients: "" };
  *  Settings                                                      *
  * ============================================================== */
 function loadSettings() {
-  $("claudeKey").value = get(K.claude);
+  AI.fillSettings(SETTINGS_IDS);
   $("ghToken").value = get(K.ghToken);
   $("ghOwner").value = get(K.ghOwner) || "szfg2";
   if (get(K.ghRepo) === "notionwidget") set(K.ghRepo, "patient-data");   // data moved to private repo
   $("ghRepo").value = get(K.ghRepo) || "patient-data";
   $("ghBranch").value = get(K.ghBranch) || "main";
   $("ghPath").value = get(K.path) || "gwlist-patients.json";
-  if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
+  if (!AI.hasKey() || !get(K.ghToken)) $("settingsBox").open = true;
 }
 $("saveSettings").addEventListener("click", () => {
-  set(K.claude, $("claudeKey").value.trim());
+  AI.saveSettings(SETTINGS_IDS);
   set(K.ghToken, $("ghToken").value.trim());
   set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
   set(K.ghRepo, $("ghRepo").value.trim() || "patient-data");
@@ -629,28 +645,16 @@ function objectiveHtml(s) {
 }
 
 /* ============================================================== *
- *  Claude API                                                    *
+ *  Model calls — see provider.js for the Anthropic/DeepSeek split *
  * ============================================================== */
-async function callClaude(key, model, system, userMessage, maxTokens, signal) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userMessage }]
-    })
+// Single-turn summary call, used when saving a patient and when updating one.
+function callSummary(system, userMessage, signal) {
+  return AI.call({
+    systems: [{ text: system, cache: true }],
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: CONFIG.SUMMARY_MAX_TOKENS,
+    signal
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 }
 
 /* ============================================================== *
@@ -735,8 +739,7 @@ $("saveBtn").addEventListener("click", async () => {
   if (genController) { genController.abort(); return; }
 
   clearError();
-  const key = get(K.claude) || $("claudeKey").value.trim();
-  if (!key) { $("settingsBox").open = true; return showError("Add your Claude (Anthropic) API key in Settings first."); }
+  if (!AI.hasKey()) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
   const location = $("ptLocation").value.trim();
   const name = $("ptName").value.trim();
@@ -755,7 +758,7 @@ $("saveBtn").addEventListener("click", async () => {
     const sysRes = await fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal });
     if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
     const summarySys = await sysRes.text();
-    const summary = await callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal);
+    const summary = await callSummary(summarySys, userMessage, genController.signal);
 
     const record = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -1187,7 +1190,8 @@ function buildRow(p, listKey, body) {
   lbl.textContent = "Update summarised history";
   const hint = document.createElement("p");
   hint.className = "ask-note";
-  hint.textContent = "Paste today's reviews, results and events — Claude folds them into the summarised history. Nothing identifying is sent.";
+  hint.textContent = "Paste today's reviews, results and events — " + AI.label() +
+    " folds them into the summarised history. Nothing identifying is sent.";
   const box = document.createElement("textarea");
   box.className = "update-box";
   box.placeholder = "e.g. Weaned to RA, CRP 80 > 60, Augmentin D5, family updated… (de-identified)";
@@ -1224,8 +1228,7 @@ function buildRow(p, listKey, body) {
   runBtn.addEventListener("click", async () => {
     if (updController) { updController.abort(); return; }
     err.style.display = "none"; err.textContent = "";
-    const key = get(K.claude) || $("claudeKey").value.trim();
-    if (!key) { $("settingsBox").open = true; return showUpdErr("Add your Claude (Anthropic) API key in Settings first."); }
+    if (!AI.hasKey()) { $("settingsBox").open = true; return showUpdErr(AI.missingKeyMsg()); }
     const updates = box.value.trim();
     if (!updates) return showUpdErr("Paste the new reviews, results or events first.");
 
@@ -1238,9 +1241,9 @@ function buildRow(p, listKey, body) {
       if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
       const summarySys = await sysRes.text();
       // De-identified stored content only — name/location are never sent.
-      const newSummary = await callClaude(key, CONFIG.MODEL, summarySys + SUMMARY_UPDATE_SUFFIX,
+      const newSummary = await callSummary(summarySys + SUMMARY_UPDATE_SUFFIX,
         "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
-        CONFIG.SUMMARY_MAX_TOKENS, updController.signal);
+        updController.signal);
       if (!newSummary) throw new Error("No text returned.");
 
       // Append the pasted updates to the stored clinical data so the
@@ -1350,7 +1353,7 @@ function buildRow(p, listKey, body) {
       div.className = "msg " + m.role;
       const who = document.createElement("span");
       who.className = "who";
-      who.textContent = m.role === "user" ? "You" : "Claude";
+      who.textContent = m.role === "user" ? "You" : AI.label();
       div.appendChild(who);
       if (m.role === "assistant" && window.marked) {
         const bodyDiv = document.createElement("div");
@@ -1382,9 +1385,8 @@ function buildRow(p, listKey, body) {
     if (askController) { askController.abort(); return; }
 
     clearAskErr();
-    const key = get(K.claude) || $("claudeKey").value.trim();
     const q = askInput.value.trim();
-    if (!key) { $("settingsBox").open = true; return showAskErr("Add your Claude (Anthropic) API key in Settings first."); }
+    if (!AI.hasKey()) { $("settingsBox").open = true; return showAskErr(AI.missingKeyMsg()); }
     if (!q) return showAskErr("Type a question first.");
 
     askMessages.push({ role: "user", content: q });
@@ -1402,30 +1404,18 @@ function buildRow(p, listKey, body) {
       ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        signal: askController.signal,
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: CONFIG.ASK_MODEL,
-          max_tokens: CONFIG.ASK_MAX_TOKENS,
-          // Static instructions are the reusable prefix → cache them. The per-patient
-          // case context changes, so it goes in a separate, uncached block.
-          system: [
-            { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
-            { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
-          ],
-          messages: askMessages.map(m => ({ role: m.role, content: m.content }))
-        })
+      const text = await AI.call({
+        // Static instructions are the reusable prefix → cache them. The per-patient
+        // case context changes, so it goes in a separate, uncached block.
+        systems: [
+          { text: ASK_SYSTEM, cache: true },
+          { text: "--- CASE INFORMATION ---\n" + caseContext }
+        ],
+        messages: askMessages.map(m => ({ role: m.role, content: m.content })),
+        kind: "ask",
+        maxTokens: CONFIG.ASK_MAX_TOKENS,
+        signal: askController.signal
       });
-      const resBody = await res.json();
-      if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
-      const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
       askMessages.push({ role: "assistant", content: text || "(No response.)" });
       renderThread();
     } catch (e) {

@@ -6,6 +6,7 @@
 <title>Respiratory Clinic Notes</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <script src="marked.min.js"></script>
+<script src="provider.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -63,7 +64,7 @@
 
   label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 
-  input[type="password"], input[type="text"], textarea {
+  input[type="password"], input[type="text"], textarea, select {
     width: 100%;
     background: var(--surface-2);
     color: var(--text);
@@ -75,7 +76,8 @@
     outline: none;
     transition: border-color .12s ease, box-shadow .12s ease;
   }
-  input:focus, textarea:focus {
+  select { cursor: pointer; }
+  input:focus, textarea:focus, select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
@@ -428,9 +430,20 @@
     <details class="settings" id="settingsBox">
       <summary>⚙ Settings &amp; keys (set once per device — shared with your other pages)</summary>
       <div class="settings-grid">
+        <label class="lbl">Model provider</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+        <div class="hint">Shared across every page (stored as <code>cdg_provider</code>). ⚠ DeepSeek is a separate company: the de-identified medical text is processed on their servers under their retention terms, not Anthropic's.</div>
+
         <label class="lbl">Anthropic (Claude) API key</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
         <div class="hint">Shared with index.html, dictation.html and RESblue.html (stored as <code>cdg_api_key</code>) — if you've used those pages, it's already filled.</div>
+
+        <label class="lbl">DeepSeek API key</label>
+        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Only used when the provider above is set to DeepSeek. Both keys can be stored at once, so you can switch back and forth.</div>
 
         <label class="lbl">OpenAI API key — for Whisper transcription of the consult</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
@@ -659,6 +672,9 @@ const MEMO_SYSTEM =
   "No patient identifiers. Output ONLY the memo text, with no preamble or explanation.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
+AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+
 const K = {
   claude: "cdg_api_key",              // shared with index.html + dictation.html + RESblue.html
   openai: "dictation_openai_key",     // shared with dictation.html + RESblue.html (Whisper)
@@ -687,7 +703,7 @@ let micBusy = false;        // true from the first press until the merge finishe
  *  Settings                                                      *
  * ============================================================== */
 function loadSettings() {
-  $("claudeKey").value = get(K.claude);
+  AI.fillSettings(SETTINGS_IDS);
   $("openaiKey").value = get(K.openai);
   $("ghToken").value = get(K.ghToken);
   $("ghOwner").value = get(K.ghOwner) || "szfg2";
@@ -698,7 +714,7 @@ function loadSettings() {
   if (!get(K.claude) || !get(K.ghToken)) $("settingsBox").open = true;
 }
 $("saveSettings").addEventListener("click", () => {
-  set(K.claude, $("claudeKey").value.trim());
+  AI.saveSettings(SETTINGS_IDS);
   set(K.openai, $("openaiKey").value.trim());
   set(K.ghToken, $("ghToken").value.trim());
   set(K.ghOwner, $("ghOwner").value.trim() || "szfg2");
@@ -787,28 +803,20 @@ $("output").addEventListener("input", () => {
 });
 
 /* ============================================================== *
- *  Claude API                                                    *
+ *  Model API - see provider.js                                   *
  * ============================================================== */
+/* The provider adapter lives in provider.js. The `model` argument is kept as a
+ * tier hint: pages pass Opus for the reasoning-heavy calls and Sonnet for the
+ * rest, which maps onto whichever pair the selected provider uses. */
 async function callClaude(key, model, system, userMessage, maxTokens, signal) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: userMessage }]
-    })
+  return AI.call({
+    key,
+    kind: /opus|reasoner/.test(model) ? "ask" : "default",
+    systems: [{ text: system, cache: true }],
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens,
+    signal
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-  return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 }
 
 /* ============================================================== *
@@ -887,8 +895,8 @@ $("generateBtn").addEventListener("click", async () => {
   if (genController) { genController.abort(); return; }
 
   clearError();
-  const key = get(K.claude) || $("claudeKey").value.trim();
-  if (!key) { $("settingsBox").open = true; return showError("Add your Claude (Anthropic) API key in Settings first."); }
+  const key = AI.key();
+  if (!key) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
   const name = $("ptName").value.trim();
   const past = $("pastMedical").value.trim();
@@ -1029,9 +1037,9 @@ $("askBtn").addEventListener("click", async () => {
   if (askController) { askController.abort(); return; }
 
   clearAskError();
-  const key = get(K.claude) || $("claudeKey").value.trim();
+  const key = AI.key();
   const q = $("askInput").value.trim();
-  if (!key) { $("settingsBox").open = true; return showAskError("Add your Claude (Anthropic) API key in Settings first."); }
+  if (!key) { $("settingsBox").open = true; return showAskError(AI.missingKeyMsg()); }
   if (!q) return showAskError("Type a question first.");
 
   askMessages.push({ role: "user", content: q });
@@ -1049,30 +1057,19 @@ $("askBtn").addEventListener("click", async () => {
     (note ? "\n\nCLINIC NOTE (assessment & plan):\n" + note : "");
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: askController.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: CONFIG.ASK_MODEL,
-        max_tokens: CONFIG.ASK_MAX_TOKENS,
-        // Static instructions are the reusable prefix → cache them. The per-patient
-        // case context changes, so it goes in a separate, uncached block.
-        system: [
-          { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
-          { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
-        ],
-        messages: askMessages.map(m => ({ role: m.role, content: m.content }))
-      })
+    const text = await AI.call({
+      key,
+      kind: /opus|reasoner/.test(CONFIG.ASK_MODEL) ? "ask" : "default",
+      // Static instructions are the reusable prefix -> cache them.
+      // The per-case context changes, so it stays uncached.
+      systems: [
+        { text: ASK_SYSTEM, cache: true },
+        { text: "--- CASE INFORMATION ---\n" + caseContext }
+      ],
+      messages: askMessages.map(m => ({ role: m.role, content: m.content })),
+      maxTokens: CONFIG.ASK_MAX_TOKENS,
+      signal: askController.signal
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error((data.error && data.error.message) || ("API error " + res.status));
-    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
     askMessages.push({ role: "assistant", content: text || "(No response.)" });
     renderThread();
   } catch (e) {
@@ -1103,10 +1100,10 @@ $("topicsBtn").addEventListener("click", async () => {
 
   const errEl = $("topicsError");
   errEl.style.display = "none"; errEl.textContent = "";
-  const key = get(K.claude) || $("claudeKey").value.trim();
+  const key = AI.key();
   if (!key) {
     $("settingsBox").open = true;
-    errEl.textContent = "Add your Claude (Anthropic) API key in Settings first.";
+    errEl.textContent = AI.missingKeyMsg();
     errEl.style.display = "block";
     return;
   }
@@ -1419,8 +1416,8 @@ function renderTable() {
     upBtn.addEventListener("click", async () => {
       if (upController) { upController.abort(); return; }
       upErr.style.display = "none"; upErr.textContent = "";
-      const key = get(K.claude) || $("claudeKey").value.trim();
-      if (!key) { $("settingsBox").open = true; return showUpErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const key = AI.key();
+      if (!key) { $("settingsBox").open = true; return showUpErr(AI.missingKeyMsg()); }
       const updates = upBox.value.trim();
       if (!updates) return showUpErr("Type the new reviews, results or scans first.");
       if (!noteBox.value.trim()) return showUpErr("This patient has no stored note to update.");
@@ -1526,8 +1523,8 @@ function renderTable() {
     memoBtn.addEventListener("click", async () => {
       if (memoController) { memoController.abort(); return; }
       memoErr.style.display = "none"; memoErr.textContent = "";
-      const key = get(K.claude) || $("claudeKey").value.trim();
-      if (!key) { $("settingsBox").open = true; return showMemoErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const key = AI.key();
+      if (!key) { $("settingsBox").open = true; return showMemoErr(AI.missingKeyMsg()); }
       const request = memoBox.value.trim();
       if (!request) return showMemoErr("Type who the memo is to, the reason for referral, and any instructions first.");
 
@@ -1614,8 +1611,8 @@ function renderTable() {
       if (recCtl) { recCtl.stop(); return; }          // stop → transcribe + merge
       if (dictCtl) { dictCtl.abort(); return; }       // cancel an in-flight transcribe/merge
       dictErr.style.display = "none"; dictErr.textContent = "";
-      const key = get(K.claude) || $("claudeKey").value.trim();
-      if (!key) { $("settingsBox").open = true; return showDictErr("Add your Claude (Anthropic) API key in Settings first."); }
+      const key = AI.key();
+      if (!key) { $("settingsBox").open = true; return showDictErr(AI.missingKeyMsg()); }
       if (!(get(K.openai) || $("openaiKey").value.trim())) {
         $("settingsBox").open = true;
         return showDictErr("Add your OpenAI API key in Settings — Whisper does the transcription.");
@@ -1812,9 +1809,9 @@ function renderTable() {
       if (rowAskController) { rowAskController.abort(); return; }
 
       clearRowAskErr();
-      const key = get(K.claude) || $("claudeKey").value.trim();
+      const key = AI.key();
       const q = askInput.value.trim();
-      if (!key) { $("settingsBox").open = true; return showRowAskErr("Add your Claude (Anthropic) API key in Settings first."); }
+      if (!key) { $("settingsBox").open = true; return showRowAskErr(AI.missingKeyMsg()); }
       if (!q) return showRowAskErr("Type a question first.");
 
       rowAskMessages.push({ role: "user", content: q });
@@ -1833,28 +1830,19 @@ function renderTable() {
         (box.value.trim() ? "\n\nCURRENT TO-DOS:\n" + box.value.trim() : "");
 
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          signal: rowAskController.signal,
-          headers: {
-            "content-type": "application/json",
-            "x-api-key": key,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true"
-          },
-          body: JSON.stringify({
-            model: CONFIG.ASK_MODEL,
-            max_tokens: CONFIG.ASK_MAX_TOKENS,
-            system: [
-              { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
-              { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
-            ],
-            messages: rowAskMessages.map(m => ({ role: m.role, content: m.content }))
-          })
+        const text = await AI.call({
+          key,
+          kind: /opus|reasoner/.test(CONFIG.ASK_MODEL) ? "ask" : "default",
+          // Static instructions are the reusable prefix -> cache them.
+          // The per-case context changes, so it stays uncached.
+          systems: [
+            { text: ASK_SYSTEM, cache: true },
+            { text: "--- CASE INFORMATION ---\n" + caseContext }
+          ],
+          messages: rowAskMessages.map(m => ({ role: m.role, content: m.content })),
+          maxTokens: CONFIG.ASK_MAX_TOKENS,
+          signal: rowAskController.signal
         });
-        const resBody = await res.json();
-        if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
-        const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
         rowAskMessages.push({ role: "assistant", content: text || "(No response.)" });
         renderRowThread();
       } catch (e) {
@@ -2110,8 +2098,8 @@ async function latestNote(id, fallback) {
 // Rewrites the note's "Currently" section from the consult transcript, leaving
 // every other section byte for byte as drafted.
 async function mergeConsult(note, transcript, p, signal) {
-  const key = get(K.claude) || $("claudeKey").value.trim();
-  if (!key) { $("settingsBox").open = true; throw new Error("Add your Claude (Anthropic) API key in Settings first."); }
+  const key = AI.key();
+  if (!key) { $("settingsBox").open = true; throw new Error(AI.missingKeyMsg()); }
   const res = await fetch(CONFIG.DICTATE_PROMPT, { cache: "no-store", signal });
   if (!res.ok) throw new Error("Couldn't load prompt: " + CONFIG.DICTATE_PROMPT);
   const sys = await res.text();
