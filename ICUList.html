@@ -748,7 +748,7 @@ $("output").addEventListener("input", updateCount);
 async function callClaude(key, model, system, userMessage, maxTokens, signal) {
   return AI.call({
     key,
-    kind: /opus|reasoner/.test(model) ? "ask" : "default",
+    kind: /opus|v4-pro/.test(model) ? "ask" : "default",
     systems: [{ text: system, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens,
@@ -1621,7 +1621,7 @@ function buildRow(p, listKey, body) {
     try {
       const text = await AI.call({
         key,
-        kind: /opus|reasoner/.test(CONFIG.ASK_MODEL) ? "ask" : "default",
+        kind: /opus|v4-pro/.test(CONFIG.ASK_MODEL) ? "ask" : "default",
         // Static instructions are the reusable prefix -> cache them.
         // The per-case context changes, so it stays uncached.
         systems: [

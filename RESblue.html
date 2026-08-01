@@ -1428,7 +1428,7 @@ function stripEmDashes(text) {
 async function callClaude(key, model, system, userMessage, maxTokens, signal) {
   const text = await AI.call({
     key,
-    kind: /opus|reasoner/.test(model) ? "ask" : "default",
+    kind: /opus|v4-pro/.test(model) ? "ask" : "default",
     systems: [{ text: system + NO_EMDASH, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens,

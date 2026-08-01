@@ -26,7 +26,18 @@
       label: "DeepSeek",
       longLabel: "DeepSeek",
       url: "https://api.deepseek.com/chat/completions",
-      models: { default: "deepseek-chat", ask: "deepseek-reasoner" },
+      models: { default: "deepseek-v4-flash", ask: "deepseek-v4-pro" },
+      /* Both V4 models think by default. Thinking is left ON for the reasoning
+       * tier and turned OFF for the routine tier, so summaries and letters stay
+       * as quick as they were on Sonnet. Flip a value here to change that.
+       * Unlisted models fall back to the API default (thinking enabled). */
+      thinking: { "deepseek-v4-flash": false, "deepseek-v4-pro": true },
+      // low | high | max. v4-pro treats "low" as "high" for now.
+      reasoningEffort: "high",
+      // Thinking tokens share the max_tokens budget with the answer, so a
+      // thinking call gets plenty of headroom. You are billed only for tokens
+      // actually generated, so a high ceiling costs nothing on short answers.
+      thinkingMinMaxTokens: 32768,
       keyPlaceholder: "sk-...",
       keyHint: "DeepSeek API key"
     }
@@ -114,17 +125,20 @@
 
       let headers, body;
       if (isDeep) {
+        const thinks = p.thinking[model] !== undefined ? p.thinking[model] : true;
         headers = { "content-type": "application/json", "Authorization": "Bearer " + key };
         body = {
           model,
-          max_tokens: maxTokens,
+          max_tokens: thinks ? Math.max(maxTokens, p.thinkingMinMaxTokens) : maxTokens,
+          thinking: { type: thinks ? "enabled" : "disabled" },
           // No system-block concept on the OpenAI-compatible API: merge them
           // into one system message and let DeepSeek's automatic context
           // cache do what cache_control does on Anthropic.
           messages: [{ role: "system", content: systems.map(s => s.text).join("\n\n") }].concat(opts.messages || [])
         };
-        // deepseek-reasoner rejects/ignores sampling params
-        if (opts.temperature != null && model !== "deepseek-reasoner") body.temperature = opts.temperature;
+        if (thinks) body.reasoning_effort = p.reasoningEffort;
+        // Sampling params don't apply while thinking
+        if (opts.temperature != null && !thinks) body.temperature = opts.temperature;
       } else {
         headers = {
           "content-type": "application/json",
