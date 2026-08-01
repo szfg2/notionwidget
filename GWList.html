@@ -453,7 +453,7 @@
 
     <div class="card">
       <div class="gen-row">
-        <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
+        <button class="ghost-btn" id="inRefreshBtn" type="button" title="Refresh from GitHub (Ctrl/⌘ + R)">↻ Refresh</button>
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
         <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
@@ -476,7 +476,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab.</div>
       </div>
-      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new reviews and results into the summarised history.</div>
+      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new reviews and results into the summarised history.</div>
     </div>
 
   </div>
@@ -581,13 +581,13 @@ $("saveSettings").addEventListener("click", () => {
 /* ============================================================== *
  *  Tabs                                                          *
  * ============================================================== */
-function setTab(t) {
+function setTab(t, skipLoad) {
   $("tabCreate").classList.toggle("active", t === "create");
   $("tabIn").classList.toggle("active", t === "in");
   $("createTab").style.display = t === "create" ? "" : "none";
   $("inTab").style.display = t === "in" ? "" : "none";
   document.querySelector(".wrap").classList.toggle("full", t !== "create");
-  if (t !== "create" && get(K.ghToken)) loadPatients(true);
+  if (!skipLoad && t !== "create" && get(K.ghToken)) loadPatients(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabIn").addEventListener("click", () => setTab("in"));
@@ -822,9 +822,12 @@ function flashCopied(btn, label) {
 /* ============================================================== *
  *  Load + render the list                                        *
  * ============================================================== */
+let loadingPatients = false;
 async function loadPatients(auto) {
   const c = ghCfg();
   if (!c.token) { if (!auto) showListError("inpatients", "Set your GitHub token in Settings first."); return; }
+  if (loadingPatients) return;
+  loadingPatients = true;
   clearListError("inpatients");
   setListStatus("inpatients", "Loading…");
   try {
@@ -835,9 +838,27 @@ async function loadPatients(auto) {
   } catch (e) {
     setListStatus("inpatients", "");
     showListError("inpatients", "Couldn't load the patient list: " + (e.message || e));
+  } finally {
+    loadingPatients = false;
   }
 }
 $("inRefreshBtn").addEventListener("click", () => loadPatients(false));
+
+// Ctrl/Cmd+R pulls the latest list from GitHub instead of reloading the page.
+// Any pending job-list autosave is flushed first so typing isn't overwritten by
+// the incoming remote copy.
+document.addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+  if (e.key !== "r" && e.key !== "R") return;
+  e.preventDefault();
+  setTab("in", true);
+  if (saveTimers.size) {
+    setListStatus("inpatients", "Saving edits before refresh…");
+    flushFieldSaves().then(() => loadPatients(false));
+  } else {
+    loadPatients(false);
+  }
+});
 
 function timeNow() {
   const t = new Date();
@@ -1453,9 +1474,9 @@ function queueFieldSave(listKey, id, field, value, message) {
   const local = data[listKey].find(p => p.id === id);
   if (local) local[field] = value;
   const tkey = listKey + ":" + id + ":" + field;
-  if (saveTimers.has(tkey)) clearTimeout(saveTimers.get(tkey));
+  if (saveTimers.has(tkey)) clearTimeout(saveTimers.get(tkey).timer);
   setListStatus(listKey, "Editing…");
-  saveTimers.set(tkey, setTimeout(async () => {
+  const run = async () => {
     saveTimers.delete(tkey);
     setListStatus(listKey, "Saving…");
     try {
@@ -1470,7 +1491,18 @@ function queueFieldSave(listKey, id, field, value, message) {
       setListStatus(listKey, "");
       showListError(listKey, "Autosave failed: " + (e.message || e));
     }
-  }, 1500));
+  };
+  saveTimers.set(tkey, { run, timer: setTimeout(run, 1500) });
+}
+
+// Run any debounced edits now rather than waiting out the delay — used before
+// a manual refresh so the remote copy already contains them.
+async function flushFieldSaves() {
+  const pending = [...saveTimers.values()];
+  for (const p of pending) clearTimeout(p.timer);
+  // sequential — each save rewrites the whole JSON file, so parallel PUTs
+  // would fight over the sha
+  for (const p of pending) await p.run();
 }
 
 /* ============================================================== *
