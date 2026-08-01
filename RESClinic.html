@@ -39,6 +39,9 @@
   }
 
   .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
+  /* Previous Patients drops the reading-width cap — the summary, to-dos and note
+     columns all earn the extra room on a desktop screen. */
+  .wrap.wide { max-width: none; }
 
   header.app { margin-bottom: 22px; }
   h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
@@ -413,7 +416,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="wrap">
 
   <header class="app">
     <h1>Respiratory Clinic Notes</h1>
@@ -490,7 +493,7 @@
         <button class="generate" id="generateBtn" type="button">Generate</button>
         <span class="status" id="genStatus"></span>
       </div>
-      <div class="kbd-hint" style="margin-top:8px">Generates the clinic note + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the clinic note, a ward-round summary and a short to-do list, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
     </div>
 
     <div class="error" id="error"></div>
@@ -554,7 +557,7 @@
             <tr>
               <th style="width:1%">Name</th>
               <th>Summarised history</th>
-              <th style="width:24%">Job list</th>
+              <th style="width:24%">To-dos</th>
               <th style="width:1%"></th>
             </tr>
           </thead>
@@ -562,7 +565,7 @@
         </table>
         <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a clinic note in the Create New Patient tab and it will appear here.</div>
       </div>
-      <div class="out-foot">Job list and note edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices. Open a patient's <b>Note</b> and it keeps itself up to date — record the consult on your phone with <b>Dictate consult</b> and the merged note appears here by itself.</div>
+      <div class="out-foot">To-dos and note edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices. Open a patient's <b>Note</b> and it keeps itself up to date — record the consult on your phone with <b>Dictate consult</b> and the merged note appears here by itself.</div>
     </div>
 
   </div>
@@ -578,8 +581,16 @@
  * ============================================================== */
 const CONFIG = {
   MODEL: "claude-sonnet-4-6",
+  // The clinic note itself is the one piece of writing worth the stronger model —
+  // it reasons over the previous plan to work out what needs tracing on the day.
+  // Opus 5 thinks by default and thinking shares this budget with the answer, so
+  // leave headroom; you are only billed for tokens actually generated.
+  NOTE_MODEL: "claude-opus-5",
   NOTE_MAX_TOKENS: 8192,
   SUMMARY_MAX_TOKENS: 2048,
+  // To-dos are a short mechanical rewrite of the note's plan — Sonnet is plenty.
+  TODOS_MODEL: "claude-sonnet-4-6",
+  TODOS_MAX_TOKENS: 1024,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
   // case" box in index.html, because clinical reasoning benefits from it.
   // Opus 5 thinks by default and thinking shares these budgets with the answer,
@@ -599,6 +610,7 @@ const CONFIG = {
   POLL_MS: 10000,
   NOTE_PROMPT: "prompts/respiratory-clinic-note.txt",
   SUMMARY_PROMPT: "prompts/respiratory-clinic-summary.txt",
+  TODOS_PROMPT: "prompts/clinic-todos.txt",
   UPDATE_PROMPT: "prompts/update-clinic-note.txt",
   DICTATE_PROMPT: "prompts/clinic-consult-dictation.txt"
 };
@@ -706,6 +718,7 @@ function setTab(t) {
   $("tabCreate").classList.toggle("active", !prev);
   $("prevTab").style.display = prev ? "" : "none";
   $("createTab").style.display = prev ? "none" : "";
+  $("wrap").classList.toggle("wide", prev);
   updateHideFab();     // the floating button belongs to the list tab only
   if (prev && get(K.ghToken)) loadPatients(true);
 }
@@ -890,19 +903,31 @@ $("generateBtn").addEventListener("click", async () => {
   setLoading(true);
   setGenStatus("Generating note + summary…");
   try {
-    const [noteSys, summarySys] = await Promise.all([
+    const [noteSys, summarySys, todoSys] = await Promise.all([
       fetch(CONFIG.NOTE_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.NOTE_PROMPT); return r.text(); }),
-      fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
+      fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); }),
+      fetch(CONFIG.TODOS_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.TODOS_PROMPT); return r.text(); })
     ]);
 
     const [note, summary] = await Promise.all([
-      callClaude(key, CONFIG.MODEL, noteSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal),
+      callClaude(key, CONFIG.NOTE_MODEL, noteSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal),
       callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
     ]);
 
     editNoteId = null;   // box now holds a note that isn't saved to anyone yet
     $("output").value = note || "(No text returned.)";
     updateCount();
+
+    // To-dos are drawn from the finished note, not the raw data, so they match
+    // the plan it settled on. A failure here must not cost you the note.
+    setGenStatus("Drafting to-dos…");
+    let todos = "";
+    try {
+      todos = await callClaude(key, CONFIG.TODOS_MODEL, todoSys, "CLINIC NOTE:\n" + (note || ""), CONFIG.TODOS_MAX_TOKENS, genController.signal);
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      todos = "";
+    }
 
     const record = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -912,7 +937,7 @@ $("generateBtn").addEventListener("click", async () => {
       clinical,
       note: note || "",
       summary: summary || "",
-      jobs: ""
+      jobs: todos || ""     // the To-dos column — stored under the original key
     };
 
     setGenStatus("Saving patient to GitHub…");
@@ -1195,7 +1220,7 @@ $("printBtn").addEventListener("click", () => {
     "<h1>Respiratory Clinic Patients</h1>" +
     '<p class="meta">' + patients.length + " patient" + (patients.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
-    "<table><thead><tr><th>Name</th><th>Summarised history</th><th>Job list</th></tr></thead>" +
+    "<table><thead><tr><th>Name</th><th>Summarised history</th><th>To-dos</th></tr></thead>" +
     "<tbody>" + rows + "</tbody></table></body></html>";
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
@@ -1294,9 +1319,9 @@ function renderTable() {
     tdJobs.className = "jobs";
     const box = document.createElement("textarea");
     box.className = "jobbox";
-    box.placeholder = "Jobs / to-dos…";
+    box.placeholder = "To-dos…";
     box.value = p.jobs || "";
-    box.addEventListener("input", () => queueFieldSave(p.id, "jobs", box.value, "Update job list"));
+    box.addEventListener("input", () => queueFieldSave(p.id, "jobs", box.value, "Update to-dos"));
     tdJobs.appendChild(box);
     tr.appendChild(tdJobs);
 
@@ -1306,11 +1331,16 @@ function renderTable() {
     noteBtn.className = "ghost-btn note-toggle";
     noteBtn.type = "button";
     noteBtn.textContent = "Note";
+    const askBtn = document.createElement("button");
+    askBtn.className = "ghost-btn ask-toggle";
+    askBtn.type = "button";
+    askBtn.textContent = "Ask";
     const delBtn = document.createElement("button");
     delBtn.className = "ghost-btn danger";
     delBtn.type = "button";
     delBtn.textContent = "Delete";
     tdAct.appendChild(noteBtn);
+    tdAct.appendChild(askBtn);
     tdAct.appendChild(delBtn);
     tr.appendChild(tdAct);
     body.appendChild(tr);
@@ -1626,6 +1656,11 @@ function renderTable() {
       // keeps the text selectable, so you can still read and copy it.
       lockNote(true);
       try {
+        // Anything typed in the seconds before Stop is still sitting on the
+        // debounce. Get it up now, so it is part of what the merge reads instead
+        // of landing on top of the merged note afterwards.
+        dictStat.textContent = "Saving your edits…";
+        await flushNoteSave(p.id);
         dictStat.textContent = "Transcribing…";
         const transcript = await transcribeBlob(blob, dictCtl.signal);
         if (!transcript) { dictStat.textContent = "Nothing heard."; return; }
@@ -1669,6 +1704,176 @@ function renderTable() {
 
     trNote.appendChild(tdNote);
     body.appendChild(trNote);
+
+    // --- expandable "Ask about this patient", same shape as GWList.html ---
+    const trAsk = document.createElement("tr");
+    trAsk.className = "letter-row ask-panel";
+    trAsk.style.display = "none";
+    const tdAsk = document.createElement("td");
+    tdAsk.colSpan = 4;
+
+    const askHead = document.createElement("div");
+    askHead.className = "letter-head";
+    const askEyebrow = document.createElement("span");
+    askEyebrow.className = "eyebrow";
+    askEyebrow.style.margin = "0";
+    askEyebrow.textContent = "Ask about this patient";
+    const askClear = document.createElement("button");
+    askClear.className = "ghost-btn";
+    askClear.type = "button";
+    askClear.textContent = "New conversation";
+    askHead.appendChild(askEyebrow);
+    askHead.appendChild(askClear);
+
+    const askNote = document.createElement("p");
+    askNote.className = "ask-note";
+    askNote.textContent = "Uses the stored case details, clinic note and to-dos as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.";
+
+    const thread = document.createElement("div");
+    thread.className = "thread";
+    const askErr = document.createElement("div");
+    askErr.className = "ask-error";
+    const askRow = document.createElement("div");
+    askRow.className = "ask-row";
+    const askField = document.createElement("div");
+    askField.className = "field";
+    const askInput = document.createElement("textarea");
+    askInput.className = "ask-input";
+    askInput.placeholder = "e.g. Would you escalate inhaled therapy at this visit or reassess in 3 months?";
+    askField.appendChild(askInput);
+    const askSend = document.createElement("button");
+    askSend.className = "generate";
+    askSend.type = "button";
+    askSend.textContent = "Ask";
+    askRow.appendChild(askField);
+    askRow.appendChild(askSend);
+    const askHint = document.createElement("div");
+    askHint.className = "kbd-hint";
+    askHint.innerHTML = 'Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.';
+
+    tdAsk.appendChild(askHead);
+    tdAsk.appendChild(askNote);
+    tdAsk.appendChild(thread);
+    tdAsk.appendChild(askErr);
+    tdAsk.appendChild(askRow);
+    tdAsk.appendChild(askHint);
+    trAsk.appendChild(tdAsk);
+    body.appendChild(trAsk);
+
+    askBtn.addEventListener("click", () => {
+      const open = trAsk.style.display !== "none";
+      trAsk.style.display = open ? "none" : "";
+      askBtn.textContent = open ? "Ask" : "Hide ask";
+      if (!open) askInput.focus();
+      updateHideFab();
+    });
+
+    let rowAskMessages = [];
+    let rowAskController = null;
+    const showRowAskErr = (m) => { askErr.textContent = m; askErr.style.display = "block"; };
+    const clearRowAskErr = () => { askErr.style.display = "none"; askErr.textContent = ""; };
+
+    const renderRowThread = () => {
+      thread.innerHTML = "";
+      for (const m of rowAskMessages) {
+        const div = document.createElement("div");
+        div.className = "msg " + m.role;
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = m.role === "user" ? "You" : "Claude";
+        div.appendChild(who);
+        if (m.role === "assistant" && window.marked) {
+          const bodyDiv = document.createElement("div");
+          bodyDiv.className = "md";
+          bodyDiv.innerHTML = marked.parse(m.content, { breaks: true });
+          div.appendChild(bodyDiv);
+        } else {
+          div.appendChild(document.createTextNode(m.content));
+        }
+        thread.appendChild(div);
+      }
+    };
+
+    askClear.addEventListener("click", () => {
+      rowAskMessages = []; renderRowThread(); clearRowAskErr(); askInput.focus();
+    });
+
+    const setRowAskLoading = (on) => {
+      if (on) {
+        askSend.classList.add("is-cancel");
+        askSend.innerHTML = '<span class="spinner"></span>Cancel';
+      } else {
+        askSend.classList.remove("is-cancel");
+        askSend.innerHTML = "Ask";
+      }
+    };
+
+    askSend.addEventListener("click", async () => {
+      if (rowAskController) { rowAskController.abort(); return; }
+
+      clearRowAskErr();
+      const key = get(K.claude) || $("claudeKey").value.trim();
+      const q = askInput.value.trim();
+      if (!key) { $("settingsBox").open = true; return showRowAskErr("Add your Claude (Anthropic) API key in Settings first."); }
+      if (!q) return showRowAskErr("Type a question first.");
+
+      rowAskMessages.push({ role: "user", content: q });
+      renderRowThread();
+      askInput.value = "";
+      rowAskController = new AbortController();
+      setRowAskLoading(true);
+
+      // Built fresh each send so it reflects the note as it stands now, including
+      // anything a dictation has just folded in. The name is never sent.
+      const caseContext =
+        "PATIENT DETAILS:\n" + ((p.pastMedical || "").trim() || "(none provided)") +
+        "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
+        ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
+        (noteBox.value.trim() ? "\n\nCLINIC NOTE:\n" + noteBox.value.trim() : "") +
+        (box.value.trim() ? "\n\nCURRENT TO-DOS:\n" + box.value.trim() : "");
+
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          signal: rowAskController.signal,
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify({
+            model: CONFIG.ASK_MODEL,
+            max_tokens: CONFIG.ASK_MAX_TOKENS,
+            system: [
+              { type: "text", text: ASK_SYSTEM, cache_control: { type: "ephemeral" } },
+              { type: "text", text: "--- CASE INFORMATION ---\n" + caseContext }
+            ],
+            messages: rowAskMessages.map(m => ({ role: m.role, content: m.content }))
+          })
+        });
+        const resBody = await res.json();
+        if (!res.ok) throw new Error((resBody.error && resBody.error.message) || ("API error " + res.status));
+        const text = (resBody.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+        rowAskMessages.push({ role: "assistant", content: text || "(No response.)" });
+        renderRowThread();
+      } catch (e) {
+        // Roll the unanswered question back so the thread stays valid, and put it
+        // back in the box for a retry.
+        rowAskMessages.pop();
+        renderRowThread();
+        askInput.value = q;
+        if (e.name !== "AbortError") showRowAskErr(e.message || String(e));
+      } finally {
+        rowAskController = null;
+        setRowAskLoading(false);
+        askInput.focus();
+      }
+    });
+
+    askInput.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); askSend.click(); }
+    });
 
     noteBtn.addEventListener("click", () => {
       const open = trNote.style.display !== "none";
@@ -1734,20 +1939,28 @@ function queueFieldSave(id, field, value, message) {
 // Note edits get their own saver so they can refuse to overwrite a version
 // saved from another device — you may well be dictating on the phone while this
 // same note sits open on the desktop.
+const noteRunners = new Map();   // id + ":note" -> the pending save, so it can be run early
+
 function queueNoteSave(id, value, sync, say, message) {
   const local = patients.find(p => p.id === id);
   if (local) local.note = value;
   const tkey = id + ":note";
   if (jobTimers.has(tkey)) clearTimeout(jobTimers.get(tkey));
+  // Baseline frozen at the moment you typed. Reading sync.value when the timer
+  // eventually fires would let a dictation that merged in the meantime move the
+  // goalposts — the check would pass and this stale text would silently replace
+  // the merged note.
+  const baseline = sync.value;
   say("Editing…");
-  jobTimers.set(tkey, setTimeout(async () => {
+  const run = async () => {
     jobTimers.delete(tkey);
+    noteRunners.delete(tkey);
     say("Saving…");
     try {
       await mutateRemote(list => {
         const rec = list.find(p => p.id === id);
-        if (rec && rec.note !== sync.value && rec.note !== value) {
-          const err = new Error("This note was changed on another device. Your text here has NOT been saved — copy it somewhere safe, then press ↻ Refresh to load the other version.");
+        if (rec && rec.note !== baseline && rec.note !== value) {
+          const err = new Error("This note was changed elsewhere while you were editing — on another device, or by a consult dictation. Your text here has NOT been saved: copy it somewhere safe, then press ↻ Refresh to load the other version.");
           err.conflict = true;
           throw err;
         }
@@ -1760,7 +1973,19 @@ function queueNoteSave(id, value, sync, say, message) {
       say(e.conflict ? "Not saved — conflict" : "");
       showListError(e.conflict ? e.message : ("Note autosave failed: " + (e.message || e)));
     }
-  }, 1500));
+  };
+  noteRunners.set(tkey, run);
+  jobTimers.set(tkey, setTimeout(run, 1500));
+}
+
+// Run a pending note save now rather than waiting out the debounce, so the text
+// is on GitHub before something else reads or rewrites the note.
+async function flushNoteSave(id) {
+  const tkey = id + ":note";
+  const run = noteRunners.get(tkey);
+  if (!run) return;
+  if (jobTimers.has(tkey)) clearTimeout(jobTimers.get(tkey));
+  await run();
 }
 
 /* ============================================================== *
@@ -1912,7 +2137,9 @@ function autoGrow(el) {
 function openNoteCount() {
   if ($("prevTab").style.display === "none") return 0;   // list tab isn't showing
   let n = 0;
-  document.querySelectorAll("#ptBody tr.letter-row").forEach(tr => { if (tr.style.display !== "none") n++; });
+  // Ask panels are collapsed by the same button but aren't notes, so they don't
+  // inflate the count the label is built from.
+  document.querySelectorAll("#ptBody tr.letter-row:not(.ask-panel)").forEach(tr => { if (tr.style.display !== "none") n++; });
   return n;
 }
 
@@ -1927,6 +2154,7 @@ function updateHideFab() {
 function hideAllNotes() {
   document.querySelectorAll("#ptBody tr.letter-row").forEach(tr => { tr.style.display = "none"; });
   document.querySelectorAll("#ptBody button.note-toggle").forEach(b => { b.textContent = "Note"; });
+  document.querySelectorAll("#ptBody button.ask-toggle").forEach(b => { b.textContent = "Ask"; });
   unwatchAll();
   updateHideFab();
 }
