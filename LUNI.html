@@ -1,0 +1,1107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LUNI - Lung Nodule Interpreter</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="provider.js"></script>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #252525;
+    --surface-3: #2b2b2a;
+    --border: #343330;
+    --border-strong: #484642;
+    --text: #e9e7e4;
+    --muted: #9b9893;
+    --faint: #716e69;
+    --accent: #5fb8a0;
+    --accent-strong: #79d0b8;
+    --accent-soft: rgba(95,184,160,.10);
+    --danger: #e28c86;
+    --danger-soft: rgba(226,140,134,.09);
+    --warn: #dfb66f;
+    --warn-soft: rgba(223,182,111,.09);
+    --info: #8fb8dc;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; }
+  button { color: inherit; }
+  a { color: var(--accent-strong); }
+  .wrap { width: min(980px, 100%); margin: 0 auto; padding: 30px 20px 64px; }
+  header.app { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+  h1 { margin: 0 0 4px; font-size: 24px; line-height: 1.25; letter-spacing: -.02em; font-weight: 680; }
+  .sub { margin: 0; color: var(--muted); font-size: 13px; }
+  .back { white-space: nowrap; text-decoration: none; color: var(--muted); font-size: 13px; padding-top: 4px; }
+  .back:hover { color: var(--text); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 14px;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .card-title { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -.005em; }
+  .card-note { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
+  .eyebrow { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+  .hint { color: var(--muted); font-size: 11.5px; line-height: 1.45; margin-top: 6px; }
+  .hint code { color: #b8b4ae; }
+
+  .safety {
+    border-color: rgba(223,182,111,.35);
+    background: linear-gradient(135deg, var(--warn-soft), var(--surface) 55%);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  .safety-icon { color: var(--warn); font-size: 18px; line-height: 1.25; }
+  .safety strong { color: #efd39f; }
+  .safety p { margin: 0; color: #c2b8a8; font-size: 12.5px; }
+
+  details.settings summary { cursor: pointer; color: var(--accent-strong); font-size: 13px; list-style: none; user-select: none; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .settings-grid { margin-top: 14px; }
+  .settings-grid .lbl { margin-top: 12px; }
+
+  .grid { display: grid; gap: 14px; }
+  .grid-3 { grid-template-columns: .7fr .8fr 1.5fr; }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .field { min-width: 0; }
+  .lbl { display: block; color: #c8c5c0; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+  .required::after { content: " *"; color: var(--warn); }
+  input, select, textarea {
+    width: 100%;
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    background: var(--surface-2);
+    color: var(--text);
+    padding: 10px 11px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(95,184,160,.12); background: #282827; }
+  input::placeholder, textarea::placeholder { color: #77746f; }
+  textarea { resize: vertical; min-height: 190px; line-height: 1.48; }
+  .follow-input textarea { min-height: 82px; }
+  .confirm {
+    display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; padding: 11px 12px;
+    border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.018);
+    color: #c5c1bb; font-size: 12px;
+  }
+  .confirm input { width: 16px; height: 16px; flex: none; margin: 1px 0 0; accent-color: var(--accent); }
+
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 16px; }
+  button {
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    background: var(--surface-2);
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .08s, opacity .15s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-3); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(95,184,160,.18); }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #11201c; font-weight: 700; }
+  .primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .ghost { background: transparent; }
+  .danger-btn { color: var(--danger); }
+  .status { min-height: 20px; color: var(--muted); font-size: 12px; }
+  .status.error { color: var(--danger); }
+  .status.success { color: var(--accent-strong); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin-right: 7px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .follow-card { border-color: rgba(143,184,220,.35); background: linear-gradient(135deg, rgba(143,184,220,.06), var(--surface) 45%); }
+  .need-more { color: #bcd5e9; font-size: 17px; font-weight: 680; margin: 0 0 5px; }
+  .follow-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 13px; margin-top: 16px; }
+  .follow-input { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,.08); }
+  .follow-input .question { display: block; margin-bottom: 7px; color: #d2d0cc; font-size: 12px; font-weight: 600; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--border); }
+  .fact { min-height: 66px; padding: 11px 12px; background: var(--surface-2); }
+  .fact dt { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .fact dd { margin: 4px 0 0; color: #d9d6d1; font-size: 12.5px; overflow-wrap: anywhere; }
+  .tag { display: inline-block; border: 1px solid var(--border-strong); border-radius: 999px; padding: 2px 7px; font-size: 10.5px; color: var(--muted); }
+  .tag.ok { color: var(--accent-strong); border-color: rgba(95,184,160,.35); background: var(--accent-soft); }
+  .tag.warn { color: var(--warn); border-color: rgba(223,182,111,.35); background: var(--warn-soft); }
+
+  .result-card { border-color: rgba(95,184,160,.35); }
+  .result-section { padding: 15px 0; border-top: 1px solid var(--border); }
+  .result-section:first-of-type { border-top: 0; padding-top: 2px; }
+  .result-section h3 { margin: 0 0 6px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+  .result-section p { margin: 0; white-space: pre-wrap; color: #dad7d2; }
+  .result-section.recommendation p { color: #edf7f3; font-size: 16px; line-height: 1.55; font-weight: 600; }
+  .result-section.alert p { color: #edb1ac; }
+  .source-list { margin: 0; padding-left: 19px; }
+  .source-list li { margin: 5px 0; color: var(--muted); }
+  .source-list a { text-underline-offset: 2px; }
+  .calc-box { margin-top: 9px; padding: 10px 12px; border-radius: 9px; background: rgba(0,0,0,.12); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; }
+
+  .privacy-error { border-color: rgba(226,140,134,.45); background: linear-gradient(135deg, var(--danger-soft), var(--surface) 55%); }
+  .privacy-error .card-title { color: #efaca7; }
+
+  .edit-panel { border-color: rgba(223,182,111,.35); }
+  .edit-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+  .edit-grid .wide { grid-column: span 2; }
+
+  [hidden] { display: none !important; }
+  footer { margin-top: 26px; text-align: center; color: var(--faint); font-size: 11px; }
+
+  @media (max-width: 760px) {
+    .grid-3, .grid-2, .follow-list, .facts { grid-template-columns: 1fr; }
+    .edit-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .facts { gap: 1px; }
+  }
+  @media (max-width: 480px) {
+    .wrap { padding: 22px 13px 46px; }
+    .card { padding: 16px; }
+    header.app { display: block; }
+    .back { display: inline-block; margin-top: 8px; }
+    .edit-grid { grid-template-columns: 1fr; }
+    .edit-grid .wide { grid-column: span 1; }
+    .actions button { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="app">
+    <div>
+      <h1>Lung Nodule Interpreter <span class="tag ok">LUNI</span></h1>
+      <p class="sub">Clinician decision support for incidentally detected pulmonary nodules</p>
+    </div>
+    <a class="back" href="RES.html">&larr; Respiratory Tools</a>
+  </header>
+
+  <section class="card safety" aria-label="Clinical safety notice">
+    <div class="safety-icon" aria-hidden="true">&#9888;</div>
+    <p><strong>Clinical decision support only.</strong> Verify the source CT, nodule measurements, guideline applicability, local policy and patient preferences before acting. Fleischner guidance does not apply to screening, immunosuppression, known primary cancer or patients under 35. References reviewed 1 August 2026.</p>
+  </section>
+
+  <section class="card">
+    <details class="settings" id="settingsBox">
+      <summary>&#9881; Model provider &amp; API keys (stored locally on this device)</summary>
+      <div class="settings-grid">
+        <label class="lbl" for="provider">Model provider</label>
+        <select id="provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+        <div class="hint">The selected provider receives only the text that passes the local identifier check. Provider choice is shared with the other tools.</div>
+
+        <label class="lbl" for="claudeKey">Anthropic (Claude) API key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+
+        <label class="lbl" for="deepseekKey">DeepSeek API key</label>
+        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <div class="hint">Keys stay in browser localStorage. DeepSeek and Anthropic are separate companies with their own data-handling terms.</div>
+
+        <div class="actions">
+          <button id="saveSettings" type="button">Save settings</button>
+          <span class="status success" id="settingsSaved" aria-live="polite"></span>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card" id="inputCard">
+    <div class="card-head">
+      <div>
+        <h2 class="card-title">Case information</h2>
+        <p class="card-note">Use the separate fields or paste the complete de-identified case into the report box.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="field">
+        <label class="lbl" for="age">Age</label>
+        <input type="number" id="age" min="18" max="110" inputmode="numeric" placeholder="e.g. 67">
+      </div>
+      <div class="field">
+        <label class="lbl" for="sex">Sex</label>
+        <select id="sex">
+          <option value="">Not specified</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl" for="smoking">Smoking status</label>
+        <input type="text" id="smoking" placeholder="e.g. ex-smoker, 30 pack-years, quit 8 years ago">
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:14px">
+      <label class="lbl required" for="caseText">Latest CT report or complete case paste</label>
+      <textarea id="caseText" placeholder="Paste the de-identified CT report. You may also include age, sex, smoking history, relevant clinical context and prior imaging here.\n\nDo not include a patient name, NRIC, date of birth, MRN or contact details."></textarea>
+      <div class="hint">For multiple nodules, LUNI extracts the largest dominant nodule and flags when another described nodule may be more suspicious.</div>
+    </div>
+
+    <label class="confirm" for="privacyAck">
+      <input type="checkbox" id="privacyAck">
+      <span>I confirm this text is de-identified and contains no patient name, Singapore NRIC, date of birth, MRN, address or contact details.</span>
+    </label>
+
+    <div class="actions">
+      <button class="primary" id="interpretBtn" type="button">Interpret nodule</button>
+      <button class="ghost" id="startOverTop" type="button">Start over</button>
+      <span class="status" id="mainStatus" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="card privacy-error" id="privacyCard" hidden>
+    <h2 class="card-title">Patient-identifying information detected</h2>
+    <p class="card-note" id="privacyMessage"></p>
+    <div class="actions"><button type="button" id="returnToInput">Remove identifiers</button></div>
+  </section>
+
+  <section class="card follow-card" id="followCard" hidden>
+    <h2 class="need-more">I need more info</h2>
+    <p class="card-note">Complete the short checklist below. Select “Not available” when a detail genuinely cannot be obtained; LUNI will state the resulting limitation.</p>
+    <div class="follow-list" id="followList"></div>
+    <div class="actions">
+      <button class="primary" id="continueBtn" type="button">Continue assessment</button>
+      <span class="status" id="followStatus" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="card" id="factsCard" hidden>
+    <div class="card-head">
+      <div>
+        <h2 class="card-title">Information interpreted</h2>
+        <p class="card-note">Review the extracted facts before using the recommendation.</p>
+      </div>
+      <button class="ghost" id="editFactsBtn" type="button">Edit extracted details</button>
+    </div>
+    <dl class="facts" id="factsGrid"></dl>
+  </section>
+
+  <section class="card edit-panel" id="editPanel" hidden>
+    <div class="card-head">
+      <div>
+        <h2 class="card-title">Correct extracted details</h2>
+        <p class="card-note">Corrections are applied locally and the recommendation is recalculated.</p>
+      </div>
+    </div>
+    <div class="edit-grid" id="editGrid"></div>
+    <div class="actions">
+      <button class="primary" id="saveEditsBtn" type="button">Apply corrections</button>
+      <button id="cancelEditsBtn" type="button">Cancel</button>
+    </div>
+  </section>
+
+  <section class="card result-card" id="resultCard" hidden>
+    <div class="card-head">
+      <div>
+        <h2 class="card-title">LUNI recommendation</h2>
+        <p class="card-note" id="resultStamp"></p>
+      </div>
+    </div>
+    <div id="resultContent"></div>
+    <div class="actions">
+      <button class="primary" id="copyBtn" type="button">Copy recommendation</button>
+      <button id="editResultBtn" type="button">Edit extracted details</button>
+      <button class="ghost" id="startOverBtn" type="button">Start over</button>
+      <span class="status success" id="copyStatus" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <footer>De-identified data only &mdash; LUNI rejects detected names and Singapore NRICs before interpretation.</footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
+  AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+
+  const SOURCES = [
+    {
+      label: "Fleischner Society 2017 - incidental pulmonary nodules",
+      url: "https://pubs.rsna.org/doi/10.1148/radiol.2017161659"
+    },
+    {
+      label: "British Thoracic Society 2015 - pulmonary nodule guideline",
+      url: "https://thorax.bmj.com/content/70/Suppl_2/ii1"
+    },
+    {
+      label: "BTS pulmonary nodule risk calculators",
+      url: "https://www.brit-thoracic.org.uk/clinical-resources/guidelines/pulmonary-nodules/pn-risk-calculator/"
+    },
+    {
+      label: "McWilliams et al. 2013 - Brock/PanCan model",
+      url: "https://www.nejm.org/doi/full/10.1056/NEJMoa1214726"
+    }
+  ];
+
+  const EXTRACT_SYSTEM = `You are the extraction component of LUNI, a clinician-only pulmonary nodule decision-support tool.
+
+Your job is to extract facts, not to recommend management. Return exactly one JSON object and no markdown.
+
+PRIVACY:
+- If the text contains a patient full name, Singapore NRIC, date of birth, MRN, address, phone number, or email address, set privacyIssue=true and list only the identifier types in privacyTypes. Do not repeat identifier values.
+
+SCOPE AND INTERPRETATION:
+- Never invent a negative history. Use null unless a fact is explicitly present or directly entailed.
+- "Incidental" means a nodule found outside a formal lung-cancer screening programme.
+- A nodule in a formal screening CT is screening=true even if otherwise asymptomatic.
+- Known primary cancer includes an active or recently treated malignancy relevant to this nodule; record the wording in notes without deciding relevance.
+- suspectedInfection is true only when the clinical/radiology text suggests an acute infective/inflammatory process is driving the opacity.
+- If several nodules are present, extract the largest as dominant. Set anotherMoreSuspicious=true if a smaller nodule has more suspicious morphology.
+- Use maximum diameter in mm when stated. Do not convert a 3D volume into a diameter.
+- Nodule type must be one of solid, ground_glass, part_solid, or unknown. "Subsolid" alone is unknown unless pure ground glass or part-solid is specified.
+- Extract the solid component size separately for a part-solid nodule.
+- For prior imaging, extract exact dates, elapsed days, diameters, and volumes when given. Do not call a lesion stable merely because it was previously present.
+- smokingCategory must be never, former, current, or unknown.
+- fleischnerRisk is a supported clinical gestalt only: high when the stated combination plausibly exceeds about 5% malignancy risk, considering older age, heavy smoking, morphology, upper-lobe location, emphysema/fibrosis, family history and exposures; low when clearly low; otherwise uncertain. Explain briefly in riskRationale.
+
+JSON SCHEMA (all keys required; use null or [] when unknown):
+{
+  "privacyIssue": false,
+  "privacyTypes": [],
+  "age": null,
+  "sex": null,
+  "smokingSummary": null,
+  "smokingCategory": "unknown",
+  "packYears": null,
+  "quitYears": null,
+  "applicability": {
+    "incidental": null,
+    "screening": null,
+    "knownPrimaryCancer": null,
+    "immunosuppressed": null,
+    "suspectedInfection": null,
+    "underSurveillance": null,
+    "suspiciousSymptoms": null
+  },
+  "nodule": {
+    "count": null,
+    "diameterMm": null,
+    "volumeMm3": null,
+    "type": "unknown",
+    "solidComponentMm": null,
+    "upperLobe": null,
+    "spiculated": null,
+    "emphysema": null,
+    "fibrosis": null,
+    "familyHistoryLungCancer": null,
+    "benignCalcification": null,
+    "typicalPerifissural": null,
+    "adenopathyOrMetastaticFeatures": null,
+    "anotherMoreSuspicious": null,
+    "location": null,
+    "morphologyNotes": null
+  },
+  "prior": {
+    "present": null,
+    "priorDate": null,
+    "latestDate": null,
+    "intervalDays": null,
+    "priorDiameterMm": null,
+    "latestDiameterMm": null,
+    "priorVolumeMm3": null,
+    "latestVolumeMm3": null,
+    "reportedStable": null,
+    "reportedGrowing": null
+  },
+  "fleischnerRisk": "uncertain",
+  "riskRationale": null,
+  "notes": []
+}`;
+
+  const state = {
+    extracted: null,
+    unavailable: new Set(),
+    answers: {},
+    controller: null,
+    result: null
+  };
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function finiteNumber(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function boolOrNull(value) {
+    if (value === true || value === false) return value;
+    if (typeof value === "string") {
+      const v = value.trim().toLowerCase();
+      if (["yes", "true", "present", "1"].includes(v)) return true;
+      if (["no", "false", "absent", "0", "none"].includes(v)) return false;
+    }
+    return null;
+  }
+
+  function cleanEnum(value, allowed, fallback) {
+    const v = String(value || "").toLowerCase().replace(/[ -]+/g, "_");
+    return allowed.includes(v) ? v : fallback;
+  }
+
+  function normalize(raw) {
+    const a = raw && raw.applicability || {};
+    const n = raw && raw.nodule || {};
+    const p = raw && raw.prior || {};
+    const out = {
+      privacyIssue: !!(raw && raw.privacyIssue),
+      privacyTypes: Array.isArray(raw && raw.privacyTypes) ? raw.privacyTypes.map(String) : [],
+      age: finiteNumber(raw && raw.age),
+      sex: cleanEnum(raw && raw.sex, ["male", "female"], null),
+      smokingSummary: raw && raw.smokingSummary ? String(raw.smokingSummary) : null,
+      smokingCategory: cleanEnum(raw && raw.smokingCategory, ["never", "former", "current", "unknown"], "unknown"),
+      packYears: finiteNumber(raw && raw.packYears),
+      quitYears: finiteNumber(raw && raw.quitYears),
+      applicability: {
+        incidental: boolOrNull(a.incidental), screening: boolOrNull(a.screening),
+        knownPrimaryCancer: boolOrNull(a.knownPrimaryCancer), immunosuppressed: boolOrNull(a.immunosuppressed),
+        suspectedInfection: boolOrNull(a.suspectedInfection), underSurveillance: boolOrNull(a.underSurveillance),
+        suspiciousSymptoms: boolOrNull(a.suspiciousSymptoms)
+      },
+      nodule: {
+        count: finiteNumber(n.count), diameterMm: finiteNumber(n.diameterMm), volumeMm3: finiteNumber(n.volumeMm3),
+        type: cleanEnum(n.type, ["solid", "ground_glass", "part_solid", "unknown"], "unknown"),
+        solidComponentMm: finiteNumber(n.solidComponentMm), upperLobe: boolOrNull(n.upperLobe),
+        spiculated: boolOrNull(n.spiculated), emphysema: boolOrNull(n.emphysema), fibrosis: boolOrNull(n.fibrosis),
+        familyHistoryLungCancer: boolOrNull(n.familyHistoryLungCancer), benignCalcification: boolOrNull(n.benignCalcification),
+        typicalPerifissural: boolOrNull(n.typicalPerifissural),
+        adenopathyOrMetastaticFeatures: boolOrNull(n.adenopathyOrMetastaticFeatures),
+        anotherMoreSuspicious: boolOrNull(n.anotherMoreSuspicious),
+        location: n.location ? String(n.location) : null,
+        morphologyNotes: n.morphologyNotes ? String(n.morphologyNotes) : null
+      },
+      prior: {
+        present: boolOrNull(p.present), priorDate: p.priorDate ? String(p.priorDate) : null,
+        latestDate: p.latestDate ? String(p.latestDate) : null, intervalDays: finiteNumber(p.intervalDays),
+        priorDiameterMm: finiteNumber(p.priorDiameterMm), latestDiameterMm: finiteNumber(p.latestDiameterMm),
+        priorVolumeMm3: finiteNumber(p.priorVolumeMm3), latestVolumeMm3: finiteNumber(p.latestVolumeMm3),
+        reportedStable: boolOrNull(p.reportedStable), reportedGrowing: boolOrNull(p.reportedGrowing)
+      },
+      fleischnerRisk: cleanEnum(raw && raw.fleischnerRisk, ["low", "high", "uncertain"], "uncertain"),
+      riskRationale: raw && raw.riskRationale ? String(raw.riskRationale) : null,
+      notes: Array.isArray(raw && raw.notes) ? raw.notes.map(String) : []
+    };
+    if (out.prior.latestDiameterMm == null && out.nodule.diameterMm != null) out.prior.latestDiameterMm = out.nodule.diameterMm;
+    if (out.prior.latestVolumeMm3 == null && out.nodule.volumeMm3 != null) out.prior.latestVolumeMm3 = out.nodule.volumeMm3;
+    return out;
+  }
+
+  function parseJSON(text) {
+    const cleaned = String(text || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    try { return JSON.parse(cleaned); } catch (_) {}
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first >= 0 && last > first) return JSON.parse(cleaned.slice(first, last + 1));
+    throw new Error("The model did not return readable structured data. Please try again.");
+  }
+
+  function identifierFindings(text) {
+    const value = String(text || "");
+    const findings = [];
+    const nric = /\b[STFGM]\s*\d(?:[\s-]*\d){6}[\s-]*[A-Z]\b/i;
+    const labelledName = /\b(?:patient(?:\s+name)?|full\s+name|name)\s*[:=\-]\s*[A-Z][A-Za-z'\u2019.-]+(?:\s+[A-Z][A-Za-z'\u2019.-]+){1,5}/i;
+    const titledFullName = /\b(?:Mr|Mrs|Ms|Miss|Mdm)\.?\s+[A-Z][A-Za-z'\u2019-]+(?:\s+[A-Z][A-Za-z'\u2019-]+){1,4}\b/;
+    const nameBeforeDemographics = /(?:^|\n)\s*(?:[A-Z][a-z'\u2019-]+\s+){1,4}[A-Z][a-z'\u2019-]+(?=\s*[,|/\-]?\s*(?:\d{1,3}\s*(?:years?\s+old|y\/?o|[MF])|male|female)\b)/m;
+    const allCapsNameLine = value.split(/\r?\n/).some((line) => {
+      const words = line.trim().split(/\s+/);
+      if (words.length < 2 || words.length > 5 || !words.every(w => /^[A-Z][A-Z'\u2019-]+$/.test(w))) return false;
+      const clinicalHeaders = new Set(["CT", "CHEST", "REPORT", "FINDINGS", "IMPRESSION", "CONCLUSION", "TECHNIQUE", "COMPARISON", "CLINICAL", "HISTORY", "INDICATION", "THORAX", "LUNG", "NODULE", "WITHOUT", "WITH", "CONTRAST"]);
+      return !words.some(w => clinicalHeaders.has(w));
+    });
+    const dob = /\b(?:DOB|date\s+of\s+birth)\s*[:=\-]/i;
+    const mrn = /\b(?:MRN|medical\s+record\s+(?:number|no\.?))\s*[:=\-]/i;
+    const phone = /\b(?:\+?65[\s-]?)?[689]\d{3}[\s-]?\d{4}\b/;
+    const email = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+    if (nric.test(value)) findings.push("Singapore NRIC");
+    if (labelledName.test(value) || titledFullName.test(value) || nameBeforeDemographics.test(value) || allCapsNameLine) findings.push("full name");
+    if (dob.test(value)) findings.push("date of birth");
+    if (mrn.test(value)) findings.push("MRN");
+    if (phone.test(value)) findings.push("phone number");
+    if (email.test(value)) findings.push("email address");
+    return [...new Set(findings)];
+  }
+
+  function allCaseText() {
+    const follow = Object.entries(state.answers).map(([k, v]) => k + ": " + v).join("\n");
+    return [$("smoking").value, $("caseText").value, follow].filter(Boolean).join("\n");
+  }
+
+  function showPrivacy(types) {
+    $("privacyMessage").textContent = "Detected: " + types.join(", ") + ". Remove the identifying information before continuing. Nothing has been sent to the model.";
+    $("privacyCard").hidden = false;
+    $("followCard").hidden = true;
+    $("factsCard").hidden = true;
+    $("resultCard").hidden = true;
+    $("privacyCard").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function setBusy(busy, where) {
+    $("interpretBtn").disabled = busy;
+    $("continueBtn").disabled = busy;
+    const el = $(where || "mainStatus");
+    el.className = "status";
+    el.innerHTML = busy ? '<span class="spinner"></span>Reading the report and checking applicability&hellip;' : "";
+  }
+
+  function buildUserMessage() {
+    return JSON.stringify({
+      explicitFields: {
+        age: $("age").value ? Number($("age").value) : null,
+        sex: $("sex").value || null,
+        smoking: $("smoking").value.trim() || null
+      },
+      reportOrCaseText: $("caseText").value.trim(),
+      followUpAnswers: state.answers,
+      fieldsMarkedUnavailable: Array.from(state.unavailable)
+    }, null, 2);
+  }
+
+  function applyExplicitValues(data) {
+    if ($("age").value) data.age = Number($("age").value);
+    if ($("sex").value) data.sex = $("sex").value;
+    if ($("smoking").value.trim()) data.smokingSummary = $("smoking").value.trim();
+
+    const a = state.answers;
+    const yn = (v) => v === "yes" ? true : v === "no" ? false : null;
+    if (a.context === "incidental") { data.applicability.incidental = true; data.applicability.screening = false; }
+    if (a.context === "screening") { data.applicability.incidental = false; data.applicability.screening = true; }
+    if (a.context === "other") data.applicability.incidental = false;
+    if (a.knownCancer && a.knownCancer !== "unavailable") data.applicability.knownPrimaryCancer = yn(a.knownCancer);
+    if (a.immunosuppressed && a.immunosuppressed !== "unavailable") data.applicability.immunosuppressed = yn(a.immunosuppressed);
+    if (a.infection && a.infection !== "unavailable") data.applicability.suspectedInfection = yn(a.infection);
+    if (a.age && a.age !== "unavailable") data.age = finiteNumber(a.age);
+    if (a.sex && a.sex !== "unavailable") data.sex = a.sex;
+    if (a.smokingCategory && a.smokingCategory !== "unavailable") data.smokingCategory = a.smokingCategory;
+    if (a.diameterMm && a.diameterMm !== "unavailable") data.nodule.diameterMm = finiteNumber(a.diameterMm);
+    if (a.noduleType && a.noduleType !== "unavailable") data.nodule.type = a.noduleType;
+    if (a.noduleCount && a.noduleCount !== "unavailable") data.nodule.count = finiteNumber(a.noduleCount);
+    if (a.solidComponentMm && a.solidComponentMm !== "unavailable") data.nodule.solidComponentMm = finiteNumber(a.solidComponentMm);
+    ["upperLobe", "spiculated", "emphysema", "familyHistory"].forEach((key) => {
+      if (!a[key] || a[key] === "unavailable") return;
+      const target = key === "familyHistory" ? "familyHistoryLungCancer" : key;
+      data.nodule[target] = yn(a[key]);
+    });
+    return data;
+  }
+
+  async function extractCase(where) {
+    if (!$("privacyAck").checked) throw new Error("Confirm that the case is de-identified before continuing.");
+    if (!$("caseText").value.trim()) throw new Error("Paste the latest CT report or complete case information.");
+    const findings = identifierFindings(allCaseText());
+    if (findings.length) { showPrivacy(findings); return null; }
+    if (!AI.hasKey()) { $("settingsBox").open = true; throw new Error(AI.missingKeyMsg()); }
+
+    state.controller = new AbortController();
+    setBusy(true, where);
+    try {
+      const text = await AI.call({
+        kind: "ask",
+        systems: [{ text: EXTRACT_SYSTEM, cache: true }],
+        messages: [{ role: "user", content: buildUserMessage() }],
+        maxTokens: 3200,
+        temperature: 0,
+        signal: state.controller.signal
+      });
+      let data = applyExplicitValues(normalize(parseJSON(text)));
+      if (data.privacyIssue) {
+        showPrivacy(data.privacyTypes.length ? data.privacyTypes : ["possible patient identifier"]);
+        return null;
+      }
+      state.extracted = data;
+      return data;
+    } finally {
+      state.controller = null;
+      setBusy(false, where);
+    }
+  }
+
+  function optionQuestion(key, label, question, options) { return { key, label, question, type: "select", options }; }
+  const YES_NO_UNKNOWN = [
+    ["", "Select&hellip;"], ["yes", "Yes"], ["no", "No"], ["unavailable", "Not available"]
+  ];
+
+  function shouldUseBrock(data) {
+    const n = data.nodule;
+    return (n.diameterMm != null && n.diameterMm >= 8) || (n.volumeMm3 != null && n.volumeMm3 >= 300) ||
+      n.type === "part_solid" || n.spiculated === true || n.anotherMoreSuspicious === true || data.prior.reportedGrowing === true;
+  }
+
+  function missingQuestions(data) {
+    const q = [];
+    const unavailable = state.unavailable;
+    if (data.age == null && !unavailable.has("age")) q.push({ key: "age", label: "Age", question: "Patient age in years", type: "number", min: 18, max: 110 });
+    if (data.applicability.incidental == null && data.applicability.screening == null && !unavailable.has("context")) {
+      q.push(optionQuestion("context", "CT context", "How was the nodule detected?", [["", "Select&hellip;"], ["incidental", "Incidental CT"], ["screening", "Lung-cancer screening CT"], ["other", "Other / symptomatic pathway"], ["unavailable", "Not available"]]));
+    }
+    if (data.applicability.knownPrimaryCancer == null && !unavailable.has("knownCancer")) q.push(optionQuestion("knownCancer", "Known cancer", "Is there a known current or relevant previous primary cancer?", YES_NO_UNKNOWN));
+    if (data.applicability.immunosuppressed == null && !unavailable.has("immunosuppressed")) q.push(optionQuestion("immunosuppressed", "Immunosuppression", "Is the patient immunosuppressed?", YES_NO_UNKNOWN));
+    if (data.applicability.suspectedInfection == null && !unavailable.has("infection")) q.push(optionQuestion("infection", "Infection", "Is an acute infective/inflammatory cause suspected?", YES_NO_UNKNOWN));
+
+    if (data.nodule.diameterMm == null && !unavailable.has("diameterMm")) q.push({ key: "diameterMm", label: "Dominant nodule size", question: "Maximum or mean diameter in mm (do not derive from volume)", type: "number", min: .1, max: 60, step: .1 });
+    if (data.nodule.type === "unknown" && !unavailable.has("noduleType")) q.push(optionQuestion("noduleType", "Nodule type", "Attenuation of the dominant nodule", [["", "Select&hellip;"], ["solid", "Solid"], ["ground_glass", "Pure ground-glass"], ["part_solid", "Part-solid"], ["unavailable", "Not available"]]));
+    if (data.nodule.count == null && !unavailable.has("noduleCount")) q.push({ key: "noduleCount", label: "Nodule count", question: "Total pulmonary nodule count on this CT", type: "number", min: 1, max: 100, step: 1 });
+    if (data.nodule.type === "part_solid" && data.nodule.diameterMm >= 6 && data.nodule.solidComponentMm == null && !unavailable.has("solidComponentMm")) {
+      q.push({ key: "solidComponentMm", label: "Solid component", question: "Solid-component diameter in mm", type: "number", min: 0, max: 30, step: .1 });
+    }
+    if (data.smokingCategory === "unknown" && !unavailable.has("smokingCategory")) q.push(optionQuestion("smokingCategory", "Smoking category", "Current smoking category", [["", "Select&hellip;"], ["never", "Never smoker"], ["former", "Former smoker"], ["current", "Current smoker"], ["unavailable", "Not available"]]));
+
+    if (shouldUseBrock(data)) {
+      if (data.sex == null && !unavailable.has("sex")) q.push(optionQuestion("sex", "Sex", "Sex used by the Brock model", [["", "Select&hellip;"], ["female", "Female"], ["male", "Male"], ["unavailable", "Not available"]]));
+      if (data.nodule.upperLobe == null && !unavailable.has("upperLobe")) q.push(optionQuestion("upperLobe", "Upper-lobe location", "Is the dominant nodule in an upper lobe?", YES_NO_UNKNOWN));
+      if (data.nodule.spiculated == null && !unavailable.has("spiculated")) q.push(optionQuestion("spiculated", "Spiculation", "Is the dominant nodule spiculated?", YES_NO_UNKNOWN));
+      if (data.nodule.emphysema == null && !unavailable.has("emphysema")) q.push(optionQuestion("emphysema", "Emphysema", "Is emphysema present on CT?", YES_NO_UNKNOWN));
+      if (data.nodule.familyHistoryLungCancer == null && !unavailable.has("familyHistory")) q.push(optionQuestion("familyHistory", "Family history", "Is there a family history of lung cancer?", YES_NO_UNKNOWN));
+    }
+
+    if (data.prior.present === true && !state.unavailable.has("priorMeasurements")) {
+      const hasInterval = data.prior.intervalDays != null || (data.prior.priorDate && data.prior.latestDate);
+      const hasPair = (data.prior.priorVolumeMm3 != null && data.prior.latestVolumeMm3 != null) ||
+        (data.prior.priorDiameterMm != null && data.prior.latestDiameterMm != null);
+      if (!hasInterval || !hasPair) q.push({ key: "priorMeasurements", label: "Prior imaging", question: "Provide CT dates plus prior/current diameter or volume, or enter Not available", type: "textarea" });
+    }
+    return q;
+  }
+
+  function renderFollowup(questions) {
+    $("followList").innerHTML = questions.map((q) => {
+      let control;
+      if (q.type === "select") {
+        control = `<select data-follow="${esc(q.key)}">${q.options.map(([v,l]) => `<option value="${esc(v)}">${l}</option>`).join("")}</select>`;
+      } else if (q.type === "textarea") {
+        control = `<textarea data-follow="${esc(q.key)}" placeholder="e.g. CT 1 Jan 2025: 7 mm; CT 1 Jan 2026: 9 mm. Or type Not available."></textarea>`;
+      } else {
+        control = `<input data-follow="${esc(q.key)}" type="text" inputmode="decimal" placeholder="Enter a number or Not available">`;
+      }
+      return `<div class="follow-input"><span class="eyebrow">${esc(q.label)}</span><label class="question">${esc(q.question)}</label>${control}</div>`;
+    }).join("");
+    $("followCard").hidden = false;
+    $("factsCard").hidden = true;
+    $("resultCard").hidden = true;
+    $("followCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function collectFollowup() {
+    const controls = Array.from(document.querySelectorAll("[data-follow]"));
+    const blank = controls.filter((el) => !String(el.value || "").trim());
+    if (blank.length) { blank[0].focus(); throw new Error("Answer each item or select Not available."); }
+    controls.forEach((el) => {
+      const key = el.dataset.follow;
+      let value = String(el.value).trim();
+      if (/^not available$/i.test(value)) value = "unavailable";
+      state.answers[key] = value;
+      if (value === "unavailable") state.unavailable.add(key); else state.unavailable.delete(key);
+    });
+  }
+
+  function calculateBrock(data) {
+    const n = data.nodule;
+    const values = [data.age, n.diameterMm, n.count];
+    const bools = [n.familyHistoryLungCancer, n.emphysema, n.upperLobe, n.spiculated];
+    if (values.some(v => !Number.isFinite(v)) || !["male", "female"].includes(data.sex) ||
+        !["solid", "part_solid", "ground_glass"].includes(n.type) || bools.some(v => typeof v !== "boolean")) return null;
+    if (data.age < 18 || data.age > 100 || n.diameterMm <= 0 || n.diameterMm > 30 || n.count < 1) return null;
+    const typeTerm = n.type === "part_solid" ? 0.377 : n.type === "ground_glass" ? -0.1276 : 0;
+    const transformedDiameter = Math.pow(n.diameterMm / 10, -0.5) - 1.58113883;
+    const x = -6.7892 + 0.0287 * (data.age - 62) + 0.6011 * (data.sex === "female" ? 1 : 0) +
+      0.2961 * (n.familyHistoryLungCancer ? 1 : 0) + 0.2953 * (n.emphysema ? 1 : 0) -
+      5.3854 * transformedDiameter + typeTerm + 0.6581 * (n.upperLobe ? 1 : 0) -
+      0.0824 * (n.count - 4) + 0.7729 * (n.spiculated ? 1 : 0);
+    const percent = 100 / (1 + Math.exp(-x));
+    return {
+      percent,
+      linearPredictor: x,
+      inputs: `age ${data.age}; ${data.sex}; ${n.diameterMm} mm ${n.type.replace("_", "-")}; ` +
+        `${n.count} nodule${n.count === 1 ? "" : "s"}; upper lobe ${n.upperLobe ? "yes" : "no"}; ` +
+        `spiculation ${n.spiculated ? "yes" : "no"}; emphysema ${n.emphysema ? "yes" : "no"}; ` +
+        `family history ${n.familyHistoryLungCancer ? "yes" : "no"}`
+    };
+  }
+
+  function daysBetween(a, b) {
+    if (!a || !b) return null;
+    const start = Date.parse(a), end = Date.parse(b);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    return (end - start) / 86400000;
+  }
+
+  function calculateVDT(data) {
+    const p = data.prior;
+    const days = p.intervalDays || daysBetween(p.priorDate, p.latestDate);
+    if (!Number.isFinite(days) || days <= 0) return null;
+    let v1, v2, method;
+    if (p.priorVolumeMm3 > 0 && p.latestVolumeMm3 > 0) {
+      v1 = p.priorVolumeMm3; v2 = p.latestVolumeMm3; method = "reported volumetry";
+    } else if (p.priorDiameterMm > 0 && p.latestDiameterMm > 0) {
+      v1 = Math.pow(p.priorDiameterMm, 3); v2 = Math.pow(p.latestDiameterMm, 3); method = "diameter-cubed approximation";
+    } else return null;
+    const changePercent = (v2 - v1) / v1 * 100;
+    if (v2 <= v1) return { days: null, intervalDays: days, changePercent, method, category: "not_growing" };
+    const vdt = Math.log(2) * days / Math.log(v2 / v1);
+    const category = vdt < 400 ? "under_400" : vdt <= 600 ? "400_600" : "over_600";
+    return { days: vdt, intervalDays: days, changePercent, method, category };
+  }
+
+  function noduleLabel(data) {
+    const n = data.nodule;
+    const type = n.type === "ground_glass" ? "pure ground-glass" : n.type === "part_solid" ? "part-solid" : n.type;
+    return `${n.diameterMm != null ? n.diameterMm + " mm " : ""}${type || "unknown"} nodule`;
+  }
+
+  function fleischnerPlan(data) {
+    const n = data.nodule, d = n.diameterMm, multiple = n.count > 1, risk = data.fleischnerRisk;
+    if (n.benignCalcification === true || n.typicalPerifissural === true) {
+      return { recommendation: "Discharge from routine nodule surveillance if the benign morphology is confirmed on thin-section CT.", rationale: "A nodule with a clearly benign calcification pattern or typical intrapulmonary lymph-node morphology does not require routine Fleischner surveillance." };
+    }
+    if (!Number.isFinite(d) || n.type === "unknown") return null;
+
+    if (n.type === "solid") {
+      if (!multiple && d < 6) {
+        return risk === "high"
+          ? { recommendation: "Consider an optional low-dose CT at 12 months.", rationale: "This is a solitary solid nodule under 6 mm in a higher-risk setting; Fleischner makes 12-month CT optional." }
+          : { recommendation: "No routine CT follow-up.", rationale: "A solitary solid nodule under 6 mm does not routinely require follow-up; a 12-month CT remains optional if morphology or clinical risk is concerning." };
+      }
+      if (!multiple && d <= 8) {
+        return { recommendation: risk === "high" ? "Low-dose CT at 6-12 months, then CT at 18-24 months." : "Low-dose CT at 6-12 months, then consider CT at 18-24 months.", rationale: `Fleischner management for a solitary solid 6-8 mm nodule; the ${risk} risk assessment determines whether the second scan is routine or discretionary.` };
+      }
+      if (!multiple && d > 8) {
+        return { recommendation: "Further assessment now: consider CT at about 3 months, PET-CT and/or tissue sampling, with respiratory/MDT review to select the route.", rationale: "A solitary solid nodule over 8 mm is outside simple long-interval surveillance in the Fleischner table. Morphology, Brock risk, comorbidity and patient preference should determine PET-CT, short-interval CT or sampling." };
+      }
+      if (multiple && d < 6) {
+        return risk === "high"
+          ? { recommendation: "Consider an optional low-dose CT at 12 months.", rationale: "Multiple solid nodules under 6 mm do not usually require follow-up; Fleischner allows an optional 12-month CT in higher-risk patients." }
+          : { recommendation: "No routine CT follow-up.", rationale: "Multiple solid nodules under 6 mm do not require routine follow-up in a lower-risk patient." };
+      }
+      if (multiple && d >= 6) {
+        return { recommendation: risk === "high" ? "Low-dose CT at 3-6 months, then CT at 18-24 months." : "Low-dose CT at 3-6 months, then consider CT at 18-24 months.", rationale: "Fleischner management for multiple solid nodules is driven by the dominant nodule. Any smaller nodule with more suspicious morphology needs separate radiologist review." };
+      }
+    }
+
+    if (n.type === "ground_glass") {
+      if (!multiple && d < 6) return { recommendation: "No routine CT follow-up.", rationale: "A solitary pure ground-glass nodule under 6 mm does not routinely require surveillance; selected suspicious nodules near 6 mm may be considered for CT at 2 and 4 years." };
+      if (!multiple && d >= 6) return { recommendation: "Thin-section CT at 6-12 months to confirm persistence, then CT every 2 years until 5 years if unchanged.", rationale: "This is a solitary pure ground-glass nodule at least 6 mm, for which prolonged surveillance is recommended because growth can be indolent." };
+      if (multiple && d < 6) return { recommendation: "Thin-section CT at 3-6 months; if stable, consider CT at 2 and 4 years.", rationale: "Fleischner recommends early confirmation for multiple subsolid nodules, even when all are under 6 mm." };
+      return { recommendation: "Thin-section CT at 3-6 months, then manage according to the most suspicious persistent nodule.", rationale: "For multiple subsolid nodules with a dominant nodule at least 6 mm, follow-up is based on the most suspicious lesion rather than size alone." };
+    }
+
+    if (n.type === "part_solid") {
+      if (!multiple && d < 6) return { recommendation: "No routine CT follow-up, provided this is truly a part-solid nodule under 6 mm on thin-section CT.", rationale: "Fleischner does not routinely follow solitary part-solid nodules under 6 mm, although classification reliability and suspicious morphology must be reviewed." };
+      if (!multiple && d >= 6 && n.solidComponentMm != null && n.solidComponentMm < 6) return { recommendation: "Thin-section CT at 3-6 months to confirm persistence; if unchanged with a solid component under 6 mm, annual CT until 5 years.", rationale: "Persistent part-solid nodules at least 6 mm require prolonged surveillance when the solid component remains under 6 mm." };
+      if (!multiple && d >= 6 && n.solidComponentMm >= 6) return { recommendation: "Prompt respiratory/MDT assessment for PET-CT and tissue diagnosis or resection planning; do not rely on routine surveillance alone.", rationale: "A persistent part-solid nodule with a solid component at least 6 mm is highly suspicious in the Fleischner guidance. PET sensitivity may be limited in some subsolid lesions, so MDT selection of the diagnostic route is important." };
+      if (multiple && d < 6) return { recommendation: "Thin-section CT at 3-6 months; if stable, consider CT at 2 and 4 years.", rationale: "Multiple subsolid nodules under 6 mm require early reassessment to identify transient inflammatory nodules." };
+      return { recommendation: "Thin-section CT at 3-6 months, then manage according to the most suspicious persistent nodule; seek MDT review if a solid component is at least 6 mm or is growing.", rationale: "Multiple subsolid nodules are managed by the most suspicious lesion and the size/growth of any solid component." };
+    }
+    return null;
+  }
+
+  function applicability(data) {
+    const reasons = [];
+    if (data.age != null && data.age < 35) reasons.push("patient is under 35");
+    if (data.applicability.screening === true) reasons.push("nodule was found in a lung-cancer screening programme");
+    if (data.applicability.knownPrimaryCancer === true) reasons.push("known primary cancer is present");
+    if (data.applicability.immunosuppressed === true) reasons.push("patient is immunosuppressed");
+    if (data.applicability.suspectedInfection === true) reasons.push("an acute infective/inflammatory cause is suspected");
+    if (data.applicability.incidental === false && data.applicability.screening !== true) reasons.push("presentation is not an incidental-nodule pathway");
+    if (data.nodule.adenopathyOrMetastaticFeatures === true) reasons.push("adenopathy or other potentially malignant features are present");
+    if (data.nodule.diameterMm != null && data.nodule.diameterMm > 30) reasons.push("lesion is over 30 mm and should be treated as a lung mass");
+    return reasons;
+  }
+
+  function unresolvedApplicability(data) {
+    const unresolved = [];
+    if (data.applicability.incidental == null && data.applicability.screening == null) unresolved.push("incidental versus screening context");
+    if (data.applicability.knownPrimaryCancer == null) unresolved.push("known-cancer status");
+    if (data.applicability.immunosuppressed == null) unresolved.push("immunosuppression status");
+    if (data.applicability.suspectedInfection == null) unresolved.push("possible acute infection/inflammation");
+    return unresolved;
+  }
+
+  function buildResult(data) {
+    const reasons = applicability(data);
+    const unresolved = unresolvedApplicability(data);
+    const brock = !reasons.length && shouldUseBrock(data) ? calculateBrock(data) : null;
+    const vdt = calculateVDT(data);
+    let appText, recommendation, rationale;
+
+    if (reasons.length) {
+      appText = "Standard Fleischner incidental-nodule pathway not applicable: " + reasons.join("; ") + ".";
+      if (data.nodule.adenopathyOrMetastaticFeatures === true || (data.nodule.diameterMm != null && data.nodule.diameterMm > 30) || data.applicability.suspiciousSymptoms === true) {
+        recommendation = "Use an expedited suspected-lung-cancer pathway with respiratory/MDT review rather than routine nodule surveillance.";
+      } else if (data.applicability.screening === true) {
+        recommendation = "Apply the local lung-cancer screening protocol (for example the programme's Lung-RADS/NELSON-based pathway), not Fleischner intervals.";
+      } else if (data.applicability.knownPrimaryCancer === true) {
+        recommendation = "Refer for cancer-contextual multidisciplinary assessment; determine whether this represents metastasis, a new primary or a benign nodule before selecting surveillance or tissue diagnosis.";
+      } else if (data.applicability.suspectedInfection === true) {
+        recommendation = "Manage the suspected infection/inflammation clinically and arrange imaging reassessment at an interval appropriate to that process; apply a nodule pathway only if a discrete nodule persists.";
+      } else {
+        recommendation = "Use an individualized respiratory/radiology pathway rather than the standard Fleischner table.";
+      }
+      rationale = "Fleischner 2017 explicitly limits its incidental-nodule recommendations to an applicable adult population. The identified exclusion changes pre-test probability and the appropriate diagnostic pathway.";
+    } else {
+      appText = data.applicability.underSurveillance === true
+        ? "Baseline Fleischner categories are supplementary because this nodule is already under surveillance; interval growth and BTS VDT guidance take priority."
+        : unresolved.length
+          ? "Fleischner applicability is not fully confirmed because the following were unavailable: " + unresolved.join(", ") + ". The recommendation is conditional."
+          : "Fleischner incidental-nodule pathway applicable on the information provided.";
+      const plan = fleischnerPlan(data);
+      recommendation = plan ? plan.recommendation : "Insufficient structured nodule information for a guideline-based recommendation.";
+      rationale = plan ? plan.rationale : "Nodule diameter and attenuation must be verified on thin-section CT.";
+
+      if (vdt && vdt.changePercent >= 25) {
+        if (vdt.category === "under_400") {
+          recommendation = "Further diagnostic investigation now (respiratory/MDT review for PET-CT, biopsy and/or resection planning); do not continue routine surveillance alone.";
+          rationale += ` Interval growth is significant by BTS criteria and the calculated VDT is ${Math.round(vdt.days)} days, below 400 days.`;
+        } else if (vdt.category === "400_600") {
+          recommendation = "Respiratory/MDT review for biopsy versus continued annual CT surveillance, incorporating patient fitness and preference.";
+          rationale += ` The calculated VDT is ${Math.round(vdt.days)} days, within the BTS 400-600 day intermediate range.`;
+        } else if (vdt.category === "over_600") {
+          rationale += ` The calculated VDT is ${Math.round(vdt.days)} days; BTS allows discharge or ongoing surveillance based on age, fitness and preference, but slow growth does not prove benignity.`;
+        }
+      }
+
+      if (brock && brock.percent > 10) {
+        recommendation = "PET-CT (if above the local detection threshold) and respiratory/MDT review; then recalculate risk with the Herder model to choose surveillance, biopsy or treatment.";
+        rationale += ` Brock malignancy risk is ${brock.percent.toFixed(1)}%, above the BTS 10% threshold for PET-CT. After PET-CT, BTS uses Herder risk: under 10% generally supports CT surveillance, 10-70% supports biopsy or individualized alternatives, and over 70% supports treatment after assessment of fitness and preference.`;
+      } else if (brock) {
+        rationale += ` Brock malignancy risk is ${brock.percent.toFixed(1)}%, not above the BTS 10% PET-CT threshold; Fleischner surveillance remains the categorical framework unless growth or morphology warrants escalation.`;
+      }
+
+      if (unresolved.length) {
+        recommendation = "Conditional on confirming Fleischner eligibility: " + recommendation;
+        rationale = "Applicability exclusions could not all be verified. " + rationale;
+      }
+    }
+
+    let brockText = "Not calculated: the nodule did not meet the configured larger/complex trigger.";
+    let brockInputs = "";
+    if (reasons.length) {
+      brockText = "Not calculated because the standard incidental-nodule prediction pathway is not applicable to this case.";
+    } else if (shouldUseBrock(data) && !brock) {
+      brockText = "Not calculable because one or more required Brock inputs were unavailable. Do not estimate the missing variables.";
+    } else if (brock) {
+      brockText = `${brock.percent.toFixed(1)}% estimated probability of malignancy within 2-4 years (full Brock/PanCan model with spiculation).`;
+      brockInputs = brock.inputs;
+      if (data.nodule.diameterMm < 8 && data.nodule.volumeMm3 < 300) brockText += " Calculated as supplementary information for a complex smaller nodule; BTS formally recommends Brock-led triage at 8 mm / 300 mm3 or above.";
+    }
+
+    let growthText = "No calculable interval-growth pair was provided.";
+    if (vdt) {
+      if (vdt.category === "not_growing") growthText = `No positive VDT: estimated volume change ${vdt.changePercent.toFixed(1)}% over ${Math.round(vdt.intervalDays)} days (${vdt.method}).`;
+      else growthText = `VDT ${Math.round(vdt.days)} days; estimated volume change ${vdt.changePercent.toFixed(1)}% over ${Math.round(vdt.intervalDays)} days (${vdt.method}).`;
+      if (vdt.changePercent < 25) growthText += " This is below the BTS >=25% volumetric threshold for significant growth.";
+      if (vdt.method === "diameter-cubed approximation") growthText += " Confirm with radiology volumetry where possible; BTS prefers automated volumetric measurements.";
+    } else if (data.prior.reportedStable === true) growthText = "The report describes stability, but exact measurements/dates were not available for VDT calculation.";
+    else if (data.prior.reportedGrowing === true) growthText = "The report describes growth, but exact measurements/dates were not available for VDT calculation; treat documented clear growth as requiring specialist assessment.";
+
+    const limitations = [];
+    if (state.unavailable.size) limitations.push("Unavailable inputs: " + Array.from(state.unavailable).join(", ") + ".");
+    if (data.nodule.anotherMoreSuspicious === true) limitations.push("A smaller nodule may be more suspicious than the largest; Fleischner management should be reviewed against the most suspicious lesion.");
+    if (data.fleischnerRisk === "uncertain") limitations.push("Fleischner clinical risk remains uncertain; select the interval within the recommended range after clinician review.");
+    limitations.push("This output does not replace review of the CT images, radiologist report, patient fitness, preferences or local policy.");
+
+    return { appText, recommendation, rationale, brockText, brockInputs, growthText, limitations, brock, vdt };
+  }
+
+  function val(value, suffix) { return value == null || value === "" ? "Not stated" : esc(value + (suffix || "")); }
+  function yesNo(value) { return value === true ? "Yes" : value === false ? "No" : "Not stated"; }
+
+  function renderFacts(data) {
+    const n = data.nodule, p = data.prior;
+    const facts = [
+      ["Age / sex", `${data.age != null ? data.age : "Not stated"} / ${data.sex || "not stated"}`],
+      ["Smoking", data.smokingSummary || data.smokingCategory || "Not stated"],
+      ["CT context", data.applicability.screening === true ? "Screening" : data.applicability.incidental === true ? "Incidental" : "Not confirmed"],
+      ["Dominant nodule", noduleLabel(data)],
+      ["Nodule count", n.count != null ? n.count : "Not stated"],
+      ["Location", n.location || (n.upperLobe === true ? "Upper lobe" : "Not stated")],
+      ["Solid component", n.type === "part_solid" ? (n.solidComponentMm != null ? n.solidComponentMm + " mm" : "Not stated") : "Not applicable"],
+      ["Spiculation", yesNo(n.spiculated)],
+      ["Fleischner risk", `${data.fleischnerRisk}${data.riskRationale ? " - " + data.riskRationale : ""}`],
+      ["Known cancer", yesNo(data.applicability.knownPrimaryCancer)],
+      ["Immunosuppressed", yesNo(data.applicability.immunosuppressed)],
+      ["Prior comparison", p.present === true ? (p.reportedGrowing === true ? "Reported growth" : p.reportedStable === true ? "Reported stable" : "Available") : "None stated"]
+    ];
+    $("factsGrid").innerHTML = facts.map(([k,v]) => `<div class="fact"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
+    $("factsCard").hidden = false;
+  }
+
+  function section(title, text, cls) {
+    return `<section class="result-section ${cls || ""}"><h3>${esc(title)}</h3><p>${esc(text)}</p></section>`;
+  }
+
+  function renderResult(data) {
+    const r = buildResult(data);
+    state.result = r;
+    let html = section("Guideline applicability", r.appText, applicability(data).length ? "alert" : "") +
+      section("Recommendation", r.recommendation, "recommendation") +
+      section("Rationale", r.rationale) +
+      section("Brock model", r.brockText) +
+      (r.brockInputs ? `<div class="calc-box"><strong>Inputs used:</strong> ${esc(r.brockInputs)}</div>` : "") +
+      section("Growth assessment", r.growthText) +
+      section("Safety flags / limitations", r.limitations.join(" ")) +
+      `<section class="result-section"><h3>Sources</h3><ul class="source-list">${SOURCES.map(s => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a></li>`).join("")}</ul></section>`;
+    $("resultContent").innerHTML = html;
+    $("resultStamp").textContent = "Generated " + new Date().toLocaleString() + ". Review extracted facts before use.";
+    $("resultCard").hidden = false;
+    $("followCard").hidden = true;
+    renderFacts(data);
+    $("resultCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function recommendationText() {
+    if (!state.result) return "";
+    const r = state.result;
+    return [
+      "Guideline applicability: " + r.appText,
+      "",
+      "Recommendation: " + r.recommendation,
+      "",
+      "Rationale: " + r.rationale,
+      "",
+      "Brock model: " + r.brockText + (r.brockInputs ? "\nInputs used: " + r.brockInputs : ""),
+      "",
+      "Growth assessment: " + r.growthText,
+      "",
+      "Safety flags / limitations: " + r.limitations.join(" "),
+      "",
+      "Sources:",
+      ...SOURCES.map(s => "- " + s.label + ": " + s.url)
+    ].join("\n");
+  }
+
+  const EDIT_FIELDS = [
+    ["age", "Age", "number"], ["sex", "Sex", "sex"], ["smokingCategory", "Smoking", "smoking"],
+    ["nodule.count", "Nodule count", "number"], ["nodule.diameterMm", "Diameter (mm)", "number"],
+    ["nodule.volumeMm3", "Volume (mm3)", "number"], ["nodule.type", "Nodule type", "type"],
+    ["nodule.solidComponentMm", "Solid component (mm)", "number"], ["nodule.upperLobe", "Upper lobe", "boolean"],
+    ["nodule.spiculated", "Spiculated", "boolean"], ["nodule.emphysema", "Emphysema", "boolean"],
+    ["nodule.familyHistoryLungCancer", "Family history", "boolean"], ["fleischnerRisk", "Fleischner risk", "risk"],
+    ["prior.priorDate", "Prior CT date", "date"], ["prior.latestDate", "Latest CT date", "date"],
+    ["prior.priorDiameterMm", "Prior diameter (mm)", "number"], ["prior.latestDiameterMm", "Latest diameter (mm)", "number"],
+    ["prior.priorVolumeMm3", "Prior volume (mm3)", "number"], ["prior.latestVolumeMm3", "Latest volume (mm3)", "number"]
+  ];
+
+  function getPath(obj, path) { return path.split(".").reduce((o,k) => o && o[k], obj); }
+  function setPath(obj, path, value) {
+    const parts = path.split("."); let o = obj;
+    parts.slice(0,-1).forEach(k => { o = o[k]; }); o[parts[parts.length-1]] = value;
+  }
+  function editOptions(type) {
+    const map = {
+      sex: [["", "Not stated"], ["female", "Female"], ["male", "Male"]],
+      smoking: [["unknown", "Unknown"], ["never", "Never"], ["former", "Former"], ["current", "Current"]],
+      type: [["unknown", "Unknown"], ["solid", "Solid"], ["ground_glass", "Pure ground-glass"], ["part_solid", "Part-solid"]],
+      boolean: [["", "Not stated"], ["true", "Yes"], ["false", "No"]],
+      risk: [["uncertain", "Uncertain"], ["low", "Low"], ["high", "High"]]
+    };
+    return map[type] || null;
+  }
+
+  function openEditor() {
+    if (!state.extracted) return;
+    $("editGrid").innerHTML = EDIT_FIELDS.map(([path,label,type]) => {
+      const value = getPath(state.extracted, path);
+      const opts = editOptions(type);
+      const control = opts
+        ? `<select data-edit="${esc(path)}" data-type="${esc(type)}">${opts.map(([v,l]) => `<option value="${esc(v)}" ${String(value) === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`
+        : `<input data-edit="${esc(path)}" data-type="${esc(type)}" type="${type === "date" ? "date" : "number"}" step="${type === "number" ? "any" : "1"}" value="${esc(value == null ? "" : value)}">`;
+      return `<div class="field"><label class="lbl">${esc(label)}</label>${control}</div>`;
+    }).join("");
+    $("editPanel").hidden = false;
+    $("editPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function saveEdits() {
+    document.querySelectorAll("[data-edit]").forEach((el) => {
+      let value = el.value;
+      if (el.dataset.type === "number") value = finiteNumber(value);
+      else if (el.dataset.type === "boolean") value = value === "true" ? true : value === "false" ? false : null;
+      else value = value || null;
+      setPath(state.extracted, el.dataset.edit, value);
+    });
+    state.extracted.prior.present = !!(state.extracted.prior.priorDate || state.extracted.prior.priorDiameterMm || state.extracted.prior.priorVolumeMm3);
+    $("editPanel").hidden = true;
+    renderResult(state.extracted);
+  }
+
+  async function runAssessment(where) {
+    const data = await extractCase(where);
+    if (!data) return;
+    const questions = missingQuestions(data);
+    if (questions.length) renderFollowup(questions); else renderResult(data);
+  }
+
+  function resetAll() {
+    if (state.controller) state.controller.abort();
+    ["age", "smoking", "caseText"].forEach(id => $(id).value = "");
+    $("sex").value = "";
+    $("privacyAck").checked = false;
+    state.extracted = null; state.answers = {}; state.unavailable.clear(); state.result = null;
+    ["privacyCard", "followCard", "factsCard", "editPanel", "resultCard"].forEach(id => $(id).hidden = true);
+    $("mainStatus").textContent = ""; $("followStatus").textContent = "";
+    $("inputCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("age").focus();
+  }
+
+  AI.fillSettings(SETTINGS_IDS);
+  if (!AI.hasKey()) $("settingsBox").open = true;
+  $("saveSettings").addEventListener("click", () => {
+    AI.saveSettings(SETTINGS_IDS);
+    $("settingsSaved").textContent = "Saved";
+    setTimeout(() => { $("settingsSaved").textContent = ""; }, 1400);
+  });
+
+  $("interpretBtn").addEventListener("click", async () => {
+    $("mainStatus").textContent = ""; $("mainStatus").className = "status";
+    try { await runAssessment("mainStatus"); }
+    catch (e) { if (e.name !== "AbortError") { $("mainStatus").textContent = e.message; $("mainStatus").className = "status error"; } }
+  });
+  $("continueBtn").addEventListener("click", async () => {
+    $("followStatus").textContent = ""; $("followStatus").className = "status";
+    try { collectFollowup(); await runAssessment("followStatus"); }
+    catch (e) { if (e.name !== "AbortError") { $("followStatus").textContent = e.message; $("followStatus").className = "status error"; } }
+  });
+  $("copyBtn").addEventListener("click", async () => {
+    const text = recommendationText();
+    try { await navigator.clipboard.writeText(text); }
+    catch (_) { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+    $("copyStatus").textContent = "Copied";
+    setTimeout(() => { $("copyStatus").textContent = ""; }, 1400);
+  });
+  ["editFactsBtn", "editResultBtn"].forEach(id => $(id).addEventListener("click", openEditor));
+  $("saveEditsBtn").addEventListener("click", saveEdits);
+  $("cancelEditsBtn").addEventListener("click", () => { $("editPanel").hidden = true; });
+  ["startOverTop", "startOverBtn"].forEach(id => $(id).addEventListener("click", resetAll));
+  $("returnToInput").addEventListener("click", () => { $("privacyCard").hidden = true; $("caseText").focus(); });
+
+  window.LUNI_TEST = { normalize, identifierFindings, calculateBrock, calculateVDT, fleischnerPlan, applicability, unresolvedApplicability, buildResult };
+})();
+</script>
+</body>
+</html>
