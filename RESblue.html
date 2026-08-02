@@ -451,7 +451,17 @@
   .patients .job-flag:hover { color: var(--text); }
   .patients .job-flag input { accent-color: var(--accent); margin: 0; cursor: pointer; }
   .patients .job-flag.on { color: var(--accent-strong); }
+  /* tick box that files this patient into the Pleural Reviews tab */
+  .patients .pleural-flag {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 8px; font-size: 11.5px; color: var(--muted);
+    cursor: pointer; user-select: none; text-align: center;
+  }
+  .patients .pleural-flag:hover { color: var(--text); }
+  .patients .pleural-flag input { accent-color: var(--accent); margin: 0; cursor: pointer; }
+  .patients .pleural-flag.on { color: var(--accent-strong); }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
+  .patients .rowmeta .from-day { color: var(--accent-strong); }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
   .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
 
@@ -627,6 +637,7 @@
     /* action buttons side by side instead of a stacked column */
     .patients td.actions { white-space: normal; display: flex; flex-wrap: wrap; gap: 6px; }
     .patients .actions .ghost-btn { display: inline-block; width: auto; flex: 1 1 30%; margin-bottom: 0; }
+    .patients .actions .pleural-flag { flex: 1 1 100%; margin-top: 2px; justify-content: flex-start; }
 
     /* expanded letter / history / ask rows tuck under their patient card */
     .patients tr.letter-row {
@@ -721,6 +732,7 @@
     <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
     <button class="mode-tab" id="tabPrev" type="button">Patient List</button>
     <button class="mode-tab" id="tabArchive" type="button">Previous Patients</button>
+    <button class="mode-tab" id="tabPleural" type="button">Pleural Reviews</button>
     <button class="mode-tab" id="tabRef" type="button">Common Condition Histories</button>
     <button class="mode-tab" id="tabTexts" type="button">Commonly Used Texts</button>
   </div>
@@ -854,10 +866,45 @@
         <button class="ghost-btn" id="archiveRefreshBtn" type="button">↻ Refresh</button>
         <span class="status" id="archiveStatus"></span>
       </div>
+      <div class="ref-tools" style="margin-top:10px">
+        <input type="text" id="archiveSearch" placeholder="Search location or name — e.g. W46, TSH" autocomplete="off" spellcheck="false">
+        <button class="ghost-btn" id="archiveSearchClear" type="button" style="display:none">Clear</button>
+        <span class="ref-count" id="archiveCount"></span>
+      </div>
       <div class="error" id="archiveError" style="margin:10px 0 0"></div>
       <div id="archiveFolders" style="margin-top:12px"></div>
       <div class="empty-note" id="archiveEmpty" style="display:none">Nothing archived yet — patients move here automatically once the day they were created has passed.</div>
-      <div class="out-foot">One folder per day, stored in the repo under <code>resblue-archive/</code>. Job lists stay editable here and autosave the same way, ticking <b>Show in banner</b> works on archived patients too, and <b>double-click a Location</b> to change it; everything else is read-only. Delete all in Patient List does not touch this archive.</div>
+      <div class="out-foot">One folder per day, stored in the repo under <code>resblue-archive/</code>. The search box matches <b>location and name only</b>, across every day. Job lists stay editable here and autosave the same way, ticking <b>Show in banner</b> works on archived patients too, ticking <b>Pleural review</b> files the patient into the Pleural Reviews tab, and <b>double-click a Location</b> to change it; everything else is read-only. Delete all in Patient List does not touch this archive.</div>
+    </div>
+
+  </div>
+
+  <!-- =========================  PLEURAL REVIEWS  ========================= -->
+  <div id="pleuralTab" style="display:none">
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="pleuralRefreshBtn" type="button">↻ Refresh</button>
+        <span class="status" id="pleuralStatus"></span>
+        <span class="ref-count" id="pleuralCount"></span>
+      </div>
+      <div class="error" id="pleuralError" style="margin:10px 0 0"></div>
+      <div class="table-scroll" style="margin-top:12px">
+        <table class="patients">
+          <thead>
+            <tr>
+              <th style="width:1%">Location</th>
+              <th style="width:1%">Name</th>
+              <th>Summarised history</th>
+              <th style="width:24%">Job list</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="pleuralBody"></tbody>
+        </table>
+        <div class="empty-note" id="pleuralEmpty" style="display:none">No pleural reviews yet — tick <b>Pleural review</b> on a patient in Patient List or Previous Patients and they appear here.</div>
+      </div>
+      <div class="out-foot">Every patient ticked <b>Pleural review</b>, from the live Patient List and from every archived day. <b>Remove from Pleural Reviews</b> only unticks the patient — the record itself stays exactly where it is. Job lists stay editable here and autosave back to the file the patient lives in.</div>
     </div>
 
   </div>
@@ -1091,6 +1138,7 @@ const TABS = {
   create: ["tabCreate", "createTab"],
   prev: ["tabPrev", "prevTab"],
   archive: ["tabArchive", "archiveTab"],
+  pleural: ["tabPleural", "pleuralTab"],
   ref: ["tabRef", "refTab"],
   texts: ["tabTexts", "textsTab"]
 };
@@ -1103,11 +1151,16 @@ function setTab(t) {
   // which would tear down the row that owns the microphone.
   if (t === "prev" && get(K.ghToken) && !recBar.busy()) loadPatients(true);
   if (t === "archive" && get(K.ghToken)) loadArchive(true);
+  if (t === "pleural") {
+    renderPleural();                                            // paint from cache first
+    if (get(K.ghToken) && !recBar.busy()) loadPleural(true);
+  }
   if (t === "texts") { sizeAllTexts(); loadTexts(true); }
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabPrev").addEventListener("click", () => setTab("prev"));
 $("tabArchive").addEventListener("click", () => setTab("archive"));
+$("tabPleural").addEventListener("click", () => setTab("pleural"));
 $("tabRef").addEventListener("click", () => setTab("ref"));
 $("tabTexts").addEventListener("click", () => setTab("texts"));
 
@@ -1359,7 +1412,7 @@ renderTexts();
  *  Patient List view — full table vs history-taking mode         *
  * ============================================================== */
 const LIST_FOOT = {
-  full: "Job list edits autosave to GitHub a moment after you stop typing. Tick <b>Show in banner</b> to lift a patient's jobs into the banner at the top of the page. The list syncs across all your devices. Patients created before today are filed automatically into Previous Patients, under the date they were created.",
+  full: "Job list edits autosave to GitHub a moment after you stop typing. Tick <b>Show in banner</b> to lift a patient's jobs into the banner at the top of the page, and <b>Pleural review</b> to file the patient into the Pleural Reviews tab. The list syncs across all your devices. Patients created before today are filed automatically into Previous Patients, under the date they were created.",
   hx: "History taking mode — location, name and a clerking history for each patient. <b>Draft</b> rewrites what's already documented into bedside lines, with a <b>to ask</b> block at the bottom for what the notes don't answer; everything is then editable and autosaves to GitHub, so type over it as you clerk. <b>Dictate</b> records you at the bedside, transcribes it through Whisper and merges it into the lines above — answered <b>to ask</b> points move up into the history automatically. Drafts and merges use only documented or dictated information — check the negatives against the patient. The mic keeps running if you switch to <b>Common Condition Histories</b> — a bar at the bottom of the screen holds the timer and Stop button."
 };
 function setListView(v) {
@@ -2325,12 +2378,14 @@ async function loadPatients(auto) {
       showListError("Couldn't file older patients into Previous Patients: " + (e.message || e) + " — they stay in the list for now.");
     }
     renderTable();
+    renderPleural();
     setListStatus("Synced ✓ " + timeNow(), true);
   } catch (e) {
     setListStatus("");
     showListError("Couldn't load the patient list: " + (e.message || e));
   }
   await refreshJobsBanner();
+  renderPleural();   // refreshJobsBanner refills the archive cache this tab reads
 }
 $("refreshBtn").addEventListener("click", () => loadPatients(false));
 
@@ -2345,6 +2400,7 @@ $("deleteAllBtn").addEventListener("click", async () => {
   try {
     await mutateRemote(() => [], "Delete all blue letter patients");
     renderTable();
+    renderPleural();
     setListStatus("All patients deleted ✓", true);
   } catch (e) {
     setListStatus("");
@@ -2510,6 +2566,7 @@ function renderFullRow(body, p) {
     tdAct.appendChild(review.btn);
     tdAct.appendChild(pleural.btn);
     tdAct.appendChild(delBtn);
+    tdAct.appendChild(pleuralCheck(p, "list", dateKey(p.created)));
     tr.appendChild(tdAct);
     body.appendChild(tr);
     body.appendChild(review.row);
@@ -2801,6 +2858,7 @@ function renderFullRow(body, p) {
       try {
         await mutateRemote(list => list.filter(x => x.id !== p.id), "Remove blue letter patient: " + (p.name || p.location || p.id));
         renderTable();
+        renderPleural();
         setListStatus("Deleted ✓", true);
       } catch (e) {
         delBtn.disabled = false;
@@ -3244,6 +3302,26 @@ function fmtDayHeading(day) {
   return d.toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
+// Days currently on show, newest first — kept so the search box can re-render
+// the folders without going back to GitHub.
+let archiveDays = [];
+let archiveQuery = "";
+
+// Location and name only — deliberately not the summary or the letter, so a
+// search for "W46" can't be swamped by prose.
+function matchesArchiveQuery(p, q) {
+  if (!q) return true;
+  return ((p.location || "") + " " + (p.name || "")).toLowerCase().includes(q);
+}
+
+// A deleted day leaves the cache, the folder order and everything reading them.
+function dropArchiveDay(day) {
+  archiveCache.delete(day);
+  archiveDays = archiveDays.filter(d => d !== day);
+  renderJobsBanner();
+  renderPleural();
+}
+
 async function loadArchive(auto) {
   const c = ghCfg();
   if (!c.token) { if (!auto) showArchiveError("Set your GitHub token in Settings first."); return; }
@@ -3253,11 +3331,28 @@ async function loadArchive(auto) {
     const days = await listArchiveDays();
     for (const day of [...archiveCache.keys()]) if (!days.includes(day)) archiveCache.delete(day);
     await Promise.all(days.map(d => loadArchiveDay(d, true)));
+    archiveDays = days;
     renderJobsBanner();
-    const box = $("archiveFolders");
-    box.innerHTML = "";
-    $("archiveEmpty").style.display = days.length ? "none" : "";
-    for (const day of days) {
+    renderArchiveFolders();
+    renderPleural();
+    setArchiveStatus("Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setArchiveStatus("");
+    showArchiveError("Couldn't load the archive: " + (e.message || e));
+  }
+}
+
+function renderArchiveFolders() {
+  const q = archiveQuery.trim().toLowerCase();
+  const box = $("archiveFolders");
+  box.innerHTML = "";
+  let shown = 0, hits = 0;
+  for (const day of archiveDays) {
+    const dayList = (archiveCache.get(day) || []).filter(p => matchesArchiveQuery(p, q));
+    if (q && !dayList.length) continue;
+    shown++;
+    hits += dayList.length;
+    {
       const det = document.createElement("details");
       det.className = "arch-day";
       det.dataset.day = day;
@@ -3275,14 +3370,13 @@ async function loadArchive(auto) {
         try {
           const path = archivePath(day);
           const { sha, list } = await getRemote(path);
-          if (!sha) { det.remove(); archiveCache.delete(day); renderJobsBanner(); return; }   // already deleted elsewhere
+          if (!sha) { det.remove(); dropArchiveDay(day); return; }   // already deleted elsewhere
           if (!confirm("⚠ Delete ALL " + list.length + " archived patient" + (list.length === 1 ? "" : "s") +
               " from " + fmtDayHeading(day) + "?\n\nThis permanently removes that day's folder on all your devices and cannot be undone.")) return;
           setArchiveStatus("Deleting " + day + "…");
           await deleteRemote(path, sha, "Delete archived blue letter patients: " + day);
           det.remove();
-          archiveCache.delete(day);
-          renderJobsBanner();
+          dropArchiveDay(day);
           if (!$("archiveFolders").children.length) $("archiveEmpty").style.display = "";
           setArchiveStatus("Deleted " + fmtDayHeading(day) + " ✓", true);
         } catch (err) {
@@ -3294,33 +3388,50 @@ async function loadArchive(auto) {
       });
       sum.appendChild(delDay);
       det.appendChild(sum);
-      const dayList = archiveCache.get(day) || [];
       const count = document.createElement("span");
       count.className = "day-count";
-      count.textContent = dayList.length + " patient" + (dayList.length === 1 ? "" : "s");
+      count.textContent = q
+        ? dayList.length + " match" + (dayList.length === 1 ? "" : "es")
+        : dayList.length + " patient" + (dayList.length === 1 ? "" : "s");
       sum.insertBefore(count, delDay);
       const bodyDiv = document.createElement("div");
       bodyDiv.className = "day-body";
       det.appendChild(bodyDiv);
       // Rows are built on first open — the data is already cached, this just
-      // keeps the DOM small when there are many days.
+      // keeps the DOM small when there are many days. A search builds them
+      // straight away, since every folder left on screen is a hit.
       let built = false;
       const build = () => {
         if (built) return;
         built = true;
-        renderArchiveDay(bodyDiv, archiveCache.get(day) || [], day);
+        renderArchiveDay(bodyDiv, dayList, day);
       };
       det._build = build;   // so a banner click can build without waiting on the toggle event
       det.addEventListener("toggle", () => { if (det.open) build(); });
+      if (q) { det.open = true; build(); }
       box.appendChild(det);
     }
-    setArchiveStatus("Synced ✓ " + timeNow(), true);
-  } catch (e) {
-    setArchiveStatus("");
-    showArchiveError("Couldn't load the archive: " + (e.message || e));
   }
+  $("archiveEmpty").style.display = shown ? "none" : "";
+  $("archiveEmpty").textContent = q
+    ? "No archived patient matches that search — the search looks at location and name only."
+    : "Nothing archived yet — patients move here automatically once the day they were created has passed.";
+  $("archiveCount").textContent = q
+    ? hits + " match" + (hits === 1 ? "" : "es") + " in " + shown + " day" + (shown === 1 ? "" : "s")
+    : "";
+  $("archiveSearchClear").style.display = q ? "" : "none";
 }
 $("archiveRefreshBtn").addEventListener("click", () => loadArchive(false));
+$("archiveSearch").addEventListener("input", () => {
+  archiveQuery = $("archiveSearch").value;
+  renderArchiveFolders();
+});
+$("archiveSearchClear").addEventListener("click", () => {
+  $("archiveSearch").value = "";
+  archiveQuery = "";
+  renderArchiveFolders();
+  $("archiveSearch").focus();
+});
 
 async function saveArchivePin(day, id, value) {
   const local = (archiveCache.get(day) || []).find(p => p.id === id);
@@ -3435,6 +3546,7 @@ function renderArchiveDay(container, list, day) {
     tdAct.appendChild(letterBtn);
     tdAct.appendChild(review.btn);
     tdAct.appendChild(pleural.btn);
+    tdAct.appendChild(pleuralCheck(p, "archive", day));
     tr.appendChild(tdAct);
     body.appendChild(tr);
     body.appendChild(review.row);
@@ -3478,6 +3590,241 @@ function renderArchiveDay(container, list, day) {
   table.appendChild(body);
   scroll.appendChild(table);
   container.appendChild(scroll);
+}
+
+/* ============================================================== *
+ *  Pleural Reviews — every patient ticked for pleural follow-up  *
+ * ============================================================== */
+// The tick is a flag on the patient record itself (`pleural`), saved back to
+// whichever file that patient lives in — the live list or one archived day —
+// so this tab is only ever a view over data that already exists. Removing a
+// patient here unticks the flag; it never deletes the record.
+function setPleuralStatus(msg, ok) {
+  const el = $("pleuralStatus");
+  el.textContent = msg;
+  el.classList.toggle("ok", !!ok);
+}
+function showPleuralError(msg) { $("pleuralError").textContent = msg; $("pleuralError").style.display = "block"; }
+function clearPleuralError() { $("pleuralError").style.display = "none"; $("pleuralError").textContent = ""; }
+
+// Live list first, then the archived days newest first.
+function pleuralItems() {
+  const items = [];
+  const today = dateKey(Date.now());
+  for (const p of patients) if (p.pleural) items.push({ p, source: "list", day: dateKey(p.created) || today });
+  for (const day of [...archiveCache.keys()].sort((a, b) => b.localeCompare(a))) {
+    for (const p of archiveCache.get(day) || []) if (p.pleural) items.push({ p, source: "archive", day });
+  }
+  return items;
+}
+
+// Keep every copy of a patient's tick box in step — the same patient can be on
+// screen in the Patient List (or an open archive folder) and in this tab.
+function syncPleuralChecks(id, value) {
+  document.querySelectorAll('input.pleural-check[data-pid="' + id + '"]').forEach(cb => {
+    cb.checked = value;
+    const lab = cb.closest("label");
+    if (lab) lab.classList.toggle("on", value);
+  });
+}
+
+// The tick box shown in Patient List and in Previous Patients.
+function pleuralCheck(p, source, day) {
+  const lab = document.createElement("label");
+  lab.className = "pleural-flag";
+  lab.title = "Add this patient to the Pleural Reviews tab";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "pleural-check";
+  cb.dataset.pid = p.id;
+  cb.checked = !!p.pleural;
+  const txt = document.createElement("span");
+  txt.textContent = "Pleural review";
+  lab.appendChild(cb);
+  lab.appendChild(txt);
+  lab.classList.toggle("on", cb.checked);
+  cb.addEventListener("change", () => setPleural(source, day, p.id, cb.checked));
+  return lab;
+}
+
+// One save path for the tick, wherever it was clicked. The screen updates
+// first and rolls back if the write fails.
+async function setPleural(source, day, id, value, opts) {
+  const o = opts || {};
+  const status = o.setStatus || (source === "list" ? setListStatus : setArchiveStatus);
+  const showErr = o.showError || (source === "list" ? showListError : showArchiveError);
+  const recOf = () => source === "list"
+    ? patients.find(p => p.id === id)
+    : (archiveCache.get(day) || []).find(p => p.id === id);
+  const local = recOf();
+  if (local) local.pleural = value;
+  syncPleuralChecks(id, value);
+  renderPleural();
+  status("Saving…");
+  try {
+    const write = list => {
+      const rec = list.find(p => p.id === id);
+      if (rec) rec.pleural = value;
+      return list;
+    };
+    if (source === "list") await mutateRemote(write, "Update pleural review flag");
+    else await mutateArchiveRemote(day, write, "Update pleural review flag: " + day);
+    status("Saved ✓ " + timeNow(), true);
+  } catch (e) {
+    const back = recOf();
+    if (back) back.pleural = !value;
+    syncPleuralChecks(id, !value);
+    renderPleural();
+    status("");
+    showErr("Couldn't save the Pleural Reviews tick: " + (e.message || e));
+  }
+}
+
+// Both files, so the tab is right whichever tab you came from.
+async function loadPleural(auto) {
+  const c = ghCfg();
+  if (!c.token) { if (!auto) showPleuralError("Set your GitHub token in Settings first."); return; }
+  clearPleuralError();
+  setPleuralStatus("Loading…");
+  try {
+    const { list } = await getRemote();
+    patients = list;
+    const days = await listArchiveDays();
+    for (const day of [...archiveCache.keys()]) if (!days.includes(day)) archiveCache.delete(day);
+    await Promise.all(days.map(d => loadArchiveDay(d, true)));
+    archiveDays = days;
+    renderPleural();
+    renderJobsBanner();
+    setPleuralStatus("Synced ✓ " + timeNow(), true);
+  } catch (e) {
+    setPleuralStatus("");
+    showPleuralError("Couldn't load the pleural reviews: " + (e.message || e));
+  }
+}
+$("pleuralRefreshBtn").addEventListener("click", () => loadPleural(false));
+
+function renderPleural() {
+  const body = $("pleuralBody");
+  if (!body) return;                 // called before the DOM is up
+  body.innerHTML = "";
+  const items = pleuralItems();
+  $("pleuralEmpty").style.display = items.length ? "none" : "";
+  $("pleuralCount").textContent = items.length
+    ? items.length + " patient" + (items.length === 1 ? "" : "s")
+    : "";
+  for (const it of items) renderPleuralRow(body, it);
+}
+
+function renderPleuralRow(body, it) {
+  const p = it.p;
+  const archived = it.source === "archive";
+  const tr = document.createElement("tr");
+  tr.dataset.id = p.id;
+
+  const tdLoc = document.createElement("td");
+  tdLoc.className = "loc";
+  // Same edit-in-place rules as the tab the patient came from.
+  editableCell(tdLoc, p, "location", archived ? {
+    trigger: "dblclick",
+    title: "Double-click to edit",
+    setStatus: setPleuralStatus,
+    showError: showPleuralError,
+    save: (v) => mutateArchiveRemote(it.day, list => {
+      const rec = list.find(x => x.id === p.id);
+      if (rec) rec.location = v;
+      return list;
+    }, "Update patient location: " + it.day)
+  } : { setStatus: setPleuralStatus, showError: showPleuralError });
+  tr.appendChild(tdLoc);
+
+  const tdName = document.createElement("td");
+  tdName.className = "name";
+  tdName.textContent = p.name || "—";
+  const meta = document.createElement("div");
+  meta.className = "rowmeta";
+  meta.textContent = fmtDate(p.created);
+  if (archived) {
+    const from = document.createElement("div");
+    from.className = "rowmeta from-day";
+    from.textContent = fmtDayHeading(it.day);
+    tdName.appendChild(meta);
+    tdName.appendChild(from);
+  } else {
+    tdName.appendChild(meta);
+  }
+  tr.appendChild(tdName);
+
+  const tdSum = document.createElement("td");
+  tdSum.className = "summary";
+  const ref = referralOf(p);
+  tdSum.innerHTML =
+    (ref ? '<div class="refline"><strong>Referral:</strong> ' + escapeHtml(ref) + "</div>" : "") +
+    summaryHtml(p.summary || "");
+  tr.appendChild(tdSum);
+
+  const tdJobs = document.createElement("td");
+  tdJobs.className = "jobs";
+  if (archived) jobsCell(tdJobs, p, v => queueArchiveJobSave(it.day, p.id, v), v => saveArchivePin(it.day, p.id, v));
+  else jobsCell(tdJobs, p, v => queueJobSave(p.id, v), v => savePin(p.id, v));
+  tr.appendChild(tdJobs);
+
+  const tdAct = document.createElement("td");
+  tdAct.className = "actions";
+  const letterBtn = document.createElement("button");
+  letterBtn.className = "ghost-btn";
+  letterBtn.type = "button";
+  letterBtn.textContent = "Letter";
+  const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "ghost-btn";
+  removeBtn.type = "button";
+  removeBtn.textContent = "Remove from Pleural Reviews";
+  removeBtn.title = "Untick this patient — the record itself is not deleted";
+  removeBtn.addEventListener("click", () => {
+    removeBtn.disabled = true;
+    setPleural(it.source, it.day, p.id, false, { setStatus: setPleuralStatus, showError: showPleuralError });
+  });
+  tdAct.appendChild(letterBtn);
+  tdAct.appendChild(pleural.btn);
+  tdAct.appendChild(removeBtn);
+  tr.appendChild(tdAct);
+  body.appendChild(tr);
+  body.appendChild(pleural.row);
+
+  const trLetter = document.createElement("tr");
+  trLetter.className = "letter-row";
+  trLetter.style.display = "none";
+  const tdLetter = document.createElement("td");
+  tdLetter.colSpan = 5;
+  const head = document.createElement("div");
+  head.className = "letter-head";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.style.margin = "0";
+  eyebrow.textContent = "Blue letter reply";
+  const copyLetter = document.createElement("button");
+  copyLetter.className = "ghost-btn";
+  copyLetter.type = "button";
+  copyLetter.textContent = "Copy";
+  copyLetter.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(p.letter || ""); } catch (e) {}
+    flashCopied(copyLetter);
+  });
+  head.appendChild(eyebrow);
+  head.appendChild(copyLetter);
+  const pre = document.createElement("div");
+  pre.className = "letter-pre";
+  pre.textContent = p.letter || "(No letter stored.)";
+  tdLetter.appendChild(head);
+  tdLetter.appendChild(pre);
+  trLetter.appendChild(tdLetter);
+  body.appendChild(trLetter);
+
+  letterBtn.addEventListener("click", () => {
+    const open = trLetter.style.display !== "none";
+    trLetter.style.display = open ? "none" : "";
+    letterBtn.textContent = open ? "Letter" : "Hide";
+  });
 }
 
 /* ============================================================== *
