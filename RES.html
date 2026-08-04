@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Respiratory Tools · Ask the Council</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<script src="marked.min.js"></script>
 <style>
   :root {
     color-scheme: dark;
@@ -361,7 +362,7 @@
     color: #dedcd7;
     font-size: 12.5px;
     line-height: 1.62;
-    white-space: pre-wrap;
+    white-space: normal;
     overflow-wrap: anywhere;
     scrollbar-color: var(--border-strong) transparent;
   }
@@ -371,6 +372,33 @@
   .turn + .turn { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
   .turn-label { display: block; color: var(--provider-color); font-size: 10px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 5px; }
   .turn.user { color: var(--muted); font-style: italic; }
+  .turn.assistant { white-space: normal; }
+  .turn-content > :first-child { margin-top: 0; }
+  .turn-content > :last-child { margin-bottom: 0; }
+  .turn-content p { margin: 0 0 .75em; }
+  .turn-content ul, .turn-content ol { margin: .35em 0 .85em; padding-left: 1.5em; }
+  .turn-content li { padding-left: .12em; }
+  .turn-content li + li { margin-top: .3em; }
+  .turn-content li > ul, .turn-content li > ol { margin: .3em 0 .2em; }
+  .turn-content strong { color: var(--text); font-weight: 730; }
+  .turn-content em { color: #cfcdc7; }
+  .turn-content h1, .turn-content h2, .turn-content h3,
+  .turn-content h4, .turn-content h5, .turn-content h6 {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.35;
+    letter-spacing: -.005em;
+    margin: 1.05em 0 .45em;
+  }
+  .turn-content blockquote { margin: .75em 0; padding: .1em 0 .1em .85em; border-left: 2px solid var(--provider-color); color: var(--muted); }
+  .turn-content code { padding: .12em .35em; border-radius: 5px; background: var(--surface-3); color: #e4d7ad; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .92em; }
+  .turn-content pre { margin: .8em 0; padding: 10px; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #181918; white-space: pre; }
+  .turn-content pre code { padding: 0; background: transparent; }
+  .turn-content a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  .turn-content hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
+  .turn-content table { width: 100%; margin: .8em 0; border-collapse: collapse; font-size: 11.5px; }
+  .turn-content th, .turn-content td { padding: 6px 7px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .turn-content th { color: var(--text); background: var(--surface-2); }
   .response-actions { display: flex; gap: 7px; padding: 9px 11px; border-top: 1px solid var(--border); }
 
   .follow-up {
@@ -660,7 +688,9 @@
     "Answer the user's question directly and integrate any supplied context without inventing missing facts.",
     "For clinical questions, clearly separate facts from assumptions, give a prioritized differential or options where relevant, explain the reasoning, identify important uncertainty, red flags, and practical next steps.",
     "Do not present the response as a definitive diagnosis or a replacement for qualified clinical judgment.",
-    "Be concise enough to compare with other council members, but include the details that could materially change a decision."
+    "Format the answer as concise Markdown: begin with a bold **Bottom line**, then use short bullet points with brief headings only when they improve clarity.",
+    "Use bold text sparingly for key conclusions, red flags, and actions. Avoid long paragraphs, repetition, and conversational preambles.",
+    "Keep the response under about 350 words unless additional detail is necessary to avoid unsafe or misleading advice."
   ].join(" ");
 
   const PROVIDERS = {
@@ -958,6 +988,43 @@
     ui.copy.disabled = true;
   }
 
+  function renderMarkdown(container, markdown) {
+    container.textContent = "";
+    if (!window.marked || typeof window.marked.parse !== "function") {
+      container.textContent = markdown;
+      return;
+    }
+
+    const allowedTags = new Set([
+      "A", "BLOCKQUOTE", "BR", "CODE", "DEL", "EM", "H1", "H2", "H3", "H4", "H5", "H6",
+      "HR", "LI", "OL", "P", "PRE", "STRONG", "TABLE", "TBODY", "TD", "TH", "THEAD", "TR", "UL"
+    ]);
+    const template = document.createElement("template");
+
+    try {
+      template.innerHTML = window.marked.parse(markdown, { breaks: true, gfm: true });
+      Array.from(template.content.querySelectorAll("*")).forEach((element) => {
+        if (!allowedTags.has(element.tagName)) {
+          element.replaceWith(...element.childNodes);
+          return;
+        }
+
+        const href = element.tagName === "A" ? element.getAttribute("href") : "";
+        Array.from(element.attributes).forEach((attribute) => element.removeAttribute(attribute.name));
+        if (element.tagName === "A") {
+          if (href && /^(https?:|mailto:)/i.test(href)) {
+            element.setAttribute("href", href);
+            element.setAttribute("target", "_blank");
+            element.setAttribute("rel", "noopener noreferrer");
+          }
+        }
+      });
+      container.appendChild(template.content.cloneNode(true));
+    } catch (_) {
+      container.textContent = markdown;
+    }
+  }
+
   function renderConversation(id) {
     const ui = state.cards[id];
     const messages = state.conversations[id] || [];
@@ -970,8 +1037,10 @@
       const label = document.createElement("span");
       label.className = "turn-label";
       label.textContent = message.role === "user" ? "Your follow-up" : (index === 0 ? "Initial response" : PROVIDERS[id].label);
-      const content = document.createElement("span");
-      content.textContent = message.content;
+      const content = document.createElement("div");
+      content.className = "turn-content";
+      if (message.role === "assistant") renderMarkdown(content, message.content);
+      else content.textContent = message.content;
       turn.append(label, content);
       ui.body.appendChild(turn);
     });
