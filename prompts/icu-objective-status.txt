@@ -10,9 +10,9 @@ Extract a structured ICU objective status block from the clinical data provided.
   D: disability — GCS in E V M form, plus sedative/analgesic infusions and doses (e.g. "D: GCS E1VTM5, Propofol 120mg/h + Fentanyl 25mcg/h")
   E: electrolytes — latest urea, sodium, potassium, then glucose/CBG readings (e.g. "E: Urea 7 Na 130 K 4.9; CBG 6 > 6 > 7")
   F: fluids — latest intake, output and net balance, and whether on CRRT/HD (e.g. "F: Intake 570 Output 780 Net -210; on CRRT")
-  G: gastro/liver — latest ALP, ALT, AST, plus bilirubin only if abnormal (e.g. "G: ALP 120 ALT 30 AST 32")
+  G: gastro/liver — state the latest documented oral intake status succinctly as "NBM" or "Eating", then the latest ALP, ALT, AST, plus bilirubin only if abnormal (e.g. "G: Eating; ALP 120 ALT 30 AST 32" or "G: NBM")
   H: haematology — latest Hb; add platelets or WBC only if clearly abnormal (e.g. "H: Hb 8.9, Plt 60")
-  I: infection — current and recent antibiotics/antifungals with start and stop dates or day counts (e.g. "I: Tazocin 6/7 — current; Augmentin 1/7–5/7")
+  I: infection — current temperature and overnight maximum as "Temp" and "Tmax O/N" when documented, followed by current and recent antibiotics/antifungals with start and stop dates or day counts (e.g. "I: Temp 37.2, Tmax O/N 38.5; Tazocin 6/7 — current; Augmentin 1/7–5/7")
 - OMIT any line that has no data — do not print an empty letter.
 - NEVER write placeholder phrases for missing information — no "not reported", "not available", "unknown" or anything similar. If the information is absent, leave that line out entirely.
 - Use ONLY information explicitly stated. Never infer or estimate values.

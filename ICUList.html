@@ -616,7 +616,8 @@ const OBJECTIVE_UPDATE_SUFFIX =
   "\n\n## Update mode\n" +
   "You will be given an EXISTING OBJECTIVE block (already in the format above) and LATEST UPDATES. " +
   "For each letter, replace values with the newest data where the updates provide it; keep a letter unchanged " +
-  "when the updates say nothing about it. Show short trends oldest → newest with \" > \" only where useful (e.g. CBG). " +
+  "when the updates say nothing about it. For G, include the latest documented NBM/eating status; for I, include " +
+  "the current temperature and overnight Tmax when provided. Show short trends oldest → newest with \" > \" only where useful (e.g. CBG). " +
   "Output the FULL updated B–I block in exactly the format above — never output only the changes.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */

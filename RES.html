@@ -25,6 +25,12 @@
     --danger-soft: rgba(230, 138, 130, .11);
     --warning: #d8b56d;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    --t1: 11px;
+    --t2: 12.5px;
+    --t3: 14px;
+    --t4: 17px;
+    --t5: 31px;
   }
 
   * { box-sizing: border-box; }
@@ -34,8 +40,10 @@
   body {
     margin: 0;
     background:
-      radial-gradient(circle at 50% -180px, rgba(101, 193, 167, .08), transparent 420px),
+      radial-gradient(circle at 50% -200px, rgba(101, 193, 167, .085), transparent 460px),
+      radial-gradient(circle at 88% 76%, rgba(120, 155, 232, .05), transparent 520px),
       var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     font-family: var(--sans);
     font-size: 15px;
@@ -44,33 +52,98 @@
     min-height: 100vh;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: .038;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .lung-bg {
+    position: fixed;
+    top: -30px;
+    left: 50%;
+    z-index: 0;
+    width: min(1560px, 168vw);
+    pointer-events: none;
+    color: var(--accent);
+    opacity: .034;
+    transform: translateX(-50%);
+    transform-origin: 50% 8%;
+    animation: breathe 6s cubic-bezier(.42, 0, .35, 1) infinite;
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 34%, transparent 76%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 34%, transparent 76%);
+  }
+  @keyframes breathe {
+    0%   { transform: translateX(-50%) scale(1);     opacity: .030; }
+    38%  { transform: translateX(-50%) scale(1.016); opacity: .046; }
+    100% { transform: translateX(-50%) scale(1);     opacity: .030; }
+  }
+  .lung-bg .airway { fill: none; stroke: currentColor; stroke-linecap: round; }
+  .lung-bg .acinus { fill: currentColor; }
+
   button, input, textarea { font: inherit; }
   button { color: inherit; }
 
   .wrap {
+    position: relative;
+    z-index: 2;
     width: 100%;
     max-width: 1120px;
     margin: 0 auto;
-    padding: 38px 22px 56px;
+    padding: 54px 22px 56px;
   }
 
-  header.app { text-align: center; margin-bottom: 28px; }
-  h1 {
-    font-size: 22px;
-    font-weight: 680;
-    letter-spacing: -.015em;
-    margin: 0 0 5px;
+  header.app { margin-bottom: 34px; }
+  .brand-row { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(150deg, rgba(101, 193, 167, .22), rgba(101, 193, 167, .06));
+    border: 1px solid rgba(101, 193, 167, .3);
+    color: var(--accent);
   }
-  .sub { color: var(--muted); font-size: 13.5px; margin: 0; }
+  .brand-mark svg { width: 17px; height: 17px; }
+  .brand-name { font-size: var(--t1); font-weight: 760; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+  h1 {
+    font-size: var(--t5);
+    font-weight: 660;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    margin: 0 0 7px;
+  }
+  .sub { color: var(--muted); font-size: var(--t3); margin: 0; max-width: 54ch; }
 
   .council {
-    background: linear-gradient(145deg, rgba(101, 193, 167, .055), transparent 38%), var(--surface);
+    position: relative;
+    background: linear-gradient(160deg, rgba(101, 193, 167, .06), transparent 34%), var(--surface);
     border: 1px solid var(--border-strong);
     border-radius: 20px;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, .16);
+    box-shadow: 0 22px 70px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .04);
     overflow: hidden;
-    margin: 34px 0 0;
+    margin: 40px 0 0;
   }
+  .council::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    height: 2px;
+    width: var(--run, 0%);
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 0 12px rgba(101, 193, 167, .5);
+    opacity: 0;
+    transition: width .45s ease, opacity .35s ease;
+  }
+  .council.is-running::before { opacity: 1; }
 
   .council-inner { padding: 28px; }
 
@@ -203,11 +276,14 @@
     background: rgba(255, 255, 255, .018);
     cursor: pointer;
     user-select: none;
-    transition: border-color .15s ease, background .15s ease, transform .12s ease;
+    filter: saturate(.25);
+    opacity: .72;
+    transition: border-color .15s ease, background .15s ease, transform .12s ease, filter .2s ease, opacity .2s ease;
   }
   .model-option:hover { border-color: var(--border-strong); background: rgba(255, 255, 255, .03); }
   .model-option:active { transform: scale(.99); }
-  .model-option:has(input:checked) { border-color: var(--provider-color); background: color-mix(in srgb, var(--provider-color) 8%, transparent); }
+  .model-option:has(input:checked) { filter: none; opacity: 1; border-color: color-mix(in srgb, var(--provider-color) 58%, var(--border)); background: color-mix(in srgb, var(--provider-color) 9%, transparent); }
+  .model-option:has(input:checked) .model-dot { background: color-mix(in srgb, var(--provider-color) 14%, transparent); }
   .model-option:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--provider-color) 22%, transparent); }
   .model-option input { position: absolute; opacity: 0; pointer-events: none; }
 
@@ -315,13 +391,28 @@
 
   .response-card {
     --provider-color: var(--accent);
+    position: relative;
     min-width: 0;
     border: 1px solid var(--border);
     background: var(--surface);
     border-radius: 14px;
     overflow: hidden;
     transition: border-color .15s ease, transform .15s ease, background .15s ease;
+    animation: rise .5s cubic-bezier(.2, .7, .3, 1) backwards;
   }
+  .response-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--provider-color);
+    opacity: .8;
+  }
+  .response-card:nth-child(2) { animation-delay: .05s; }
+  .response-card:nth-child(3) { animation-delay: .1s; }
+  .response-card:nth-child(4) { animation-delay: .15s; }
   .response-card.is-ready { cursor: pointer; }
   .response-card.is-ready:hover { border-color: color-mix(in srgb, var(--provider-color) 52%, var(--border)); transform: translateY(-1px); }
   .response-card.is-focused { border-color: var(--provider-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--provider-color) 12%, transparent); }
@@ -333,6 +424,7 @@
     min-height: 51px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--provider-color) 9%, transparent), transparent);
   }
   .response-badge {
     width: 27px;
@@ -342,7 +434,8 @@
     flex: none;
     border-radius: 8px;
     color: var(--provider-color);
-    border: 1px solid color-mix(in srgb, var(--provider-color) 36%, var(--border));
+    border: 1px solid color-mix(in srgb, var(--provider-color) 40%, var(--border));
+    background: color-mix(in srgb, var(--provider-color) 10%, transparent);
     font-weight: 800;
     font-size: 9.5px;
   }
@@ -352,6 +445,8 @@
   .response-status { margin-left: auto; color: var(--muted); font-size: 10.5px; }
   .response-status::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: currentColor; }
   .response-status.loading { color: var(--warning); }
+  .response-status.loading::before { animation: blink 1.1s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
   .response-status.ready { color: var(--accent); }
   .response-status.failed { color: var(--danger); }
   .response-body {
@@ -366,8 +461,17 @@
     overflow-wrap: anywhere;
     scrollbar-color: var(--border-strong) transparent;
   }
-  .response-body.is-loading { color: var(--muted); animation: soft-pulse 1.4s ease-in-out infinite; }
-  @keyframes soft-pulse { 50% { opacity: .55; } }
+  .skel {
+    height: 9px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 40%, var(--surface-2) 80%);
+    background-size: 220% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+  .skel.head { height: 13px; margin-bottom: 16px; }
+  @keyframes shimmer { to { background-position: -220% 0; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(9px); } }
   .turn { white-space: pre-wrap; }
   .turn + .turn { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
   .turn-label { display: block; color: var(--provider-color); font-size: 10px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 5px; }
@@ -414,59 +518,76 @@
   #followUpQuestion { min-height: 76px; }
   .follow-actions { display: flex; gap: 8px; margin-top: 8px; }
 
-  .tools-heading {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 720;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    margin: 0 0 13px;
-  }
-  .tools-heading::before, .tools-heading::after { content: ""; height: 1px; background: var(--border); flex: 1; }
-
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
     gap: 12px;
   }
 
   a.tile {
+    --hue: var(--accent);
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 13px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 20px 18px;
+    padding: 19px 18px;
     text-decoration: none;
     color: var(--text);
-    transition: border-color .15s ease, background .15s ease, transform .12s ease;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+    transition: border-color .16s ease, background .16s ease, transform .14s ease, box-shadow .16s ease;
+    animation: rise .5s cubic-bezier(.2, .7, .3, 1) backwards;
   }
-  a.tile:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); transform: translateY(-2px); }
+  a.tile:nth-child(1) { animation-delay: .02s; }
+  a.tile:nth-child(2) { animation-delay: .06s; }
+  a.tile:nth-child(3) { animation-delay: .1s; }
+  a.tile:nth-child(4) { animation-delay: .14s; }
+  a.tile:nth-child(5) { animation-delay: .18s; }
+  a.tile:nth-child(6) { animation-delay: .22s; }
+  a.tile:nth-child(7) { animation-delay: .26s; }
+  a.tile:nth-child(8) { animation-delay: .3s; }
+  a.tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--hue) 13%, transparent), transparent 62%);
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+  a.tile:hover {
+    border-color: color-mix(in srgb, var(--hue) 55%, var(--border));
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 10px 26px rgba(0, 0, 0, .22);
+  }
+  a.tile:hover::after { opacity: 1; }
   a.tile:active { transform: translateY(0); }
-  a.tile:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  a.tile:focus-visible { outline: none; border-color: var(--hue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); }
   .tile .icon {
-    width: 41px;
-    height: 41px;
+    width: 40px;
+    height: 40px;
     border-radius: 11px;
-    background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
-    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    background: color-mix(in srgb, var(--hue) 11%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--hue) 26%, var(--border));
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent);
-    transition: color .15s ease, background .15s ease;
+    color: var(--hue);
+    transition: background .16s ease, box-shadow .16s ease;
     flex: none;
   }
-  a.tile:hover .icon { color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 16%, var(--surface-2)); }
-  .tile .icon svg { width: 22px; height: 22px; }
-  .tile .name { font-size: 14.5px; font-weight: 650; letter-spacing: -.005em; }
-  .tile .desc { font-size: 12px; color: var(--muted); margin: 2px 0 0; line-height: 1.45; }
+  a.tile:hover .icon {
+    background: color-mix(in srgb, var(--hue) 19%, var(--surface-2));
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--hue) 8%, transparent);
+  }
+  .tile .icon svg { width: 21px; height: 21px; }
+  .tile .name { position: relative; font-size: var(--t3); font-weight: 660; letter-spacing: -.005em; }
+  .tile .desc { position: relative; font-size: var(--t2); color: var(--muted); margin: 3px 0 0; line-height: 1.45; }
 
-  footer { text-align: center; color: var(--faint); font-size: 11.5px; margin-top: 28px; }
+  footer { text-align: center; color: var(--faint); font-size: var(--t1); margin-top: 30px; }
 
   @media (max-width: 820px) {
     .model-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -475,7 +596,7 @@
   }
 
   @media (max-width: 600px) {
-    .wrap { padding: 26px 13px 42px; }
+    .wrap { padding: 34px 13px 42px; }
     .council-inner, .results { padding: 20px 16px; }
     .council-heading { display: block; }
     .privacy-chip { margin-top: 13px; }
@@ -493,51 +614,109 @@
 </style>
 </head>
 <body>
+
+<svg class="lung-bg" viewBox="0 0 1200 720" aria-hidden="true" focusable="false">
+  <g class="airway" stroke-width="9">
+    <path d="M600 -30 L600 185" />
+  </g>
+  <g class="airway" stroke-width="7">
+    <path d="M600 185 C595 215 570 232 512 252" />
+    <path d="M600 185 C607 220 640 244 706 268" />
+  </g>
+  <g class="airway" stroke-width="5.2">
+    <path d="M512 252 C480 240 452 214 428 176" />
+    <path d="M512 252 C498 290 486 320 470 352" />
+    <path d="M706 268 C742 258 772 232 796 198" />
+    <path d="M706 268 C722 304 734 336 748 370" />
+  </g>
+  <g class="airway" stroke-width="3.6">
+    <path d="M428 176 C400 158 372 150 340 146" />
+    <path d="M428 176 C408 196 392 212 372 232" />
+    <path d="M470 352 C450 376 434 398 418 424" />
+    <path d="M470 352 C472 392 476 424 480 458" />
+    <path d="M796 198 C824 180 852 170 884 166" />
+    <path d="M796 198 C816 218 832 234 852 254" />
+    <path d="M748 370 C768 394 784 416 800 442" />
+    <path d="M748 370 C746 410 742 442 738 476" />
+  </g>
+  <g class="airway" stroke-width="2.4">
+    <path d="M340 146 C316 134 292 130 266 132" />
+    <path d="M340 146 C328 164 320 180 312 198" />
+    <path d="M372 232 C348 226 328 228 306 236" />
+    <path d="M372 232 C366 254 362 272 358 292" />
+    <path d="M418 424 C398 440 382 458 368 478" />
+    <path d="M418 424 C414 452 412 474 410 498" />
+    <path d="M480 458 C468 486 460 510 454 534" />
+    <path d="M480 458 C494 484 506 506 516 530" />
+    <path d="M884 166 C908 154 932 150 958 152" />
+    <path d="M884 166 C896 184 904 200 912 218" />
+    <path d="M852 254 C876 248 896 250 918 258" />
+    <path d="M852 254 C858 276 862 294 866 314" />
+    <path d="M800 442 C820 458 836 476 850 496" />
+    <path d="M800 442 C804 470 806 492 808 516" />
+    <path d="M738 476 C750 504 758 528 764 552" />
+    <path d="M738 476 C724 502 712 524 702 548" />
+  </g>
+  <g class="acinus">
+    <circle cx="266" cy="132" r="3.4" /><circle cx="312" cy="198" r="3.4" />
+    <circle cx="306" cy="236" r="3.4" /><circle cx="358" cy="292" r="3.4" />
+    <circle cx="368" cy="478" r="3.4" /><circle cx="410" cy="498" r="3.4" />
+    <circle cx="454" cy="534" r="3.4" /><circle cx="516" cy="530" r="3.4" />
+    <circle cx="958" cy="152" r="3.4" /><circle cx="912" cy="218" r="3.4" />
+    <circle cx="918" cy="258" r="3.4" /><circle cx="866" cy="314" r="3.4" />
+    <circle cx="850" cy="496" r="3.4" /><circle cx="808" cy="516" r="3.4" />
+    <circle cx="764" cy="552" r="3.4" /><circle cx="702" cy="548" r="3.4" />
+  </g>
+</svg>
+
 <div class="wrap">
 
   <header class="app">
-    <h1>Respiratory Tools</h1>
-    <p class="sub">Clinical documentation &amp; reference — pick a tool</p>
+    <div class="brand-row">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M10 7.5C8.5 8.2 7.5 9.8 7 12l-1.3 5.7C5.4 19 4.5 20 3.3 20 2.5 20 2 19.4 2 18.5c0-6 1.7-10.2 5.2-12.7"/><path d="M14 7.5c1.5.7 2.5 2.3 3 4.5l1.3 5.7c.3 1.3 1.2 2.3 2.4 2.3.8 0 1.3-.6 1.3-1.5 0-6-1.7-10.2-5.2-12.7"/></svg></span>
+      <span class="brand-name">Respiratory</span>
+    </div>
+    <h1>Clinical tools &amp; reference</h1>
+    <p class="sub">Documentation, rounding lists and multi-model review — pick a tool below, or put a question to the council.</p>
   </header>
 
   <main>
-    <div class="tools-heading">Respiratory tools</div>
     <nav class="grid" aria-label="Respiratory tools">
-      <a class="tile" href="index.html">
+      <a class="tile" href="index.html" style="--hue:#65c1a7">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6M9 9h1.5"/></svg></span>
         <span><span class="name">Document Generator</span><p class="desc">Generate or update clinical notes from patient details and a template</p></span>
       </a>
-      <a class="tile" href="dictation.html">
+      <a class="tile" href="dictation.html" style="--hue:#d39a72">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></span>
         <span><span class="name">Dictation</span><p class="desc">Record, transcribe and format dictated notes — synced via GitHub</p></span>
       </a>
-      <a class="tile" href="pft.html">
+      <a class="tile" href="pft.html" style="--hue:#7fb5f7">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M4 20V5"/><path d="M6 18c1-8 3-12 6-12 4 0 6 7 6 12"/><path d="M6 18c4-1 8-1 12 0"/></svg></span>
         <span><span class="name">PFT</span><p class="desc">Pulmonary function test interpretation and reporting</p></span>
       </a>
-      <a class="tile" href="RESblue.html">
+      <a class="tile" href="RESblue.html" style="--hue:#789be8">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg></span>
         <span><span class="name">Blue Letters</span><p class="desc">Respiratory referral replies with a synced patient list &amp; job lists</p></span>
       </a>
-      <a class="tile" href="RESClinic.html">
+      <a class="tile" href="RESClinic.html" style="--hue:#c296e8">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v5a5 5 0 0 0 10 0V3"/><path d="M5 3H4m2 0h1M15 3h-1m2 0h1"/><path d="M10 13v3a5 5 0 0 0 10 0v-1"/><circle cx="20" cy="13" r="2"/></svg></span>
         <span><span class="name">Clinic Notes</span><p class="desc">RES SR clinic notes with updates, summaries &amp; job lists</p></span>
       </a>
-      <a class="tile" href="ICUList.html">
+      <a class="tile" href="ICUList.html" style="--hue:#e68a82">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="13" rx="2"/><path d="M6 11h3l1.5-3 3 6 1.5-3h3"/><path d="M9 21h6"/></svg></span>
         <span><span class="name">ICU List</span><p class="desc">ICU triage notes, inpatient rounding list with B–I objectives &amp; job lists</p></span>
       </a>
-      <a class="tile" href="GWList.html">
+      <a class="tile" href="GWList.html" style="--hue:#d8b56d">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="14" height="16" rx="2"/><path d="M9 4.5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8.5 10h7M8.5 13.5h7M8.5 17h4.5"/></svg></span>
         <span><span class="name">Ward Round List</span><p class="desc">General ward rounding list with AI summaries, obs &amp; job lists</p></span>
       </a>
-      <a class="tile" href="LUNI.html">
+      <a class="tile" href="LUNI.html" style="--hue:#a3c76d">
         <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M10 7.5C8.5 8.2 7.5 9.8 7 12l-1.3 5.7C5.4 19 4.5 20 3.3 20 2.5 20 2 19.4 2 18.5c0-6 1.7-10.2 5.2-12.7"/><path d="M14 7.5c1.5.7 2.5 2.3 3 4.5l1.3 5.7c.3 1.3 1.2 2.3 2.4 2.3.8 0 1.3-.6 1.3-1.5 0-6-1.7-10.2-5.2-12.7"/><circle cx="16" cy="13" r="1.7"/></svg></span>
         <span><span class="name">Lung Nodule Interpreter</span><p class="desc">Fleischner-guided nodule follow-up with Brock risk and growth assessment</p></span>
       </a>
     </nav>
 
-    <section class="council" aria-labelledby="councilTitle">
+    <section class="council" id="council" aria-labelledby="councilTitle">
       <div class="council-inner">
         <div class="council-heading">
           <div>
@@ -901,6 +1080,24 @@
     return text;
   }
 
+  const SKELETON_LINES = [42, 92, 84, 58, 34, 88, 66];
+
+  function fillSkeleton(container) {
+    container.textContent = "";
+    SKELETON_LINES.forEach((width, index) => {
+      const line = document.createElement("div");
+      line.className = index === 0 || index === 4 ? "skel head" : "skel";
+      line.style.width = width + "%";
+      container.appendChild(line);
+    });
+  }
+
+  function setRunProgress(fraction, running) {
+    const council = $("council");
+    council.classList.toggle("is-running", running);
+    council.style.setProperty("--run", Math.max(3, fraction * 100) + "%");
+  }
+
   function makeButton(text, className, disabled) {
     const button = document.createElement("button");
     button.type = "button";
@@ -938,7 +1135,7 @@
 
     const body = document.createElement("div");
     body.className = "response-body is-loading";
-    body.textContent = "Considering the question…";
+    fillSkeleton(body);
 
     const actions = document.createElement("div");
     actions.className = "response-actions";
@@ -966,12 +1163,12 @@
     state.cards[id] = { card, body, status, follow, copy, model };
   }
 
-  function setCardLoading(id, label) {
+  function setCardLoading(id) {
     const ui = state.cards[id];
     ui.status.className = "response-status loading";
     ui.status.textContent = "Thinking";
     ui.body.className = "response-body is-loading";
-    ui.body.textContent = label || "Considering the question…";
+    fillSkeleton(ui.body);
     ui.follow.disabled = true;
     ui.copy.disabled = true;
     ui.card.classList.remove("is-ready");
@@ -1077,9 +1274,12 @@
   function updateRunProgress() {
     if (state.runningCount > 0) {
       const complete = state.totalCount - state.runningCount;
+      setRunProgress(complete / state.totalCount, true);
       setRequestStatus("Council in progress — " + complete + " of " + state.totalCount + " finished.");
       return;
     }
+    setRunProgress(1, true);
+    window.setTimeout(() => setRunProgress(0, false), 700);
     $("askCouncil").disabled = false;
     $("stopCouncil").hidden = true;
     const ready = Object.values(state.cards).filter((ui) => ui.card.classList.contains("is-ready")).length;
@@ -1099,6 +1299,7 @@
     state.followTarget = null;
     state.runningCount = 0;
     state.totalCount = 0;
+    setRunProgress(0, false);
     $("resultsGrid").textContent = "";
     $("results").hidden = true;
     $("followUpForm").hidden = true;
@@ -1177,8 +1378,12 @@
     button.disabled = true;
     $("followUpQuestion").disabled = true;
     state.conversations[id].push({ role: "user", content: question });
-    setCardLoading(id, "Reviewing your follow-up…");
+    setCardLoading(id);
     renderConversation(id);
+    const pending = document.createElement("div");
+    pending.className = "turn";
+    fillSkeleton(pending);
+    state.cards[id].body.appendChild(pending);
     state.cards[id].status.className = "response-status loading";
     state.cards[id].status.textContent = "Thinking";
     state.cards[id].follow.disabled = true;
