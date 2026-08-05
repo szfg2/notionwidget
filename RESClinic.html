@@ -327,6 +327,8 @@
     font-size: 13px;
     padding: 7px 9px;
     background: var(--surface-2);
+    overflow: hidden;      /* it grows to fit instead of scrolling */
+    resize: none;
   }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
@@ -736,6 +738,7 @@ function setTab(t) {
   $("createTab").style.display = prev ? "none" : "";
   $("wrap").classList.toggle("wide", prev);
   updateHideFab();     // the floating button belongs to the list tab only
+  if (prev) growJobBoxes();
   if (prev && get(K.ghToken)) loadPatients(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
@@ -1318,7 +1321,10 @@ function renderTable() {
     box.className = "jobbox";
     box.placeholder = "To-dos…";
     box.value = p.jobs || "";
-    box.addEventListener("input", () => queueFieldSave(p.id, "jobs", box.value, "Update to-dos"));
+    box.addEventListener("input", () => {
+      autoGrow(box, 72);
+      queueFieldSave(p.id, "jobs", box.value, "Update to-dos");
+    });
     tdJobs.appendChild(box);
     tr.appendChild(tdJobs);
 
@@ -1341,6 +1347,7 @@ function renderTable() {
     tdAct.appendChild(delBtn);
     tr.appendChild(tdAct);
     body.appendChild(tr);
+    autoGrow(box, 72);   // in the DOM now, so it can be sized to its content
 
     // expandable note row
     const trNote = document.createElement("tr");
@@ -2112,11 +2119,23 @@ async function mergeConsult(note, transcript, p, signal) {
   return callClaude(key, CONFIG.DICTATE_MODEL, sys, userMessage, CONFIG.DICTATE_MAX_TOKENS, signal);
 }
 
-// Grow a textarea to fit its content (used for the note + memo boxes)
-function autoGrow(el) {
+// Grow a textarea to fit its content (used for the note, memo and to-do boxes)
+function autoGrow(el, min) {
   el.style.height = "auto";
-  el.style.height = Math.max(el.scrollHeight + 2, 120) + "px";
+  el.style.height = Math.max(el.scrollHeight + 2, min || 120) + "px";
 }
+
+// A hidden element has no scrollHeight, so boxes rendered on the other tab
+// come out at their minimum — re-fit every to-do box once the list is visible.
+function growJobBoxes() {
+  document.querySelectorAll("#ptBody textarea.jobbox").forEach(b => autoGrow(b, 72));
+}
+// A narrower window rewraps the lines, so the fitted heights need redoing.
+let jobGrowTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(jobGrowTimer);
+  jobGrowTimer = setTimeout(growJobBoxes, 150);
+});
 
 /* ============================================================== *
  *  Hide all notes / Delete all patients                          *
