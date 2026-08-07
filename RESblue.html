@@ -784,10 +784,14 @@
     <div class="card">
       <div class="out-head">
         <span class="eyebrow">Blue letter reply</span>
-        <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+        <div class="gen-row" style="gap:10px">
+          <span class="status" id="letterStatus"></span>
+          <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+        </div>
       </div>
       <textarea class="output" id="output" placeholder="The generated blue letter reply appears here. You can edit it before copying." spellcheck="false"></textarea>
       <div class="out-foot" id="count"></div>
+      <div class="out-foot">Edits here autosave to GitHub a moment after you stop typing, and replace the stored letter — open <b>Letter</b> on the patient's row in Patient List or Previous Patients to see the current version.</div>
     </div>
 
     <!-- READING TOPICS -->
@@ -1143,19 +1147,25 @@ const TABS = {
   texts: ["tabTexts", "textsTab"]
 };
 function setTab(t) {
+  // Leaving the create tab commits any letter edit still sitting on the
+  // debounce, so the Letter buttons in the other tabs show the current text.
+  // The tab swaps straight away; only the reload waits on the save, so it can't
+  // pull a copy of the list from before the edit landed.
+  const saved = (t === "create") ? Promise.resolve() : flushLetterSave();
   for (const k in TABS) {
     $(TABS[k][0]).classList.toggle("active", k === t);
     $(TABS[k][1]).style.display = k === t ? "" : "none";
   }
-  // Don't re-sync while a dictation is running — reloading re-renders the table,
-  // which would tear down the row that owns the microphone.
-  if (t === "prev" && get(K.ghToken) && !recBar.busy()) loadPatients(true);
-  if (t === "archive" && get(K.ghToken)) loadArchive(true);
-  if (t === "pleural") {
-    renderPleural();                                            // paint from cache first
-    if (get(K.ghToken) && !recBar.busy()) loadPleural(true);
-  }
-  if (t === "texts") { sizeAllTexts(); loadTexts(true); }
+  if (t === "pleural") renderPleural();                         // paint from cache first
+  if (t === "texts") sizeAllTexts();
+  saved.then(() => {
+    // Don't re-sync while a dictation is running — reloading re-renders the table,
+    // which would tear down the row that owns the microphone.
+    if (t === "prev" && get(K.ghToken) && !recBar.busy()) loadPatients(true);
+    if (t === "archive" && get(K.ghToken)) loadArchive(true);
+    if (t === "pleural" && get(K.ghToken) && !recBar.busy()) loadPleural(true);
+    if (t === "texts") loadTexts(true);
+  });
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabPrev").addEventListener("click", () => setTab("prev"));
@@ -1459,7 +1469,8 @@ function updateCount() {
   const t = $("output").value.trim();
   $("count").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
 }
-$("output").addEventListener("input", updateCount);
+$("output").addEventListener("input", () => { updateCount(); queueLetterSave(); });
+$("output").addEventListener("blur", flushLetterSave);
 
 /* ============================================================== *
  *  Model API - see provider.js                                   *
@@ -1951,6 +1962,11 @@ $("generateBtn").addEventListener("click", async () => {
   if (genController) { genController.abort(); return; }
 
   clearError();
+  // Commit anything still pending against the previous record before the box is
+  // overwritten, and detach the box until the new record has been saved.
+  flushLetterSave();
+  currentLetterId = "";
+
   const key = AI.key();
   if (!key) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
@@ -1983,6 +1999,7 @@ $("generateBtn").addEventListener("click", async () => {
 
     $("output").value = letter || "(No text returned.)";
     updateCount();
+    setLetterStatus("");
 
     const record = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -1999,6 +2016,7 @@ $("generateBtn").addEventListener("click", async () => {
     setGenStatus("Saving patient to GitHub…");
     try {
       await mutateRemote(list => upsertByName(list, record), "Add blue letter patient: " + (name || location));
+      currentLetterId = record.id;   // the output box now edits this record
       renderTable();
       setGenStatus("Done ✓ — saved to Patient List", true);
     } catch (e) {
@@ -2024,6 +2042,106 @@ function setLoading(on) {
     btn.classList.remove("is-cancel");
     btn.innerHTML = "Generate";
   }
+}
+
+/* ============================================================== *
+ *  Letter edits — the output box autosaves onto its own record   *
+ * ============================================================== */
+// Set once Generate has saved a patient, so typing in the box before there is a
+// record to attach the text to never tries to save. Cleared when a new generate
+// starts, and left empty if that patient's save failed.
+let currentLetterId = "";
+let letterTimer = null;
+let pendingLetter = null;     // { id, value } waiting on the debounce
+
+function setLetterStatus(msg, ok) {
+  const el = $("letterStatus");
+  el.textContent = msg || "";
+  el.classList.toggle("ok", !!ok);
+}
+
+function queueLetterSave() {
+  if (!currentLetterId) return;
+  pendingLetter = { id: currentLetterId, value: $("output").value };
+  if (letterTimer) clearTimeout(letterTimer);
+  setLetterStatus("Editing…");
+  letterTimer = setTimeout(flushLetterSave, 1500);
+}
+
+// Also called on blur and when leaving the tab, so an edit is never left
+// sitting on the debounce while the letter is read somewhere else.
+async function flushLetterSave() {
+  if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; }
+  const job = pendingLetter;
+  if (!job) return;
+  pendingLetter = null;
+  setLetterStatus("Saving…");
+  try {
+    await saveLetter(job.id, job.value);
+    setLetterStatus("Saved ✓ " + timeNow(), true);
+  } catch (e) {
+    setLetterStatus("");
+    showError("Couldn't save your letter edit: " + (e.message || e));
+  }
+}
+
+// Which archived day a record was filed into — "" if it isn't in the cache.
+function archiveDayOf(id) {
+  for (const [day, list] of archiveCache) {
+    if ((list || []).some(p => p.id === id)) return day;
+  }
+  return "";
+}
+
+// The live copy of a record, wherever it lives, so an expanded Letter row can
+// always paint the current text rather than whatever it was built with.
+function recordById(id) {
+  const live = patients.find(p => p.id === id);
+  if (live) return live;
+  const day = archiveDayOf(id);
+  return day ? (archiveCache.get(day) || []).find(p => p.id === id) : null;
+}
+
+// The current letter for a rendered row — the live record if it's still there,
+// otherwise the copy the row was built from.
+function letterText(p) {
+  const live = recordById(p.id);
+  return ((live || p).letter) || "";
+}
+
+// Repaint every open Letter row for this patient — list and archive both tag
+// their row with data-letter-for.
+function refreshLetterViews(id, value) {
+  document.querySelectorAll('[data-letter-for="' + id + '"] .letter-pre').forEach(el => {
+    el.textContent = value || "(No letter stored.)";
+  });
+}
+
+// Write the edited letter back to whichever file holds the record: the active
+// list normally, or its archive day if the page has been left open past
+// midnight and the patient has since been filed.
+async function saveLetter(id, value) {
+  const local = patients.find(p => p.id === id);
+  if (local) {
+    local.letter = value;
+    await mutateRemote(list => {
+      const rec = list.find(p => p.id === id);
+      if (rec) rec.letter = value;
+      return list;
+    }, "Update blue letter reply");
+    refreshLetterViews(id, value);
+    return;
+  }
+  const day = archiveDayOf(id);
+  if (!day) throw new Error("That patient is no longer on this device — refresh the Patient List, then regenerate to save.");
+  const cached = (archiveCache.get(day) || []).find(p => p.id === id);
+  if (cached) cached.letter = value;
+  await mutateArchiveRemote(day, list => {
+    const rec = list.find(p => p.id === id);
+    if (rec) rec.letter = value;
+    return list;
+  }, "Update blue letter reply: " + day);
+  refreshLetterViews(id, value);
 }
 
 // Ctrl/Cmd+Enter generates
@@ -2576,6 +2694,7 @@ function renderFullRow(body, p) {
     const trLetter = document.createElement("tr");
     trLetter.className = "letter-row";
     trLetter.style.display = "none";
+    trLetter.dataset.letterFor = p.id;
     const tdLetter = document.createElement("td");
     tdLetter.colSpan = 5;
     const head = document.createElement("div");
@@ -2589,14 +2708,14 @@ function renderFullRow(body, p) {
     copyLetter.type = "button";
     copyLetter.textContent = "Copy";
     copyLetter.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(p.letter || ""); } catch (e) {}
+      try { await navigator.clipboard.writeText(letterText(p)); } catch (e) {}
       flashCopied(copyLetter);
     });
     head.appendChild(eyebrow);
     head.appendChild(copyLetter);
     const pre = document.createElement("div");
     pre.className = "letter-pre";
-    pre.textContent = p.letter || "(No letter stored.)";
+    pre.textContent = letterText(p) || "(No letter stored.)";
     tdLetter.appendChild(head);
     tdLetter.appendChild(pre);
     trLetter.appendChild(tdLetter);
@@ -2604,6 +2723,8 @@ function renderFullRow(body, p) {
 
     letterBtn.addEventListener("click", () => {
       const open = trLetter.style.display !== "none";
+      // re-read on open, so edits made in the create tab show up here
+      if (!open) pre.textContent = letterText(p) || "(No letter stored.)";
       trLetter.style.display = open ? "none" : "";
       letterBtn.textContent = open ? "Letter" : "Hide";
     });
@@ -3555,6 +3676,7 @@ function renderArchiveDay(container, list, day) {
     const trLetter = document.createElement("tr");
     trLetter.className = "letter-row";
     trLetter.style.display = "none";
+    trLetter.dataset.letterFor = p.id;
     const tdLetter = document.createElement("td");
     tdLetter.colSpan = 5;
     const head = document.createElement("div");
@@ -3568,14 +3690,14 @@ function renderArchiveDay(container, list, day) {
     copyLetter.type = "button";
     copyLetter.textContent = "Copy";
     copyLetter.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(p.letter || ""); } catch (e) {}
+      try { await navigator.clipboard.writeText(letterText(p)); } catch (e) {}
       flashCopied(copyLetter);
     });
     head.appendChild(eyebrow);
     head.appendChild(copyLetter);
     const pre = document.createElement("div");
     pre.className = "letter-pre";
-    pre.textContent = p.letter || "(No letter stored.)";
+    pre.textContent = letterText(p) || "(No letter stored.)";
     tdLetter.appendChild(head);
     tdLetter.appendChild(pre);
     trLetter.appendChild(tdLetter);
@@ -3583,6 +3705,7 @@ function renderArchiveDay(container, list, day) {
 
     letterBtn.addEventListener("click", () => {
       const open = trLetter.style.display !== "none";
+      if (!open) pre.textContent = letterText(p) || "(No letter stored.)";
       trLetter.style.display = open ? "none" : "";
       letterBtn.textContent = open ? "Letter" : "Hide";
     });

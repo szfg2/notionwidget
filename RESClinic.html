@@ -399,14 +399,38 @@
 
   /* dictation — the record button goes red with a pulsing dot while the mic is live */
   button.generate.recording { background: var(--danger); color: var(--accent-ink); }
-  button.generate.recording .rec-dot {
+  .rec-dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent-ink); flex: none;
+    background: currentColor; flex: none;
     animation: recPulse 1.1s ease-in-out infinite;
   }
+  button.generate.recording .rec-dot { background: var(--accent-ink); }
   @keyframes recPulse { 50% { opacity: .2; } }
-  @media (prefers-reduced-motion: reduce) { button.generate.recording .rec-dot { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
   .dict-hint { font-size: 11.5px; color: var(--faint); margin: 2px 0 9px; }
+
+  /* per-row record button — lives in the actions column under Delete, so the
+     consult can be recorded without opening the note first */
+  .patients .actions .ghost-btn.rec-btn.recording {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    color: var(--danger);
+    border-color: var(--danger);
+    background: var(--danger-bg);
+  }
+  .patients .actions .rowstat {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.35;
+    white-space: normal;   /* the actions cell is nowrap; status text may wrap */
+    margin-top: 5px;
+    max-width: 150px;
+  }
+  .patients .actions .rowstat:empty { display: none; }
+  .patients .actions .rowstat.ok { color: var(--accent); }
+  .patients .actions .rowstat.err { color: var(--danger); }
+
+  /* tools sitting directly under an expanded note */
+  .note-tools { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   /* the stored note locks while a dictation is transcribed and merged — anything
      typed in that window would be overwritten by the merge */
   textarea.note-edit.locked {
@@ -516,7 +540,10 @@
     <div class="card">
       <div class="out-head">
         <span class="eyebrow">Clinic note</span>
-        <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+        <div class="gen-row" style="gap:10px">
+          <span class="pill" id="noteLink"></span>
+          <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
+        </div>
       </div>
       <textarea class="output" id="output" placeholder="The generated clinic note appears here. Edits autosave into the patient's stored note a moment after you stop typing." spellcheck="false"></textarea>
       <div class="out-foot" id="count"></div>
@@ -580,7 +607,7 @@
         </table>
         <div class="empty-note" id="emptyNote" style="display:none">No patients saved yet — generate a clinic note in the Create New Patient tab and it will appear here.</div>
       </div>
-      <div class="out-foot">To-dos and note edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices. Open a patient's <b>Note</b> and it keeps itself up to date — record the consult on your phone with <b>Dictate consult</b> and the merged note appears here by itself.</div>
+      <div class="out-foot">To-dos and note edits autosave to GitHub a moment after you stop typing. Click a name to edit it. The list syncs across all your devices. <b>🎙 Record</b> on a row records the consult, transcribes it and rewrites that note's <i>Currently</i> section — no need to open the note first. An open <b>Note</b> keeps itself up to date, and <b>↻ Refresh note</b> under it pulls the latest version from GitHub straight away.</div>
     </div>
 
   </div>
@@ -696,6 +723,8 @@ let genController = null;   // in-flight generate (for cancel)
 const jobTimers = new Map();
 let editNoteId = null;      // patient the Clinic note box is editing (autosave target)
 let noteSaveTimer = null;
+let pendingOutputSave = null;   // the debounced Clinic note save, so it can be run early
+const noteSyncs = new Map();    // patient id -> the rendered note row's sync baseline
 // One microphone at a time across the whole list — starting a second row stops
 // the first, so its audio still gets transcribed rather than thrown away.
 let micOwner = null;
@@ -730,7 +759,7 @@ $("saveSettings").addEventListener("click", () => {
 /* ============================================================== *
  *  Tabs                                                          *
  * ============================================================== */
-function setTab(t) {
+async function setTab(t) {
   const prev = t === "prev";
   $("tabPrev").classList.toggle("active", prev);
   $("tabCreate").classList.toggle("active", !prev);
@@ -739,6 +768,9 @@ function setTab(t) {
   $("wrap").classList.toggle("wide", prev);
   updateHideFab();     // the floating button belongs to the list tab only
   if (prev) growJobBoxes();
+  // Get any edit still sitting on the debounce up first, or the list would
+  // load — and then render — the version from before you typed it.
+  if (prev) await flushOutputNote();
   if (prev && get(K.ghToken)) loadPatients(true);
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
@@ -788,8 +820,9 @@ $("output").addEventListener("input", () => {
   if (local) local.note = value;
   if (noteSaveTimer) clearTimeout(noteSaveTimer);
   setGenStatus("Editing…");
-  noteSaveTimer = setTimeout(async () => {
+  const run = async () => {
     noteSaveTimer = null;
+    pendingOutputSave = null;
     setGenStatus("Saving note…");
     try {
       await mutateRemote(list => {
@@ -797,13 +830,42 @@ $("output").addEventListener("input", () => {
         if (rec) rec.note = value;
         return list;
       }, "Edit clinic note: " + ((local && local.name) || id));
+      // Push it straight into the row already rendered on the Previous Patients
+      // tab, so the new version is there without reloading the page.
+      syncRenderedNote(id, value);
       setGenStatus("Note saved ✓ " + timeNow(), true);
     } catch (e) {
       setGenStatus("");
       showError("Note autosave failed: " + (e.message || e));
     }
-  }, 1500);
+  };
+  pendingOutputSave = run;
+  noteSaveTimer = setTimeout(run, 1500);
 });
+
+// Run a pending edit up to GitHub now instead of waiting out the debounce —
+// used when you leave the box or switch to the list, so what you see there is
+// never a version behind what you just typed.
+async function flushOutputNote() {
+  const run = pendingOutputSave;
+  if (!run) return;
+  if (noteSaveTimer) { clearTimeout(noteSaveTimer); noteSaveTimer = null; }
+  await run();
+}
+$("output").addEventListener("blur", () => { flushOutputNote(); });
+// A reload or a tab close shouldn't drop the last few keystrokes.
+window.addEventListener("beforeunload", (e) => {
+  if (!pendingOutputSave) return;
+  flushOutputNote();
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+// Shows which stored patient the Clinic note box is autosaving into, so it is
+// obvious when it is linked and when it is writing to no one.
+function setNoteLink(name) {
+  $("noteLink").textContent = name ? "↳ autosaving to " + name : "";
+}
 
 /* ============================================================== *
  *  Model API - see provider.js                                   *
@@ -926,6 +988,9 @@ $("generateBtn").addEventListener("click", async () => {
     ]);
 
     editNoteId = null;   // box now holds a note that isn't saved to anyone yet
+    pendingOutputSave = null;
+    if (noteSaveTimer) { clearTimeout(noteSaveTimer); noteSaveTimer = null; }
+    setNoteLink("");
     $("output").value = note || "(No text returned.)";
     updateCount();
 
@@ -940,13 +1005,18 @@ $("generateBtn").addEventListener("click", async () => {
       todos = "";
     }
 
+    // The box stays editable while the to-dos are drafted, so take what is in it
+    // now rather than the text as generated — otherwise edits made in that window
+    // are silently dropped from the stored record.
+    const noteForSave = $("output").value;
+
     const record = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       created: new Date().toISOString(),
       name,
       pastMedical: past,
       clinical,
-      note: note || "",
+      note: noteForSave,
       summary: summary || "",
       jobs: todos || ""     // the To-dos column — stored under the original key
     };
@@ -955,8 +1025,12 @@ $("generateBtn").addEventListener("click", async () => {
     try {
       await mutateRemote(list => upsertByName(list, record), "Add clinic patient: " + name);
       editNoteId = record.id;   // edits in the Clinic note box now autosave to this patient
+      setNoteLink(name);
       renderTable();
       setGenStatus("Done ✓ — saved to Previous Patients", true);
+      // Anything typed while the save was in flight had no autosave target yet —
+      // kick the saver now so it isn't left behind.
+      if ($("output").value !== noteForSave) $("output").dispatchEvent(new Event("input"));
     } catch (e) {
       setGenStatus("");
       showError("Note generated, but saving the patient failed: " + (e.message || e) +
@@ -1293,9 +1367,23 @@ function fmtDate(iso) {
   return d.getDate() + "/" + (d.getMonth() + 1) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
+// Keeps a note row that is already rendered on the Previous Patients tab in step
+// with an edit made in the Clinic note box on the Create tab, so the new version
+// is there without reloading the page.
+function syncRenderedNote(id, value) {
+  const box = document.querySelector('#ptBody textarea.note-edit[data-note-id="' + id + '"]');
+  if (!box || document.activeElement === box) return;
+  const sync = noteSyncs.get(id);
+  if (sync) sync.value = value;      // this IS the saved version — not a conflict
+  if (box.value === value) return;
+  box.value = value;
+  autoGrow(box);
+}
+
 function renderTable() {
   const body = $("ptBody");
   unwatchAll();        // every row is about to be rebuilt collapsed
+  noteSyncs.clear();   // the sync baselines belong to rows that are about to go
   body.innerHTML = "";
   $("emptyNote").style.display = patients.length ? "none" : "";
   for (const p of patients) {
@@ -1342,9 +1430,19 @@ function renderTable() {
     delBtn.className = "ghost-btn danger";
     delBtn.type = "button";
     delBtn.textContent = "Delete";
+    // Record the consult without having to open the note first — press to start,
+    // press again to stop, press again during transcribe/merge to cancel.
+    const recBtn = document.createElement("button");
+    recBtn.className = "ghost-btn rec-btn";
+    recBtn.type = "button";
+    recBtn.title = "Records the consult, transcribes it through Whisper, and rewrites the Currently section of this patient's note with what the patient said. Every other section is left untouched.";
+    const recStat = document.createElement("div");
+    recStat.className = "rowstat";
     tdAct.appendChild(noteBtn);
     tdAct.appendChild(askBtn);
     tdAct.appendChild(delBtn);
+    tdAct.appendChild(recBtn);
+    tdAct.appendChild(recStat);
     tr.appendChild(tdAct);
     body.appendChild(tr);
     autoGrow(box, 72);   // in the DOM now, so it can be sized to its content
@@ -1377,9 +1475,11 @@ function renderTable() {
     noteBox.placeholder = "(No note stored.)";
     noteBox.value = p.note || "";
     noteBox.spellcheck = false;
+    noteBox.dataset.noteId = p.id;
     // What we last saw on GitHub for this note. Used both to spot a version saved
     // from another device and to refuse to overwrite one.
     const sync = { value: p.note || "" };
+    noteSyncs.set(p.id, sync);
     noteBox.addEventListener("input", () => {
       autoGrow(noteBox);
       queueNoteSave(p.id, noteBox.value, sync, sayNote, "Edit clinic note: " + (p.name || p.id));
@@ -1390,6 +1490,57 @@ function renderTable() {
     });
     tdNote.appendChild(head);
     tdNote.appendChild(noteBox);
+
+    // --- Refresh: pull this patient's latest stored note straight from GitHub ---
+    // The row polls on its own, but the poll is held back by an in-flight edit or
+    // a hidden tab — this is the "give me the merged version now" button.
+    const noteTools = document.createElement("div");
+    noteTools.className = "note-tools";
+    const refreshNote = document.createElement("button");
+    refreshNote.className = "ghost-btn";
+    refreshNote.type = "button";
+    refreshNote.textContent = "↻ Refresh note";
+    refreshNote.title = "Fetch the latest saved version of this note from GitHub";
+    noteTools.appendChild(refreshNote);
+    tdNote.appendChild(noteTools);
+
+    refreshNote.addEventListener("click", async () => {
+      if (micBusy) { sayNote("Dictation in progress — wait for the merge."); return; }
+      // Unsaved local edits would be thrown away by the pull, so ask first.
+      if (noteBox.value !== sync.value &&
+          !confirm("This note has edits that haven't been saved yet.\n\nRefreshing replaces them with the version stored on GitHub. Continue?")) return;
+      refreshNote.disabled = true;
+      sayNote("Refreshing…");
+      try {
+        const { list } = await getRemote();
+        const rec = list.find(x => x.id === p.id);
+        if (!rec) { sayNote("This patient is no longer in the stored list."); return; }
+        const remote = rec.note || "";
+        p.note = remote;
+        sync.value = remote;
+        const local = patients.find(x => x.id === p.id);
+        if (local) local.note = remote;
+        // The summary and to-dos may have moved too — bring them along, but never
+        // over the top of a to-do box you are typing in or still saving.
+        p.summary = rec.summary || "";
+        if (local) local.summary = p.summary;
+        tdSum.innerHTML = summaryHtml(p.summary);
+        if (document.activeElement !== box && !jobTimers.has(p.id + ":jobs")) {
+          p.jobs = rec.jobs || "";
+          if (local) local.jobs = p.jobs;
+          if (box.value !== p.jobs) { box.value = p.jobs; autoGrow(box, 72); }
+        }
+        if (noteBox.value === remote) { sayNote("Already up to date ✓ " + timeNow(), true); return; }
+        noteBox.value = remote;
+        autoGrow(noteBox);
+        sayNote("Refreshed ✓ " + timeNow(), true);
+      } catch (e) {
+        sayNote("");
+        showListError("Refresh failed: " + (e.message || e));
+      } finally {
+        refreshNote.disabled = false;
+      }
+    });
 
     // --- Update note: fold new reviews/results/scans into the stored note ---
     const upWrap = document.createElement("div");
@@ -1570,41 +1721,25 @@ function renderTable() {
     });
 
     // --- Dictate consult: record → Whisper → rewrite the "Currently" section ---
-    const dictWrap = document.createElement("div");
-    dictWrap.className = "update-wrap";
-    const dictLbl = document.createElement("span");
-    dictLbl.className = "eyebrow";
-    dictLbl.textContent = "Dictate consult";
-    const dictHint = document.createElement("div");
-    dictHint.className = "dict-hint";
-    dictHint.textContent = "Records the consult, transcribes it through Whisper, and rewrites the Currently section with what the patient said. Every other section of the note is left untouched. Press again to stop.";
-    const dictRow = document.createElement("div");
-    dictRow.className = "gen-row";
-    const dictBtn = document.createElement("button");
-    dictBtn.className = "generate";
-    dictBtn.type = "button";
-    const dictStat = document.createElement("span");
-    dictStat.className = "status";
-    dictRow.appendChild(dictBtn);
-    dictRow.appendChild(dictStat);
-    const dictErr = document.createElement("div");
-    dictErr.className = "err";
-    dictWrap.appendChild(dictLbl);
-    dictWrap.appendChild(dictHint);
-    dictWrap.appendChild(dictRow);
-    dictWrap.appendChild(dictErr);
-    tdNote.appendChild(dictWrap);
-
-    // The button is the whole control: press to record, press to stop, press
-    // again during transcribe/merge to cancel.
+    // The control is the Record button in the actions column (under Delete), so
+    // the consult can be recorded without expanding the note. The whole flow is
+    // one button: press to record, press to stop, press again during
+    // transcribe/merge to cancel.
     let recCtl = null;
     let dictCtl = null;
     const setDictIdle = () => {
-      dictBtn.classList.remove("recording", "is-cancel");
-      dictBtn.innerHTML = "🎙 Record consult";
+      recBtn.classList.remove("recording");
+      recBtn.innerHTML = "🎙 Record";
     };
     setDictIdle();
-    const showDictErr = (m) => { dictErr.textContent = m; dictErr.style.display = "block"; };
+    const sayRec = (m, ok) => {
+      recStat.textContent = m;
+      recStat.classList.toggle("ok", ok === true);
+      recStat.classList.toggle("err", ok === false);
+    };
+    // The note panel may well be collapsed, so problems go to the list-level
+    // error box where they can't be missed, with a short marker on the row.
+    const showDictErr = (m) => { sayRec("Failed — see the error above", false); showListError(m); };
     // Update note writes the same field, so it is held back too rather than
     // racing the merge for it.
     const lockNote = (on) => {
@@ -1614,10 +1749,11 @@ function renderTable() {
       upBtn.disabled = on;
     };
 
-    dictBtn.addEventListener("click", async () => {
+    recBtn.addEventListener("click", async () => {
       if (recCtl) { recCtl.stop(); return; }          // stop → transcribe + merge
       if (dictCtl) { dictCtl.abort(); return; }       // cancel an in-flight transcribe/merge
-      dictErr.style.display = "none"; dictErr.textContent = "";
+      clearListError();
+      sayRec("");
       const key = AI.key();
       if (!key) { $("settingsBox").open = true; return showDictErr(AI.missingKeyMsg()); }
       if (!(get(K.openai) || $("openaiKey").value.trim())) {
@@ -1634,13 +1770,12 @@ function renderTable() {
       recCtl = ctl;
       micOwner = ctl;
       micBusy = true;
-      dictBtn.classList.add("recording");
-      dictBtn.innerHTML = '<span class="rec-dot"></span>Stop';
-      dictStat.classList.remove("ok");
+      recBtn.classList.add("recording");
+      recBtn.innerHTML = '<span class="rec-dot"></span>Stop';
       const started = Date.now();
       const tick = () => {
         const s = Math.floor((Date.now() - started) / 1000);
-        dictStat.textContent = "Recording " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+        sayRec("Recording " + String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"));
       };
       tick();
       const timer = setInterval(tick, 1000);
@@ -1650,11 +1785,10 @@ function renderTable() {
       recCtl = null;
       if (micOwner === ctl) micOwner = null;
       setDictIdle();
-      if (!blob) { dictStat.textContent = ""; micBusy = false; return; }
+      if (!blob) { sayRec(""); micBusy = false; return; }
 
       dictCtl = new AbortController();
-      dictBtn.classList.add("is-cancel");
-      dictBtn.innerHTML = '<span class="spinner"></span>Cancel';
+      recBtn.innerHTML = "Cancel";
       // From here the merge owns the note: it is about to rewrite the whole box,
       // so anything typed now would be thrown away. readOnly rather than disabled
       // keeps the text selectable, so you can still read and copy it.
@@ -1663,29 +1797,29 @@ function renderTable() {
         // Anything typed in the seconds before Stop is still sitting on the
         // debounce. Get it up now, so it is part of what the merge reads instead
         // of landing on top of the merged note afterwards.
-        dictStat.textContent = "Saving your edits…";
+        sayRec("Saving your edits…");
         await flushNoteSave(p.id);
-        dictStat.textContent = "Transcribing…";
+        sayRec("Transcribing…");
         const transcript = await transcribeBlob(blob, dictCtl.signal);
-        if (!transcript) { dictStat.textContent = "Nothing heard."; return; }
+        if (!transcript) { sayRec("Nothing heard."); return; }
         // Polling is off while the mic is live, so this box may be holding a copy
         // that another device has edited since. Fold into the latest stored note
         // instead, or those edits would be overwritten by a note that predates them.
-        dictStat.textContent = "Folding into the note…";
+        sayRec("Folding into the note…");
         let base = await latestNote(p.id, noteBox.value);
         let merged = await mergeConsult(base, transcript, p, dictCtl.signal);
-        if (!merged) { dictStat.textContent = ""; return; }
+        if (!merged) { sayRec(""); return; }
         // Transcribing and merging take a while — if the note moved again in that
         // window, fold into that version rather than overwriting it.
         const newer = await latestNote(p.id, base);
         if (newer !== base) {
-          dictStat.textContent = "Changed elsewhere — folding in again…";
+          sayRec("Changed elsewhere — folding in again…");
           base = newer;
           merged = (await mergeConsult(base, transcript, p, dictCtl.signal)) || merged;
         }
         noteBox.value = merged;
         autoGrow(noteBox);
-        dictStat.textContent = "Saving…";
+        sayRec("Saving…");
         await mutateRemote(list => {
           const rec = list.find(x => x.id === p.id);
           if (rec) rec.note = merged;
@@ -1693,10 +1827,11 @@ function renderTable() {
         }, "Consult dictation: " + (p.name || p.id));
         sync.value = merged;
         p.note = merged;
-        dictStat.textContent = "Merged ✓ " + timeNow();
-        dictStat.classList.add("ok");
+        // The note panel may be collapsed — say where the merged text landed.
+        sayRec("Merged ✓ " + timeNow() + (trNote.style.display === "none" ? " — open Note to read it" : ""), true);
+        sayNote("Consult merged ✓ " + timeNow(), true);
       } catch (e) {
-        dictStat.textContent = "";
+        sayRec("");
         if (e.name !== "AbortError") showDictErr("Dictation failed: " + (e.message || e));
       } finally {
         dictCtl = null;
@@ -1885,6 +2020,8 @@ function renderTable() {
     });
 
     delBtn.addEventListener("click", async () => {
+      // Deleting re-renders the table, which would strand the row holding the mic.
+      if (micBusy) { setListStatus("Dictation in progress — stop the recording first."); return; }
       const label = p.name || "this patient";
       if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
       delBtn.disabled = true;
@@ -2180,6 +2317,7 @@ $("hideFab").addEventListener("click", () => {
 });
 
 $("deleteAllBtn").addEventListener("click", async () => {
+  if (micBusy) { setListStatus("Dictation in progress — stop the recording first."); return; }
   if (!patients.length) { setListStatus("Nothing to delete."); return; }
   const n = patients.length;
   if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the list?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
