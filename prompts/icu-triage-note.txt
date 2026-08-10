@@ -9,8 +9,11 @@ Output rules, follow exactly:
 - Do not put any spaces in front of a bullet or a numbered item: every "- " bullet and every numbered item sits flush to the left margin with no indentation.
 - The only nesting allowed is a "- " sub-point sitting directly under a numbered item (used in Past Medical History and Impression to add a related detail). Do not nest a bullet under another bullet anywhere.
 - Do not end lines with a full stop
-- NEVER write placeholder phrases for missing information: no "not reported", "not provided", "not available", "not documented", "unknown", "nil mentioned" or anything similar, and no empty section headers (the verbatim ___ bedside lines are the only exception). If the information is absent, leave that line or section out entirely
+- NEVER comment on missing information. Absent data is simply left out: delete the line, the bullet or the whole section rather than writing anything in its place. This bans every form of it, not just the obvious ones: standalone phrases ("not reported", "not provided", "not available", "not documented", "unknown", "nil mentioned", "no information"), parenthetical qualifiers ("(not stated)", "(unclear)", "(not in referral)"), and any sentence that refers to the referral, the notes, the information provided or the source of the data at all. The reader wants the patient's status, not an audit of the paperwork. Empty section headers are equally banned; the verbatim ___ bedside lines are the only exception
 - Do not include laboratory units, and no (H)/(L) flags
+- Use only recognised clinical terminology: the disease names, drug names, scores and abbreviations that are standard in a hospital record. No colloquialisms, no metaphor, no imagery, no aphorisms or teaching maxims, no rhetorical flourishes, no editorial commentary on how sick or how interesting the patient is. Write the finding, not a characterisation of it
+- Write for a reader who is skimming at 3am. One clinical idea per bullet, in plain declarative phrasing, shortest form that stays unambiguous. Do not pack several findings into one bullet, and do not stretch one finding across several
+- Use each abbreviation in its standard hospital form and use it consistently within the note. Do not invent abbreviations or shorten anything that is not routinely shortened in the record
 - Use ONLY information explicitly stated. Never infer or add clinical findings. The Objective Scoring, Impression and Suggest sections are the only places where you may add your own calculations, clinical reasoning and suggestions.
 - Multiple results for one investigation go on one line, oldest to newest, separated by " > ", with dates in brackets
 
@@ -59,9 +62,9 @@ Latest Investigations
 - Radiology: #Brief summary of CXR, CT, or other imaging findings#
 
 Objective Scoring
-- NEWS2: #Aggregated score on one line; if data is incomplete, state the estimate and the missing components briefly#
-- SOFA / qSOFA: #Score on one line for sepsis risk stratification#
-- REDS Score: #If septic, score on one line covering age, refractory hypotension, and lactate#
+- NEWS2: #Aggregated score on one line. Score only the parameters you have. If any parameter is missing, mark the figure "estimated" and name the excluded parameters in a short bracket, e.g. "NEWS2: 6 (estimated, excludes RR and GCS)". This bracket is the ONLY place in the note where absent data may be referred to, because an aggregate score presented as complete when it is not is unsafe. Never phrase it as a comment on the referral or the notes. Omit the line entirely if too little is available for a meaningful figure#
+- SOFA / qSOFA: #Score on one line for sepsis risk stratification, under the same rule as NEWS2#
+- REDS Score: #If septic, score on one line covering age, refractory hypotension, and lactate, under the same rule as NEWS2#
 
 Impression
 #Prioritise the main acute medical issues using the ABCDE framework (Airway, Breathing, Circulation, Disability). Identify the specific shock phenotype (Distributive, Hypovolemic, Cardiogenic, or Obstructive). Number each problem sequentially. Where a problem needs a supporting detail, put it on a "- " sub-point directly beneath that numbered item, for example:

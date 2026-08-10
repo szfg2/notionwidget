@@ -626,7 +626,13 @@
  * ============================================================== */
 const CONFIG = {
   MODEL: "claude-sonnet-4-6",
-  NOTE_MAX_TOKENS: 8192,
+  // The triage note is the one generated document read at the bedside and acted
+  // on, so it runs on the stronger model. provider.js picks the actual model
+  // from the tier this string implies, so this also upgrades DeepSeek to v4-pro.
+  TRIAGE_MODEL: "claude-opus-5",
+  // Opus 5 thinks by default and the thinking shares this budget with the note,
+  // so the ceiling is well clear of the note's own length.
+  NOTE_MAX_TOKENS: 16000,
   SUMMARY_MAX_TOKENS: 2048,
   OBJECTIVE_MAX_TOKENS: 1024,
   // Ask uses the stronger model, same as the "Ask about this case" box in
@@ -973,7 +979,7 @@ async function runGenerate(mode) {
       callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal),
       callClaude(key, CONFIG.MODEL, objectiveSys, userMessage, CONFIG.OBJECTIVE_MAX_TOKENS, genController.signal),
       triage
-        ? callClaude(key, CONFIG.MODEL, triageSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal)
+        ? callClaude(key, CONFIG.TRIAGE_MODEL, triageSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal)
         : Promise.resolve("")
     ]);
 
