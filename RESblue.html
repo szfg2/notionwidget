@@ -2018,6 +2018,11 @@ $("generateBtn").addEventListener("click", async () => {
       await mutateRemote(list => upsertByName(list, record), "Add blue letter patient: " + (name || location));
       currentLetterId = record.id;   // the output box now edits this record
       renderTable();
+      // Safely stored — empty the case boxes ready for the next patient. The
+      // letter stays on screen to copy, and Ask / reading topics keep working
+      // off the retained copy until a new case is typed in.
+      currentCase = { referral, past, clinical };
+      clearCaseInputs();
       setGenStatus("Done ✓ — saved to Patient List", true);
     } catch (e) {
       setGenStatus("");
@@ -2144,11 +2149,36 @@ async function saveLetter(id, value) {
   refreshLetterViews(id, value);
 }
 
-// Ctrl/Cmd+Enter generates
+/* ============================================================== *
+ *  Case boxes — cleared after each generate                      *
+ * ============================================================== */
+// The de-identified case that produced the letter still sitting in the output
+// box. Held so Ask and reading topics keep their context after the boxes are
+// emptied; dropped the moment a new case is typed in.
+let currentCase = null;
+
+function clearCaseInputs() {
+  ["ptLocation", "ptName", "referralLetter", "pastMedical", "clinical"].forEach(id => { $(id).value = ""; });
+}
+
+// What Ask / reading topics should treat as the case: whatever is in the boxes,
+// falling back per box to the case the on-screen letter was generated from.
+function caseInputs() {
+  const box = id => $(id).value.trim();
+  return {
+    referral: box("referralLetter") || (currentCase ? currentCase.referral : ""),
+    past: box("pastMedical") || (currentCase ? currentCase.past : ""),
+    clinical: box("clinical") || (currentCase ? currentCase.clinical : "")
+  };
+}
+
 [$("ptLocation"), $("ptName"), $("referralLetter"), $("pastMedical"), $("clinical")].forEach(el => {
+  // Ctrl/Cmd+Enter generates
   el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("generateBtn").click(); }
   });
+  // Typing here means a new patient, so the previous case stops being context.
+  el.addEventListener("input", () => { currentCase = null; });
 });
 
 /* ============================================================== *
@@ -2169,9 +2199,7 @@ $("topicsBtn").addEventListener("click", async () => {
     return;
   }
 
-  const referral = $("referralLetter").value.trim();
-  const past = $("pastMedical").value.trim();
-  const clinical = $("clinical").value.trim();
+  const { referral, past, clinical } = caseInputs();
   const letter = $("output").value.trim();
   if (!referral && !past && !clinical && !letter) {
     errEl.textContent = "Nothing to work from — add case details or generate a blue letter reply first.";
@@ -2275,11 +2303,11 @@ $("askBtn").addEventListener("click", async () => {
   // Rebuild case context on every send so it reflects what's there now.
   // De-identified content only — name/location are never sent.
   const letter = $("output").value.trim();
-  const referral = $("referralLetter").value.trim();
+  const { referral, past, clinical } = caseInputs();
   const caseContext =
     (referral ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + referral + "\n\n" : "") +
-    "PATIENT DETAILS:\n" + ($("pastMedical").value.trim() || "(none provided)") +
-    "\n\nLATEST CLINICAL DATA:\n" + ($("clinical").value.trim() || "(none provided)") +
+    "PATIENT DETAILS:\n" + (past || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + (clinical || "(none provided)") +
     (letter ? "\n\nBLUE LETTER REPLY (assessment & plan):\n" + letter : "");
 
   try {
