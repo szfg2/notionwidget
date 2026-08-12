@@ -103,6 +103,9 @@
   }
   .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
   .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  /* segmented Location filter (All / ICU / HD) on the inpatient list */
+  .seg-group { display: inline-flex; gap: 4px; }
+  .ghost-btn.seg.on { color: var(--accent); border-color: var(--accent); }
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
   /* settings — compact pill in the header, opens as a dropdown panel */
@@ -536,6 +539,11 @@
       <div class="gen-row">
         <button class="ghost-btn" id="inRefreshBtn" type="button">↻ Refresh</button>
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
+        <span class="seg-group" id="inLocFilter">
+          <button class="ghost-btn seg on" type="button" data-loc="all">All</button>
+          <button class="ghost-btn seg" type="button" data-loc="icu">ICU</button>
+          <button class="ghost-btn seg" type="button" data-loc="hd">HD</button>
+        </span>
         <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
         <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
         <span class="status" id="inStatus"></span>
@@ -557,7 +565,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List.</div>
       </div>
-      <div class="out-foot">Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
+      <div class="out-foot">Sorted by location. <b>All / ICU / HD</b> filters the table by the ward in the Location field (and is what Print outputs); ⏰ Upcoming always shows timed jobs for every patient. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
     </div>
 
   </div>
@@ -1280,6 +1288,33 @@ function renderUpcoming(listKey) {
   }
 }
 
+/* ---- Location filter (inpatient list): All / ICU / HD ---- */
+// Location is free text ("ICU Bed 4", "HD 3", "W46 Bed 12"), so the ward is
+// read off the string. Anything that matches neither shows only under "All".
+let inLocFilter = "all";
+
+function locGroup(p) {
+  const s = (p.location || "").toLowerCase();
+  if (/\bhdu?\b|high[\s-]?dep/.test(s)) return "hd";
+  if (/\b[msnc]?icu\b|\bitu\b|intensive/.test(s)) return "icu";
+  return "other";
+}
+
+function applyLocFilter(listKey, list) {
+  if (listKey !== "inpatients" || inLocFilter === "all") return list;
+  return list.filter(p => locGroup(p) === inLocFilter);
+}
+
+function renderLocCounts(list) {
+  const n = { all: list.length, icu: 0, hd: 0 };
+  for (const p of list) { const g = locGroup(p); if (g !== "other") n[g]++; }
+  for (const btn of $("inLocFilter").querySelectorAll("button")) {
+    const loc = btn.dataset.loc;
+    btn.textContent = loc.toUpperCase().replace("ALL", "All") + " (" + n[loc] + ")";
+    btn.classList.toggle("on", loc === inLocFilter);
+  }
+}
+
 function matchesSearch(p, q) {
   return ["location", "name", "summary", "objective", "jobs", "triageNote", "pastMedical", "clinical"]
     .some(f => (p[f] || "").toLowerCase().includes(q));
@@ -1289,18 +1324,28 @@ function renderList(listKey) {
   const body = $(LISTS[listKey].body);
   const all = sortedList(listKey);
   const q = (searchTerms[listKey] || "").trim().toLowerCase();
-  const list = q ? all.filter(p => matchesSearch(p, q)) : all;
+  const searched = q ? all.filter(p => matchesSearch(p, q)) : all;
+  const list = applyLocFilter(listKey, searched);
+  if (listKey === "inpatients") renderLocCounts(searched);
   body.innerHTML = "";
   const emptyEl = $(LISTS[listKey].empty);
   emptyEl.style.display = list.length ? "none" : "";
-  emptyEl.textContent = (all.length && !list.length)
-    ? "No patients match the search."
-    : LISTS[listKey].emptyText;
+  emptyEl.textContent = (searched.length && !list.length)
+    ? "No patients in " + inLocFilter.toUpperCase() + " — switch the filter to All to see the rest."
+    : (all.length && !list.length)
+      ? "No patients match the search."
+      : LISTS[listKey].emptyText;
   for (const p of list) buildRow(p, listKey, body);
   renderUpcoming(listKey);
 }
 
 $("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
+$("inLocFilter").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-loc]");
+  if (!btn) return;
+  inLocFilter = btn.dataset.loc;
+  renderList("inpatients");
+});
 $("triSearch").addEventListener("input", () => { searchTerms.triaged = $("triSearch").value; renderList("triaged"); });
 
 /* Delete all — one warning, then wipes the whole list on every device */
@@ -1966,8 +2011,10 @@ function autoGrow(el) {
  *  Print — clean landscape table of the inpatient list           *
  * ============================================================== */
 $("printBtn").addEventListener("click", () => {
-  const list = sortedList("inpatients");
+  // Prints what the Location filter is currently showing (search is ignored).
+  const list = applyLocFilter("inpatients", sortedList("inpatients"));
   if (!list.length) { setListStatus("inpatients", "Nothing to print."); return; }
+  const title = "ICU Inpatient List" + (inLocFilter === "all" ? "" : " — " + inLocFilter.toUpperCase());
   const rows = list.map(p => "<tr>" +
     '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
     "<td>" + escapeHtml(p.name || "") + "</td>" +
@@ -1976,7 +2023,7 @@ $("printBtn").addEventListener("click", () => {
     '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
     "</tr>").join("");
   const now = new Date();
-  const html = "<!doctype html><html><head><meta charset='utf-8'><title>ICU Inpatient List</title><style>" +
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + escapeHtml(title) + "</title><style>" +
     "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
     "h1{font-size:9pt;margin:0 0 2px;}" +
     ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
@@ -1990,7 +2037,7 @@ $("printBtn").addEventListener("click", () => {
     "tr{page-break-inside:avoid;}" +
     "@page{size:A4 landscape;margin:18mm;}" +
     "</style></head><body>" +
-    "<h1>ICU Inpatient List</h1>" +
+    "<h1>" + escapeHtml(title) + "</h1>" +
     '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
     "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
