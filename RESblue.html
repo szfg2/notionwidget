@@ -105,6 +105,48 @@
   .ghost-btn:disabled:hover { color: var(--muted); border-color: var(--border-strong); }
   .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
 
+  /* header pills — today's API spend sits beside Settings */
+  .head-tools { display: flex; align-items: flex-start; gap: 8px; flex: none; }
+
+  details.usage { position: relative; flex: none; }
+  details.usage summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 12.5px;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 5px 11px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    transition: color .12s, border-color .12s;
+  }
+  details.usage summary:hover { color: var(--text); border-color: var(--muted); }
+  details.usage[open] summary { color: var(--accent-strong); border-color: var(--accent); }
+  details.usage summary::-webkit-details-marker { display: none; }
+  .usage-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: min(420px, calc(100vw - 40px));
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 14px;
+    z-index: 50;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  }
+  .usage-panel table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .usage-panel th {
+    text-align: left; padding: 0 0 6px; font-size: 10.5px; font-weight: 600;
+    color: var(--faint); text-transform: uppercase; letter-spacing: .07em;
+  }
+  .usage-panel td { padding: 5px 0; border-top: 1px solid var(--border); color: var(--muted); }
+  .usage-panel td.model { color: var(--text); font-family: var(--mono); font-size: 11.5px; }
+  .usage-panel .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .usage-panel tr.total td { border-top: 1px solid var(--border-strong); color: var(--text); font-weight: 600; }
+
   /* settings — compact pill in the header, opens as a dropdown panel */
   details.settings { position: relative; flex: none; }
   details.settings summary {
@@ -673,6 +715,11 @@
         <h1>Respiratory Blue Letters</h1>
         <p class="sub">Generate blue letter replies and keep a synced list of referred patients. <a href="index.html">Document Generator →</a> <a href="dictation.html">Dictation →</a></p>
       </div>
+      <div class="head-tools">
+      <details class="usage" id="usageBox">
+        <summary id="usageSummary">$0.00 today</summary>
+        <div class="usage-panel" id="usagePanel"></div>
+      </details>
       <details class="settings" id="settingsBox">
       <summary>⚙ Settings &amp; keys</summary>
       <div class="settings-grid">
@@ -721,6 +768,7 @@
         </div>
       </div>
       </details>
+      </div>
     </div>
   </header>
 
@@ -1134,6 +1182,51 @@ $("saveSettings").addEventListener("click", () => {
     $("settingsBox").open = false;
   }, 700);
 });
+
+/* ============================================================== *
+ *  Spend today                                                   *
+ * ============================================================== */
+// provider.js tallies the token usage every model response reports, keyed by
+// date, and fires "ai-usage" after each call. This only renders it. Whisper is
+// billed by the minute rather than by token, so its row shows audio length.
+function fmtUSD(n) { return "$" + (n < 1 ? n.toFixed(3) : n.toFixed(2)); }
+function fmtTokens(n) { return n >= 1000 ? Math.round(n / 1000) + "k" : String(n); }
+
+function renderUsage() {
+  const day = AI.usage.day();
+  const models = Object.keys(day).sort();
+  $("usageSummary").textContent = fmtUSD(AI.usage.total()) + " today";
+
+  if (!models.length) {
+    $("usagePanel").innerHTML = '<div class="hint">No API calls yet today.</div>';
+    return;
+  }
+  let unpriced = false;
+  const rows = models.map(m => {
+    const r = day[m];
+    if (r.unpriced) unpriced = true;
+    const detail = r.sec
+      ? (r.sec / 60).toFixed(1) + " min"
+      : fmtTokens(r.in + r.cw + r.cr) + " in / " + fmtTokens(r.out) + " out";
+    return "<tr><td class='model'>" + escapeHtml(m) + (r.unpriced ? " *" : "") + "</td>" +
+           "<td class='num'>" + r.n + "</td>" +
+           "<td class='num'>" + detail + "</td>" +
+           "<td class='num'>" + (r.unpriced ? "—" : fmtUSD(r.usd)) + "</td></tr>";
+  }).join("");
+
+  $("usagePanel").innerHTML =
+    "<table><thead><tr><th>Model</th><th class='num'>Calls</th>" +
+    "<th class='num'>Usage</th><th class='num'>Cost</th></tr></thead><tbody>" +
+    rows +
+    "<tr class='total'><td>Total</td><td class='num'></td><td class='num'></td>" +
+    "<td class='num'>" + fmtUSD(AI.usage.total()) + "</td></tr></tbody></table>" +
+    (unpriced ? '<div class="hint">* no published rate in <code>provider.js</code> — tokens counted, cost not.</div>' : "") +
+    '<div class="hint">List prices, this browser only. The provider console is the billing record.</div>' +
+    '<div class="gen-row" style="margin-top:10px"><button class="ghost-btn" id="usageClear" type="button">Clear today</button></div>';
+
+  $("usageClear").addEventListener("click", () => AI.usage.clear());
+}
+window.addEventListener("ai-usage", renderUsage);
 
 /* ============================================================== *
  *  Tabs                                                          *
@@ -3191,6 +3284,7 @@ function historyCell(td, p) {
 
     const blob = await ctl.done;
     clearInterval(timer);
+    const recSeconds = (Date.now() - started) / 1000;
     recCtl = null;
     if (hxRecorder === ctl) hxRecorder = null;
     setDictateIdle();
@@ -3202,7 +3296,7 @@ function historyCell(td, p) {
     try {
       stat.textContent = "Transcribing…";
       recBar.working(token, "Transcribing…", cancel);
-      const transcript = await transcribeBlob(blob, dictateCtl.signal);
+      const transcript = await transcribeBlob(blob, dictateCtl.signal, recSeconds);
       if (!transcript) { stat.textContent = "Nothing heard."; return; }
       stat.textContent = "Merging into history…";
       recBar.working(token, "Merging into history…", cancel);
@@ -3292,7 +3386,9 @@ async function startRecording() {
 // Whisper. The translations endpoint auto-detects the spoken language and always
 // returns English — the same choice as dictation.html, which also stops accented
 // English being mis-detected as Malay.
-async function transcribeBlob(blob, signal) {
+// `seconds` is only used to price the call — Whisper bills per minute of audio,
+// so the recording length is the only usage figure the response can't tell us.
+async function transcribeBlob(blob, signal, seconds) {
   const key = get(K.openai) || $("openaiKey").value.trim();
   if (!key) { $("settingsBox").open = true; throw new Error("Add your OpenAI API key in Settings to transcribe."); }
   const type = blob.type || "audio/webm";
@@ -3314,6 +3410,7 @@ async function transcribeBlob(blob, signal) {
     try { msg = JSON.parse(body).error.message; } catch (e) {}
     throw new Error(msg);
   }
+  if (seconds) AI.usage.audio(CONFIG.WHISPER_MODEL, seconds);
   return body.trim();
 }
 
@@ -4623,6 +4720,7 @@ function focusPatientRow(id) {
  *  Init                                                          *
  * ============================================================== */
 loadSettings();
+renderUsage();
 refActive = (HX_REF.find(c => c.id === get(K.refCond)) || HX_REF[0]).id;
 renderRef();
 setListView(get(K.listView) || "full");    // restores the Patient List layout

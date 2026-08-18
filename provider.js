@@ -43,20 +43,131 @@
     }
   };
 
+  /* List prices in USD per million tokens, used only to show a running daily
+   * spend on the pages — nothing here changes a request. Anthropic charges
+   * 1.25x input to write the 5-minute cache and 0.1x to read it, which is why
+   * the cache columns aren't round numbers. A model missing from this table
+   * still has its tokens counted; it just shows no dollar figure until rates
+   * are added, so a wrong total is never invented. */
+  const PRICES = {
+    "claude-opus-5":     { in: 5, out: 25, cacheWrite: 6.25, cacheRead: 0.50 },
+    "claude-sonnet-4-6": { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 },
+    // Whisper is billed per minute of audio, not per token.
+    "whisper-1":         { perMinute: 0.006 }
+    // DeepSeek v4 rates are deliberately absent — add them here to price those calls.
+  };
+
   const LS = {
     provider: "cdg_provider",
     anthropic: "cdg_api_key",
     deepseek: "cdg_deepseek_key",
     // pft.html predates the shared key and stored its own copy
-    anthropicLegacy: "anthropic_api_key"
+    anthropicLegacy: "anthropic_api_key",
+    usage: "cdg_usage_log"
   };
+
+  const USAGE_DAYS = 14;   // older days are dropped on the next write
 
   function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
   function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
+  function dayKey(d) {
+    d = d || new Date();
+    return d.getFullYear() + "-" +
+           String(d.getMonth() + 1).padStart(2, "0") + "-" +
+           String(d.getDate()).padStart(2, "0");
+  }
+  function loadLog() { try { return JSON.parse(get(LS.usage) || "{}") || {}; } catch (e) { return {}; } }
+  function saveLog(log) {
+    const keep = Object.keys(log).sort().slice(-USAGE_DAYS);
+    const trimmed = {};
+    keep.forEach(k => { trimmed[k] = log[k]; });
+    set(LS.usage, JSON.stringify(trimmed));
+  }
+
+  /* One row per model per day. `unpriced` marks a model with no rates above,
+   * so the UI can show its tokens without pretending to know the cost. */
+  function bump(model, fields, usd, unpriced) {
+    const log = loadLog();
+    const key = dayKey();
+    const day = log[key] || (log[key] = {});
+    const row = day[model] || (day[model] = { in: 0, out: 0, cw: 0, cr: 0, sec: 0, usd: 0, n: 0 });
+    for (const k in fields) row[k] = (row[k] || 0) + fields[k];
+    row.usd += usd;
+    row.n += 1;
+    if (unpriced) row.unpriced = true;
+    saveLog(log);
+    try { window.dispatchEvent(new CustomEvent("ai-usage")); } catch (e) {}
+  }
+
+  /* Both providers report usage on the response, under different names. A
+   * missing field counts as zero rather than breaking the tally. */
+  function readUsage(data, isDeep) {
+    const u = data.usage || {};
+    if (!isDeep) {
+      return {
+        in: u.input_tokens || 0,
+        out: u.output_tokens || 0,
+        cw: u.cache_creation_input_tokens || 0,
+        cr: u.cache_read_input_tokens || 0
+      };
+    }
+    // DeepSeek splits the prompt into cache hits and misses; its cache is
+    // automatic, so there is no separate write charge to record.
+    const hit = u.prompt_cache_hit_tokens != null
+      ? u.prompt_cache_hit_tokens
+      : ((u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0);
+    return {
+      in: Math.max((u.prompt_tokens || 0) - hit, 0),
+      out: u.completion_tokens || 0,
+      cw: 0,
+      cr: hit
+    };
+  }
+
   const AI = {
     PROVIDERS,
     LS,
+
+    /* Running spend, tallied from the usage block every provider returns and
+     * kept in localStorage by date. Pages read `total()` for a headline figure
+     * and `day()` for the per-model breakdown, and re-render on the `ai-usage`
+     * window event fired after each call. */
+    usage: {
+      PRICES,
+      dayKey,
+
+      // Called by AI.call for every successful model response.
+      record(model, data, isDeep) {
+        const t = readUsage(data, isDeep);
+        const p = PRICES[model];
+        const usd = p
+          ? (t.in * p.in + t.out * p.out + t.cw * p.cacheWrite + t.cr * p.cacheRead) / 1e6
+          : 0;
+        bump(model, t, usd, !p);
+      },
+
+      // Audio models are billed by the minute — Whisper dictation goes here.
+      audio(model, seconds) {
+        const p = PRICES[model];
+        const usd = p && p.perMinute ? (seconds / 60) * p.perMinute : 0;
+        bump(model, { sec: seconds }, usd, !(p && p.perMinute));
+      },
+
+      day(key) { return loadLog()[key || dayKey()] || {}; },
+
+      total(key) {
+        const day = AI.usage.day(key);
+        return Object.keys(day).reduce((sum, m) => sum + (day[m].usd || 0), 0);
+      },
+
+      clear(key) {
+        const log = loadLog();
+        delete log[key || dayKey()];
+        saveLog(log);
+        try { window.dispatchEvent(new CustomEvent("ai-usage")); } catch (e) {}
+      }
+    },
 
     // A page may set this to a function returning a key typed into the
     // settings box but not yet saved, so the first generation still works.
@@ -169,6 +280,7 @@
       if (!res.ok) {
         throw new Error(p.label + ": " + ((data.error && data.error.message) || ("API error " + res.status)));
       }
+      AI.usage.record(model, data, isDeep);
       const text = isDeep
         ? ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "")
         : (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
