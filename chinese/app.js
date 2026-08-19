@@ -3,7 +3,9 @@
 
   const phrases = window.HUXI_PHRASES || [];
   const categories = window.HUXI_CATEGORIES || [];
+  const procedures = window.HUXI_PROCEDURES || [];
   const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const procedureById = new Map(procedures.map((procedure) => [procedure.id, procedure]));
   const phraseById = new Map(phrases.map((phrase) => [phrase.id, phrase]));
   const STORAGE_KEY = "huxi-respiratory-mandarin-v1";
   const DAILY_SIZE = 8;
@@ -18,7 +20,9 @@
     phraseList: document.getElementById("phraseList"),
     phraseResultCount: document.getElementById("phraseResultCount"),
     featuredScenarios: document.getElementById("featuredScenarios"),
+    featuredProcedures: document.getElementById("featuredProcedures"),
     scenarioList: document.getElementById("scenarioList"),
+    scenarioProcedures: document.getElementById("scenarioProcedures"),
     dailyPhraseCard: document.getElementById("dailyPhraseCard"),
     practiceProgress: document.getElementById("practiceProgress"),
     progressBar: document.getElementById("progressBar"),
@@ -185,9 +189,21 @@
     return categoryById.get(id)?.name || "Clinical phrase";
   }
 
+  function procedureName(id) {
+    return procedureById.get(id)?.name || "Procedure";
+  }
+
+  function phraseLabel(phrase) {
+    if (phrase.procedure) {
+      return [procedureName(phrase.procedure), phrase.stage].filter(Boolean).join(" · ");
+    }
+    return categoryName(phrase.category);
+  }
+
   function riskLabel(risk) {
     if (risk === "red") return "Interpreter advised";
     if (risk === "amber") return "Check understanding";
+    if (risk === "consent") return "Consent discussion";
     return "Routine history";
   }
 
@@ -219,7 +235,7 @@
         <div class="phrase-card-main">
           <div class="phrase-card-top">
             <div>
-              <p class="phrase-label">${escapeHtml(categoryName(phrase.category))}</p>
+              <p class="phrase-label">${escapeHtml(phraseLabel(phrase))}</p>
               <span class="risk ${phrase.risk}">${riskLabel(phrase.risk)}</span>
             </div>
             <button class="save-button ${isSaved ? "saved" : ""}" type="button" data-save-id="${phrase.id}" aria-label="${isSaved ? "Remove from" : "Add to"} saved phrases" aria-pressed="${isSaved}">${isSaved ? "♥" : "♡"}</button>
@@ -245,7 +261,7 @@
         <span>
           <span class="list-pinyin" lang="zh-Latn">${escapeHtml(phrase.pinyin)}</span>
           <span class="list-english">${escapeHtml(phrase.english)}</span>
-          <span class="list-category">${escapeHtml(categoryName(phrase.category))}</span>
+          <span class="list-category">${escapeHtml(phraseLabel(phrase))}</span>
         </span>
         <span class="list-chevron" aria-hidden="true">›</span>
       </button>`;
@@ -270,6 +286,8 @@
       </button>`;
     }).join("");
 
+    renderProcedureCards(els.featuredProcedures);
+
     const index = hashString(todayKey()) % phrases.length;
     els.dailyPhraseCard.innerHTML = phraseCardMarkup(phrases[index]);
   }
@@ -287,7 +305,7 @@
     const matches = phrases.filter((phrase) => {
       if (activeFilter !== "all" && phrase.category !== activeFilter) return false;
       if (!query) return true;
-      const haystack = normalize(`${phrase.pinyin} ${phrase.english} ${categoryName(phrase.category)}`);
+      const haystack = normalize(`${phrase.pinyin} ${phrase.english} ${phraseLabel(phrase)}`);
       return haystack.includes(query);
     });
     els.phraseResultCount.textContent = `${matches.length} phrase${matches.length === 1 ? "" : "s"}`;
@@ -298,12 +316,29 @@
   }
 
   function renderScenarios() {
-    els.scenarioList.innerHTML = categories.map((category) => {
+    els.scenarioList.innerHTML = categories.filter((category) => category.id !== "procedure").map((category) => {
       const count = phrases.filter((phrase) => phrase.category === category.id).length;
       return `<button class="scenario-row" type="button" data-scenario="${category.id}">
         <span class="scenario-row-symbol" aria-hidden="true">${category.symbol}</span>
         <span><h2>${escapeHtml(category.name)}</h2><p>${escapeHtml(category.description)} · ${count} phrases</p></span>
         <span class="scenario-row-arrow" aria-hidden="true">›</span>
+      </button>`;
+    }).join("");
+    renderProcedureCards(els.scenarioProcedures);
+  }
+
+  function renderProcedureCards(target) {
+    if (!target) return;
+    target.innerHTML = procedures.map((procedure) => {
+      const count = phrases.filter((phrase) => phrase.procedure === procedure.id).length;
+      return `<button class="procedure-card" type="button" data-procedure="${procedure.id}">
+        <span class="procedure-symbol" aria-hidden="true">${procedure.symbol}</span>
+        <span>
+          <h3>${escapeHtml(procedure.name)}</h3>
+          <p>${escapeHtml(procedure.description)}</p>
+          <span class="procedure-card-meta">${count} consent phrases</span>
+        </span>
+        <span class="procedure-arrow" aria-hidden="true">›</span>
       </button>`;
     }).join("");
   }
@@ -371,6 +406,12 @@
     openPractice(queue, { mode: "scenario", title: category?.name || "Scenario" });
   }
 
+  function openProcedure(procedureId) {
+    const procedure = procedureById.get(procedureId);
+    const queue = phrases.filter((phrase) => phrase.procedure === procedureId).map((phrase) => phrase.id);
+    openPractice(queue, { mode: "procedure", title: procedure?.name || "Procedure consent" });
+  }
+
   function openSinglePhrase(id) {
     openPractice([id], { mode: "single", title: "Quick reference" });
   }
@@ -415,8 +456,10 @@
 
     const message = activePractice.mode === "daily"
       ? "Today’s practice complete. Nicely done."
-      : activePractice.mode === "scenario"
-        ? "Scenario complete."
+      : activePractice.mode === "procedure"
+        ? "Consent pathway complete."
+        : activePractice.mode === "scenario"
+          ? "Scenario complete."
         : "Review saved.";
     closePractice();
     showToast(message);
@@ -556,6 +599,9 @@
 
     const scenarioButton = event.target.closest("[data-scenario]");
     if (scenarioButton) return openScenario(scenarioButton.dataset.scenario);
+
+    const procedureButton = event.target.closest("[data-procedure]");
+    if (procedureButton) return openProcedure(procedureButton.dataset.procedure);
 
     const filterButton = event.target.closest("[data-filter]");
     if (filterButton) {
