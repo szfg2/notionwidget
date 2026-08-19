@@ -253,6 +253,91 @@ input:focus-visible {
   text-align: right;
 }
 
+.procedure-section { margin-top: 4px; }
+
+.consent-caution {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 13px;
+  border: 1px solid rgb(224 135 106 / 34%);
+  border-radius: 11px;
+  background: rgb(224 135 106 / 6%);
+  color: #dcb4a6;
+  font-size: .77rem;
+}
+
+.consent-caution > span {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--danger);
+  border-radius: 50%;
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.consent-caution p { margin: 0; }
+.consent-caution strong { color: #efc3b4; }
+
+.procedure-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.procedure-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 50px 1fr auto;
+  gap: 13px;
+  align-items: center;
+  width: 100%;
+  min-height: 102px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+
+.procedure-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+  content: "";
+}
+
+.procedure-card:hover { border-color: rgb(101 193 167 / 70%); background: var(--surface-2); }
+.procedure-card:active { transform: scale(.99); }
+
+.procedure-symbol {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid rgb(101 193 167 / 24%);
+  border-radius: 12px;
+  background: rgb(101 193 167 / 8%);
+  color: var(--accent);
+  font-size: 1.5rem;
+}
+
+.procedure-card h3 { margin: 0; font-size: .98rem; }
+.procedure-card p { margin: 4px 0 0; color: var(--faint); font-size: .76rem; line-height: 1.4; }
+.procedure-card-meta { display: block; margin-top: 7px; color: var(--accent); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .055em; }
+.procedure-arrow { color: var(--faint); font-size: 1.3rem; }
+.scenario-procedures { margin-top: 30px; }
+.procedure-scope { margin: 11px 2px 0; color: var(--faint); font-size: .72rem; }
+.procedure-scope a { color: var(--muted); text-underline-offset: 2px; }
+
 .app-safety {
   display: flex;
   gap: 11px;
@@ -314,6 +399,7 @@ input:focus-visible {
 .risk::before { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); content: ""; }
 .risk.amber::before { background: var(--warning); }
 .risk.red::before { background: var(--danger); }
+.risk.consent::before { background: var(--warning); }
 
 .pinyin {
   margin: 20px 0 10px;
@@ -595,6 +681,7 @@ body.sheet-open { overflow: hidden; }
 @media (min-width: 560px) {
   .app-shell { padding-right: 26px; padding-left: 26px; }
   .scenario-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .procedure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .scenario-tile { min-height: 122px; }
   .practice-sheet { bottom: 18px; border-bottom: 1px solid var(--border); border-radius: 20px; }
 }

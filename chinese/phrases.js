@@ -7,7 +7,23 @@ window.HUXI_CATEGORIES = [
   { id: "infection", name: "Infection & TB", shortName: "Infection & TB", symbol: "+", description: "Fever, weight loss, contacts and travel." },
   { id: "medicine", name: "Medicines & inhalers", shortName: "Medicines", symbol: "◫", description: "Adherence, allergies and simple technique coaching." },
   { id: "investigation", name: "Investigations", shortName: "Investigations", symbol: "⌕", description: "X-ray, CT, lung function and sputum tests." },
+  { id: "procedure", name: "Procedures", shortName: "Procedures", symbol: "⊕", description: "Simple, structured consent conversations for respiratory procedures." },
   { id: "closing", name: "Explain & close", shortName: "Closing", symbol: "✓", description: "Teach-back, safety-netting and follow-up." }
+];
+
+window.HUXI_PROCEDURES = [
+  {
+    id: "chest-drain",
+    name: "Chest drain insertion",
+    symbol: "↧",
+    description: "Explain the reason, insertion, benefits, risks and alternatives."
+  },
+  {
+    id: "bronchoscopy",
+    name: "Bronchoscopy",
+    symbol: "⌁",
+    description: "Explain flexible bronchoscopy, sampling, sedation and biopsy risks."
+  }
 ];
 
 window.HUXI_PHRASES = [
@@ -479,6 +495,385 @@ window.HUXI_PHRASES = [
     spoken: "请用力吹，直到我说停。",
     english: "Blow hard until I tell you to stop.",
     responses: []
+  },
+
+  {
+    id: "chest-drain-01", category: "procedure", procedure: "chest-drain", stage: "Explain the reason", risk: "consent",
+    pinyin: "Xiànzài wǒ lái jiěshì wèishénme xūyào fàng xiōngguǎn.",
+    spoken: "现在我来解释为什么需要放胸管。",
+    english: "I will explain why you need a chest drain.",
+    note: "Use an interpreter unless you can conduct the full consent discussion accurately and answer questions in Mandarin.",
+    responses: [
+      { pinyin: "Hǎo, qǐng nǐ jiěshì.", spoken: "好，请你解释。", english: "All right, please explain." }
+    ]
+  },
+  {
+    id: "chest-drain-02", category: "procedure", procedure: "chest-drain", stage: "Explain the reason", risk: "consent",
+    pinyin: "Nǐ de fèi wàimiàn yǒu kōngqì.",
+    spoken: "你的肺外面有空气。",
+    english: "There is air around your lung.",
+    note: "Use this for pneumothorax; do not use it for a pleural effusion.",
+    responses: [
+      { pinyin: "Zhè shì bú shì fèi pò le?", spoken: "这是不是肺破了？", english: "Does that mean the lung has a leak?" }
+    ]
+  },
+  {
+    id: "chest-drain-03", category: "procedure", procedure: "chest-drain", stage: "Explain the reason", risk: "consent",
+    pinyin: "Nǐ de fèi wàimiàn yǒu jīshuǐ.",
+    spoken: "你的肺外面有积水。",
+    english: "There is fluid around your lung.",
+    note: "Use this for pleural fluid; explain the likely cause separately when known.",
+    responses: [
+      { pinyin: "Wèishénme huì yǒu jīshuǐ?", spoken: "为什么会有积水？", english: "Why is there fluid there?" }
+    ]
+  },
+  {
+    id: "chest-drain-04", category: "procedure", procedure: "chest-drain", stage: "What it does", risk: "consent",
+    pinyin: "Wǒmen xūyào fàng yì gēn xiǎo guǎnzi jìn xiōngkǒu, bǎ kōngqì huò jīshuǐ pái chūlái.",
+    spoken: "我们需要放一根小管子进胸口，把空气或积水排出来。",
+    english: "We need to put a small tube into your chest to drain the air or fluid.",
+    responses: [
+      { pinyin: "Guǎnzi yào fàng duō jiǔ?", spoken: "管子要放多久？", english: "How long will the tube stay in?" }
+    ]
+  },
+  {
+    id: "chest-drain-05", category: "procedure", procedure: "chest-drain", stage: "Expected benefit", risk: "consent",
+    pinyin: "Zhèyàng kěyǐ bāngzhù fèi zhāng kāi, ràng nǐ bǐjiào hǎo hūxī.",
+    spoken: "这样可以帮助肺张开，让你比较好呼吸。",
+    english: "This may help the lung expand and make breathing easier.",
+    note: "Describe the expected benefit for this patient without promising success.",
+    responses: []
+  },
+  {
+    id: "chest-drain-06", category: "procedure", procedure: "chest-drain", stage: "What happens", risk: "consent",
+    pinyin: "Rúguǒ shì jīshuǐ, wǒmen huì yòng chāoshēngbō zhǎo ānquán de wèizhì.",
+    spoken: "如果是积水，我们会用超声波找安全的位置。",
+    english: "If it is fluid, we will use ultrasound to find a safe position.",
+    note: "Ultrasound wording is indication-specific; follow local pleural procedure standards.",
+    responses: []
+  },
+  {
+    id: "chest-drain-07", category: "procedure", procedure: "chest-drain", stage: "What happens", risk: "consent",
+    pinyin: "Wǒ huì xiān dǎ júbù mázuì, ràng zhè biān mádiào.",
+    spoken: "我会先打局部麻醉，让这边麻掉。",
+    english: "I will first give local anaesthetic to numb this area.",
+    responses: [
+      { pinyin: "Wǒ huì shuìzháo ma?", spoken: "我会睡着吗？", english: "Will I be asleep?" }
+    ]
+  },
+  {
+    id: "chest-drain-08", category: "procedure", procedure: "chest-drain", stage: "What happens", risk: "consent",
+    pinyin: "Ránhòu kāi yí ge xiǎo kǒu, bǎ guǎnzi fàng jìnqù.",
+    spoken: "然后开一个小口，把管子放进去。",
+    english: "Then we make a small opening and put the tube in.",
+    responses: []
+  },
+  {
+    id: "chest-drain-09", category: "procedure", procedure: "chest-drain", stage: "What happens", risk: "consent",
+    pinyin: "Guǎnzi huì yòng xiàn gùdìng, zài jiē dào yí ge píngzi.",
+    spoken: "管子会用线固定，再接到一个瓶子。",
+    english: "The tube will be secured with a stitch and connected to a drainage bottle.",
+    responses: []
+  },
+  {
+    id: "chest-drain-10", category: "procedure", procedure: "chest-drain", stage: "Discomfort", risk: "consent",
+    pinyin: "Dǎ mázuì shí huì cì yíxià. Fàng guǎn shí kěnéng huì juéde yǒu yālì huò tòng.",
+    spoken: "打麻醉时会刺一下。放管时可能会觉得有压力或痛。",
+    english: "The anaesthetic may sting. During insertion you may feel pressure or pain.",
+    note: "Do not promise that the procedure will be painless; explain how pain will be managed.",
+    responses: [
+      { pinyin: "Rúguǒ hěn tòng zěnme bàn?", spoken: "如果很痛怎么办？", english: "What if it is very painful?" }
+    ]
+  },
+  {
+    id: "chest-drain-11", category: "procedure", procedure: "chest-drain", stage: "Risks", risk: "consent",
+    pinyin: "Kěnéng huì téngtòng, chūxuè huò gǎnrǎn.",
+    spoken: "可能会疼痛、出血或感染。",
+    english: "There may be pain, bleeding or infection.",
+    note: "Pain is relatively common; clinically important bleeding and infection are less common. Tailor the discussion to individual risk.",
+    responses: []
+  },
+  {
+    id: "chest-drain-12", category: "procedure", procedure: "chest-drain", stage: "Risks", risk: "consent",
+    pinyin: "Guǎnzi kěnéng huì dǔzhù huò yídòng, yǒushí xūyào tiáozhěng huò chóngxīn fàng.",
+    spoken: "管子可能会堵住或移动，有时需要调整或重新放。",
+    english: "The tube may block or move and sometimes needs adjustment or replacement.",
+    responses: []
+  },
+  {
+    id: "chest-drain-13", category: "procedure", procedure: "chest-drain", stage: "Rare risks", risk: "consent",
+    pinyin: "Hěn shǎo de qíngkuàng xià, kěnéng shāng dào fèi, xuèguǎn huò fùjìn de qìguān.",
+    spoken: "很少的情况下，可能伤到肺、血管或附近的器官。",
+    english: "Rarely, the lung, a blood vessel or a nearby organ may be injured.",
+    note: "Keep this risk explicit and adapt it to drain type, position and patient factors.",
+    responses: [
+      { pinyin: "Rúguǒ shāng dào huì zěnmeyàng?", spoken: "如果伤到会怎么样？", english: "What would happen if something were injured?" }
+    ]
+  },
+  {
+    id: "chest-drain-14", category: "procedure", procedure: "chest-drain", stage: "Rare risks", risk: "consent",
+    pinyin: "Rúguǒ jīshuǐ hěn duō, pái de tài kuài, hěn shǎo kěnéng ràng hūxī tūrán biàn chà.",
+    spoken: "如果积水很多，排得太快，很少可能让呼吸突然变差。",
+    english: "If a large amount of fluid drains too quickly, breathing can rarely worsen suddenly.",
+    note: "This describes re-expansion pulmonary oedema in simple language and is relevant mainly when draining a pleural effusion.",
+    responses: []
+  },
+  {
+    id: "chest-drain-15", category: "procedure", procedure: "chest-drain", stage: "Alternatives", risk: "consent",
+    pinyin: "Qítā fāngfǎ kěnéng bāokuò yòng zhēn chōu, jìxù guānchá, huò qítā zhìliáo.",
+    spoken: "其他方法可能包括用针抽、继续观察，或其他治疗。",
+    english: "Other options may include needle aspiration, observation or another treatment.",
+    note: "Only present alternatives that are clinically reasonable for this indication; surgery or an indwelling catheter may also be relevant.",
+    responses: [
+      { pinyin: "Wǒ kěyǐ xiān bù fàng ma?", spoken: "我可以先不放吗？", english: "Can I wait without having the drain?" }
+    ]
+  },
+  {
+    id: "chest-drain-16", category: "procedure", procedure: "chest-drain", stage: "If not done", risk: "consent",
+    pinyin: "Rúguǒ bù fàng, kōngqì huò jīshuǐ kěnéng liú zài lǐmiàn, hūxī kěnéng gèng kùnnan.",
+    spoken: "如果不放，空气或积水可能留在里面，呼吸可能更困难。",
+    english: "Without the drain, the air or fluid may remain and breathing may become more difficult.",
+    note: "Explain the patient-specific consequence of declining or delaying the procedure.",
+    responses: []
+  },
+  {
+    id: "chest-drain-17", category: "procedure", procedure: "chest-drain", stage: "Questions", risk: "consent",
+    pinyin: "Guānyú zhège shǒuxù, nǐ yǒu shénme wèntí?",
+    spoken: "关于这个手续，你有什么问题？",
+    english: "What questions do you have about the procedure?",
+    responses: [
+      { pinyin: "Zuò wán yào zhùyuàn duō jiǔ?", spoken: "做完要住院多久？", english: "How long will I need to stay in hospital?" }
+    ]
+  },
+  {
+    id: "chest-drain-18", category: "procedure", procedure: "chest-drain", stage: "Check understanding", risk: "consent",
+    pinyin: "Qǐng nǐ yòng zìjǐ de huà shuō yí biàn, wèishénme yào fàng zhège guǎnzi?",
+    spoken: "请你用自己的话说一遍，为什么要放这个管子？",
+    english: "In your own words, can you tell me why the tube is needed?",
+    note: "Frame teach-back as a check of your explanation, not a test of the patient.",
+    responses: [
+      { pinyin: "Bǎ fèi wàimiàn de qì huò shuǐ pái chūlái.", spoken: "把肺外面的气或水排出来。", english: "To drain the air or fluid around the lung." }
+    ]
+  },
+  {
+    id: "chest-drain-19", category: "procedure", procedure: "chest-drain", stage: "Ask permission", risk: "red",
+    pinyin: "Nǐ míngbai zhège shǒuxù de hǎochu, fēngxiǎn hé qítā xuǎnzé ma? Nǐ tóngyì wǒmen jìxù ma?",
+    spoken: "你明白这个手续的好处、风险和其他选择吗？你同意我们继续吗？",
+    english: "Do you understand the benefits, risks and alternatives, and do you agree to proceed?",
+    note: "This phrase does not itself establish valid consent. Confirm capacity, voluntariness, adequate information and local documentation requirements.",
+    responses: [
+      { pinyin: "Wǒ míngbai, wǒ tóngyì.", spoken: "我明白，我同意。", english: "I understand and agree." },
+      { pinyin: "Wǒ hái yǒu wèntí.", spoken: "我还有问题。", english: "I still have questions." }
+    ]
+  },
+
+  {
+    id: "bronchoscopy-01", category: "procedure", procedure: "bronchoscopy", stage: "Explain the reason", risk: "consent",
+    pinyin: "Xiànzài wǒ lái jiěshì shénme shì qìguǎnjìng jiǎnchá.",
+    spoken: "现在我来解释什么是气管镜检查。",
+    english: "I will explain what a bronchoscopy is.",
+    note: "Use an interpreter unless you can conduct the full consent discussion accurately and answer questions in Mandarin.",
+    responses: [
+      { pinyin: "Hǎo, qǐng nǐ jiěshì.", spoken: "好，请你解释。", english: "All right, please explain." }
+    ]
+  },
+  {
+    id: "bronchoscopy-02", category: "procedure", procedure: "bronchoscopy", stage: "What it is", risk: "consent",
+    pinyin: "Zhè shì yòng yì gēn yòu ruǎn yòu xì de xiǎo jìngzi kàn nǐ de hūxīdào.",
+    spoken: "这是用一根又软又细的小镜子看你的呼吸道。",
+    english: "We use a thin, flexible camera to look inside your airways.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-03", category: "procedure", procedure: "bronchoscopy", stage: "What it is", risk: "consent",
+    pinyin: "Jìngzi huì cóng bízi huò zuǐba jìnqù.",
+    spoken: "镜子会从鼻子或嘴巴进去。",
+    english: "The camera passes through your nose or mouth.",
+    responses: [
+      { pinyin: "Huì bú huì dǎngzhù hūxī?", spoken: "会不会挡住呼吸？", english: "Will it block my breathing?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-04", category: "procedure", procedure: "bronchoscopy", stage: "Expected benefit", risk: "consent",
+    pinyin: "Zhège jiǎnchá kěyǐ bāng wǒmen zhǎo chū fèibù wèntí de yuányīn.",
+    spoken: "这个检查可以帮我们找出肺部问题的原因。",
+    english: "This test may help us find the cause of the lung problem.",
+    note: "State the patient-specific indication, such as infection, bleeding, an airway lesion or an abnormal scan.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-05", category: "procedure", procedure: "bronchoscopy", stage: "Samples", risk: "consent",
+    pinyin: "Rúguǒ xūyào, wǒmen huì xǐ yìdiǎn shuǐ, huò ná yìdiǎn zǔzhī qù jiǎnchá.",
+    spoken: "如果需要，我们会洗一点水，或拿一点组织去检查。",
+    english: "If needed, we may collect washings or take a small tissue sample.",
+    note: "Specify whether lavage, brushing, endobronchial biopsy or transbronchial biopsy is planned because the risks differ.",
+    responses: [
+      { pinyin: "Ná zǔzhī huì tòng ma?", spoken: "拿组织会痛吗？", english: "Will taking a sample hurt?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-06", category: "procedure", procedure: "bronchoscopy", stage: "Limitations", risk: "consent",
+    pinyin: "Yǒushíhou jiǎnchá hé yàngběn bù yídìng néng zhǎodào dá'àn, kěnéng hái yào zuò qítā jiǎnchá.",
+    spoken: "有时候检查和样本不一定能找到答案，可能还要做其他检查。",
+    english: "Sometimes the test or samples do not give an answer, and further tests may be needed.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-07", category: "procedure", procedure: "bronchoscopy", stage: "Preparation", risk: "consent",
+    pinyin: "Jiǎnchá qián yào kōng fù. Qǐng àn zhěnjiān gěi nǐ de shíjiān.",
+    spoken: "检查前要空腹。请按诊间给你的时间。",
+    english: "You need to fast before the test; follow the timing given by the unit.",
+    note: "Fasting times and medication instructions vary. Use the exact local instructions, including anticoagulant and diabetes plans.",
+    responses: [
+      { pinyin: "Wǒ kěyǐ hē shuǐ ma?", spoken: "我可以喝水吗？", english: "May I drink water?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-08", category: "procedure", procedure: "bronchoscopy", stage: "What happens", risk: "consent",
+    pinyin: "Wǒmen huì zài bízi hé hóulóng pēn mázuì yào, ràng tā mádiào.",
+    spoken: "我们会在鼻子和喉咙喷麻醉药，让它麻掉。",
+    english: "We will spray local anaesthetic into your nose and throat to numb them.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-09", category: "procedure", procedure: "bronchoscopy", stage: "What happens", risk: "consent",
+    pinyin: "Wǒmen kěnéng gěi nǐ yào ràng nǐ fàngsōng hé xiǎng shuì, dàn tōngcháng bú shì quánshēn mázuì.",
+    spoken: "我们可能给你药让你放松和想睡，但通常不是全身麻醉。",
+    english: "We may give sedation to relax you and make you drowsy, but it is usually not a general anaesthetic.",
+    note: "Describe the actual sedation or anaesthesia plan for the procedure and institution.",
+    responses: [
+      { pinyin: "Wǒ huì zhīdào fāshēng shénme shì ma?", spoken: "我会知道发生什么事吗？", english: "Will I know what is happening?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-10", category: "procedure", procedure: "bronchoscopy", stage: "Monitoring", risk: "consent",
+    pinyin: "Jiǎnchá shí, wǒmen huì yìzhí kàn nǐ de yǎngqì, xīntiào hé xuèyā.",
+    spoken: "检查时，我们会一直看你的氧气、心跳和血压。",
+    english: "During the test we will continuously monitor your oxygen, heart rate and blood pressure.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-11", category: "procedure", procedure: "bronchoscopy", stage: "Discomfort", risk: "consent",
+    pinyin: "Jìngzi jìnqù shí kěnéng huì késou hé bù shūfu, dàn nǐ háishi kěyǐ hūxī.",
+    spoken: "镜子进去时可能会咳嗽和不舒服，但你还是可以呼吸。",
+    english: "You may cough and feel uncomfortable, but you will still be able to breathe.",
+    responses: [
+      { pinyin: "Rúguǒ wǒ shòubùliǎo ne?", spoken: "如果我受不了怎么办？", english: "What if I cannot tolerate it?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-12", category: "procedure", procedure: "bronchoscopy", stage: "Comfort and choice", risk: "consent",
+    pinyin: "Rúguǒ tài bù shūfu, qǐng gàosu wǒmen. Wǒmen kěyǐ tíng xiàlái.",
+    spoken: "如果太不舒服，请告诉我们。我们可以停下来。",
+    english: "Tell us if you are too uncomfortable; we can stop the procedure.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-13", category: "procedure", procedure: "bronchoscopy", stage: "Common effects", risk: "consent",
+    pinyin: "Zuò wán hòu, kěnéng huì hóulóng tòng, liú bítì, fāshāo, huò tán lǐ yǒu yìdiǎn xuè.",
+    spoken: "做完后，可能会喉咙痛、流鼻涕、发烧，或痰里有一点血。",
+    english: "Afterwards you may have a sore throat, nasal symptoms, fever or a small amount of blood in the phlegm.",
+    note: "Nasal symptoms depend on the route; fever may occur after lavage. Explain what is expected and when to seek help.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-14", category: "procedure", procedure: "bronchoscopy", stage: "Risks", risk: "consent",
+    pinyin: "Rúguǒ ná zǔzhī, chūxuè de fēngxiǎn huì bǐjiào gāo. Dà chūxuè hěn shǎo.",
+    spoken: "如果拿组织，出血的风险会比较高。大出血很少。",
+    english: "If a biopsy is taken, bleeding risk is higher; major bleeding is rare.",
+    note: "Discuss bleeding risk in relation to the planned biopsy and the patient’s anticoagulants, antiplatelets and comorbidities.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-15", category: "procedure", procedure: "bronchoscopy", stage: "Biopsy-specific risk", risk: "consent",
+    pinyin: "Rúguǒ cóng fèi lǐ ná zǔzhī, hěn shǎo kěnéng ràng fèi lòuqì hé suō xiǎo, yǒushí xūyào fàng xiōngguǎn.",
+    spoken: "如果从肺里拿组织，很少可能让肺漏气和缩小，有时需要放胸管。",
+    english: "A lung biopsy can rarely cause an air leak and collapsed lung, sometimes requiring a chest drain.",
+    note: "This risk is especially relevant to transbronchial lung biopsy and should not be presented as the same risk for every bronchoscopy.",
+    responses: [
+      { pinyin: "Zhège fēngxiǎn dà ma?", spoken: "这个风险大吗？", english: "How large is this risk?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-16", category: "procedure", procedure: "bronchoscopy", stage: "Sedation risks", risk: "consent",
+    pinyin: "Fàngsōng de yào kěnéng ràng yǎngqì biàn dī, hūxī biàn màn, huò xuèyā biànhuà.",
+    spoken: "放松的药可能让氧气变低、呼吸变慢，或血压变化。",
+    english: "Sedation may lower your oxygen, slow breathing or affect blood pressure.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-17", category: "procedure", procedure: "bronchoscopy", stage: "Rare serious risks", risk: "consent",
+    pinyin: "Fēicháng shǎo de qíngkuàng xià, kěnéng yǒu yánzhòng de xīnzàng huò hūxī wèntí, shènzhì wēixiǎn shēngmìng.",
+    spoken: "非常少的情况下，可能有严重的心脏或呼吸问题，甚至危险生命。",
+    english: "Very rarely, serious heart or breathing complications can be life-threatening.",
+    note: "Use locally approved wording and patient-specific risk estimates for rare serious complications.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-18", category: "procedure", procedure: "bronchoscopy", stage: "Alternatives", risk: "consent",
+    pinyin: "Qítā fāngfǎ kěnéng bāokuò sǎomiáo, jiǎnchá tán, huò yòng qítā fāngfǎ ná yàngběn.",
+    spoken: "其他方法可能包括扫描、检查痰，或用其他方法拿样本。",
+    english: "Alternatives may include imaging, sputum tests or another way of obtaining a sample.",
+    note: "Only discuss clinically reasonable alternatives for the patient’s diagnostic question.",
+    responses: [
+      { pinyin: "Wǒ kěyǐ zhǐ zuò sǎomiáo ma?", spoken: "我可以只做扫描吗？", english: "Can I have only a scan?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-19", category: "procedure", procedure: "bronchoscopy", stage: "If not done", risk: "consent",
+    pinyin: "Rúguǒ bù zuò, wǒmen kěnéng bù néng quèdìng wèntí de yuányīn, zhìliáo yě kěnéng yánchí.",
+    spoken: "如果不做，我们可能不能确定问题的原因，治疗也可能延迟。",
+    english: "Without the test, the diagnosis may remain uncertain and treatment may be delayed.",
+    note: "Tailor the consequence of declining to the individual indication; avoid coercive wording.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-20", category: "procedure", procedure: "bronchoscopy", stage: "After sedation", risk: "consent",
+    pinyin: "Rúguǒ yǒu yòng fàngsōng de yào, jīntiān bù néng kāichē. Yào yǒu rén péi nǐ huí jiā.",
+    spoken: "如果有用放松的药，今天不能开车。要有人陪你回家。",
+    english: "If you receive sedation, do not drive that day and arrange for someone to accompany you home.",
+    note: "Use the institution’s exact post-sedation restriction period and escort requirements.",
+    responses: [
+      { pinyin: "Wǒ de jiārén kěyǐ lái jiē wǒ.", spoken: "我的家人可以来接我。", english: "My family member can collect me." }
+    ]
+  },
+  {
+    id: "bronchoscopy-21", category: "procedure", procedure: "bronchoscopy", stage: "Aftercare", risk: "consent",
+    pinyin: "Rúguǒ huí jiā hòu hěn chuǎn, xiōngtòng, fāshāo bù tuì, huò késou hěn duō xuè, qǐng mǎshàng qiúzhù.",
+    spoken: "如果回家后很喘、胸痛、发烧不退，或咳嗽很多血，请马上求助。",
+    english: "Seek urgent help for marked breathlessness, chest pain, persistent fever or significant coughing of blood.",
+    note: "Give the patient the unit’s actual emergency contact instructions and thresholds.",
+    responses: []
+  },
+  {
+    id: "bronchoscopy-22", category: "procedure", procedure: "bronchoscopy", stage: "Questions", risk: "consent",
+    pinyin: "Guānyú zhège jiǎnchá, nǐ yǒu shénme wèntí?",
+    spoken: "关于这个检查，你有什么问题？",
+    english: "What questions do you have about the procedure?",
+    responses: [
+      { pinyin: "Duō jiǔ kěyǐ zhīdào jiéguǒ?", spoken: "多久可以知道结果？", english: "How long until the results are available?" }
+    ]
+  },
+  {
+    id: "bronchoscopy-23", category: "procedure", procedure: "bronchoscopy", stage: "Check understanding", risk: "consent",
+    pinyin: "Qǐng nǐ yòng zìjǐ de huà shuō yí biàn, zhège jiǎnchá shì zěnme zuò de?",
+    spoken: "请你用自己的话说一遍，这个检查是怎么做的？",
+    english: "In your own words, can you tell me how this test is done?",
+    note: "Frame teach-back as a check of your explanation, not a test of the patient.",
+    responses: [
+      { pinyin: "Yòng xiǎo jìngzi cóng bízi huò zuǐba jìnqù kàn fèi.", spoken: "用小镜子从鼻子或嘴巴进去看肺。", english: "A small camera goes through the nose or mouth to look at the lungs." }
+    ]
+  },
+  {
+    id: "bronchoscopy-24", category: "procedure", procedure: "bronchoscopy", stage: "Ask permission", risk: "red",
+    pinyin: "Nǐ míngbai zhège jiǎnchá de hǎochu, fēngxiǎn hé qítā xuǎnzé ma? Nǐ tóngyì wǒmen jìxù ma?",
+    spoken: "你明白这个检查的好处、风险和其他选择吗？你同意我们继续吗？",
+    english: "Do you understand the benefits, risks and alternatives, and do you agree to proceed?",
+    note: "This phrase does not itself establish valid consent. Confirm capacity, voluntariness, adequate information and local documentation requirements.",
+    responses: [
+      { pinyin: "Wǒ míngbai, wǒ tóngyì.", spoken: "我明白，我同意。", english: "I understand and agree." },
+      { pinyin: "Wǒ hái yǒu wèntí.", spoken: "我还有问题。", english: "I still have questions." }
+    ]
   },
 
   {
