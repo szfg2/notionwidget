@@ -335,6 +335,13 @@
     margin-top: 8px;
     white-space: pre-wrap;
   }
+  .update-wrap .upd-tabs { display: flex; gap: 6px; margin: 8px 0 0; }
+  .update-wrap .upd-tabs .mode-tab { padding: 4px 11px; font-size: 12px; }
+  .upd-boxes { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 10px; }
+  .upd-boxes .field { flex: 1 1 300px; min-width: 0; }
+  .upd-boxes .field.vitals { flex: 1 1 200px; }
+  .upd-boxes label.lbl { margin-bottom: 4px; }
+  .upd-boxes textarea.update-box { margin: 0; }
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
 
@@ -489,7 +496,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab.</div>
       </div>
-      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new reviews and results into the summarised history.</div>
+      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
     </div>
 
   </div>
@@ -531,13 +538,41 @@ const ASK_SYSTEM =
   "Use bold for key terms, nested bullets for sub-points, and a Markdown table when comparing options " +
   "(e.g. a differential). Only expand into prose if the clinician explicitly asks for detail.";
 
-/* Appended to the summary prompt when folding new data into an existing summary. */
+/* Appended to the summary prompt when folding new data into an existing summary.
+ * The reply carries BOTH the summary and the objective, split by markers, so one
+ * call keeps the two columns in step. */
 const SUMMARY_UPDATE_SUFFIX =
   "\n\n## Update mode\n" +
-  "You will be given an EXISTING SUMMARY (already in the format above) and LATEST UPDATES. " +
-  "Merge the updates into the existing summary: keep everything still accurate, update Active, Counters and " +
+  "You will be given an EXISTING SUMMARY (already in the format above), an EXISTING OBJECTIVE " +
+  "(short \"Label: value\" vitals lines), and today's NEW EVENTS and/or LATEST VITALS. " +
+  "Merge the new information into the existing summary: keep everything still accurate, update Active, Counters and " +
   "Course with the new events, dates and day counts, and remove items only when the updates clearly supersede them. " +
-  "Output the FULL updated summary in exactly the format above — never output only the changes.";
+  "Then update the objective: rewrite it with the newest observations, one \"Label: value\" per line " +
+  "(BP, Temp, Sats first, then any other obs given, e.g. HR, RR, O2 support). Observations may appear in either " +
+  "input section — use them wherever they appear. Keep an existing objective value when no newer reading replaces it; " +
+  "if no new observations are given at all, reproduce the existing objective unchanged.\n" +
+  "Output BOTH sections in full, using exactly these markers and nothing else:\n" +
+  "===SUMMARY===\n" +
+  "(the full updated summary in the format above — never only the changes)\n" +
+  "===OBJECTIVE===\n" +
+  "(the updated objective lines)";
+
+/* Appended when building a patient's summary + objective from a fresh paste —
+ * used by both the Create New Patient tab and the per-row Regenerate. */
+const SUMMARY_FRESH_SUFFIX =
+  "\n\n## Fresh generation mode\n" +
+  "You will be given the FULL PATIENT DETAILS as free text (background, current issues, medications, results, " +
+  "observations — in any order or state of tidiness). Write the summary fresh from these details in exactly the " +
+  "format above; do not invent anything not in the details. " +
+  "Also produce an objective: the latest observations as short \"Label: value\" lines " +
+  "(BP, Temp, Sats first, then any other relevant obs given). Keep it succinct — the most recent value for each " +
+  "vital only, never trends or serial numbers. Leave a vital's value blank if it isn't in the details. " +
+  "If no observations appear at all, output:\nBP: \nTemp: \nSats: \n" +
+  "Output BOTH sections in full, using exactly these markers and nothing else:\n" +
+  "===SUMMARY===\n" +
+  "(the full summary)\n" +
+  "===OBJECTIVE===\n" +
+  "(the objective lines)";
 
 /* localStorage keys — GitHub settings shared with the other pages.
  * Provider choice and the API keys live in provider.js (AI.LS). */
@@ -642,6 +677,14 @@ function objectiveHtml(s) {
   let esc = String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   esc = esc.replace(/^([A-Za-z][\w /]{0,14}):/gm, "<strong>$1:</strong>");
   return esc.replace(/\n/g, "<br>");
+}
+// Update/regenerate replies carry both sections split by markers. If the model
+// skips the markers, treat the whole reply as the summary and leave the
+// objective untouched.
+function parseSummaryObjective(text) {
+  const m = String(text).match(/===\s*SUMMARY\s*===\s*([\s\S]*?)\s*===\s*OBJECTIVE\s*===\s*([\s\S]*)$/i);
+  if (m) return { summary: m[1].trim(), objective: m[2].trim() };
+  return { summary: String(text).trim(), objective: null };
 }
 
 /* ============================================================== *
@@ -758,7 +801,10 @@ $("saveBtn").addEventListener("click", async () => {
     const sysRes = await fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal });
     if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
     const summarySys = await sysRes.text();
-    const summary = await callSummary(summarySys, userMessage, genController.signal);
+    // One call returns both the summary and the objective (latest obs only,
+    // blank template when none were pasted) — see SUMMARY_FRESH_SUFFIX.
+    const out = await callSummary(summarySys + SUMMARY_FRESH_SUFFIX, userMessage, genController.signal);
+    const parsed = parseSummaryObjective(out || "");
 
     const record = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -766,8 +812,8 @@ $("saveBtn").addEventListener("click", async () => {
       location, name,
       pastMedical: past,
       clinical,
-      summary: summary || "",
-      objective: OBJECTIVE_TEMPLATE,
+      summary: parsed.summary,
+      objective: parsed.objective || OBJECTIVE_TEMPLATE,
       jobs: ""
     };
 
@@ -1176,7 +1222,7 @@ function buildRow(p, listKey, body) {
   tr.appendChild(tdAct);
   body.appendChild(tr);
 
-  // --- expandable "Update summarised history" row ---
+  // --- expandable "Update / Regenerate" row ---
   const trUpd = document.createElement("tr");
   trUpd.className = "detail-row";
   trUpd.style.display = "none";
@@ -1187,14 +1233,50 @@ function buildRow(p, listKey, body) {
   const lbl = document.createElement("span");
   lbl.className = "eyebrow";
   lbl.style.margin = "0";
-  lbl.textContent = "Update summarised history";
+  lbl.textContent = "Update patient";
+  const tabRow = document.createElement("div");
+  tabRow.className = "upd-tabs";
+  const updTab = document.createElement("button");
+  updTab.className = "mode-tab active";
+  updTab.type = "button";
+  updTab.textContent = "Update";
+  const regenTab = document.createElement("button");
+  regenTab.className = "mode-tab";
+  regenTab.type = "button";
+  regenTab.textContent = "Regenerate";
+  tabRow.appendChild(updTab);
+  tabRow.appendChild(regenTab);
   const hint = document.createElement("p");
   hint.className = "ask-note";
-  hint.textContent = "Paste today's reviews, results and events — " + AI.label() +
-    " folds them into the summarised history. Nothing identifying is sent.";
-  const box = document.createElement("textarea");
-  box.className = "update-box";
-  box.placeholder = "e.g. Weaned to RA, CRP 80 > 60, Augmentin D5, family updated… (de-identified)";
+
+  // Update pane — separate events / vitals boxes. Both go into one model call
+  // that returns the merged summary and refreshed objective together, so a
+  // rushed everything-in-one-box paste still lands vitals in the Objective.
+  const updPane = document.createElement("div");
+  const boxes = document.createElement("div");
+  boxes.className = "upd-boxes";
+  const evField = document.createElement("div");
+  evField.className = "field";
+  const evLbl = document.createElement("label");
+  evLbl.className = "lbl";
+  evLbl.textContent = "New events — reviews, results, plans";
+  const evBox = document.createElement("textarea");
+  evBox.className = "update-box";
+  evBox.placeholder = "e.g. Weaned to RA, CRP 80 > 60, Augmentin D5, family updated… (de-identified). Pressed for time? Dump everything here — vitals still reach the Objective.";
+  evField.appendChild(evLbl);
+  evField.appendChild(evBox);
+  const vitField = document.createElement("div");
+  vitField.className = "field vitals";
+  const vitLbl = document.createElement("label");
+  vitLbl.className = "lbl";
+  vitLbl.textContent = "Latest vitals";
+  const vitBox = document.createElement("textarea");
+  vitBox.className = "update-box";
+  vitBox.placeholder = "e.g. BP 110/70, HR 88, afebrile, sats 96% RA";
+  vitField.appendChild(vitLbl);
+  vitField.appendChild(vitBox);
+  boxes.appendChild(evField);
+  boxes.appendChild(vitField);
   const row = document.createElement("div");
   row.className = "gen-row";
   const runBtn = document.createElement("button");
@@ -1205,78 +1287,153 @@ function buildRow(p, listKey, body) {
   st.className = "status";
   row.appendChild(runBtn);
   row.appendChild(st);
+  updPane.appendChild(boxes);
+  updPane.appendChild(row);
+
+  // Regenerate pane — paste the full case, summary + objective rebuilt from scratch
+  const regenPane = document.createElement("div");
+  regenPane.style.display = "none";
+  const regenBox = document.createElement("textarea");
+  regenBox.className = "update-box";
+  regenBox.placeholder = "Paste the full patient details — background, issues, meds, results, obs… (de-identified)";
+  const regenRow = document.createElement("div");
+  regenRow.className = "gen-row";
+  const regenBtn = document.createElement("button");
+  regenBtn.className = "generate";
+  regenBtn.type = "button";
+  regenBtn.textContent = "Regenerate";
+  const regenSt = document.createElement("span");
+  regenSt.className = "status";
+  regenRow.appendChild(regenBtn);
+  regenRow.appendChild(regenSt);
+  regenPane.appendChild(regenBox);
+  regenPane.appendChild(regenRow);
+
   const err = document.createElement("div");
   err.className = "err";
   wrap.appendChild(lbl);
+  wrap.appendChild(tabRow);
   wrap.appendChild(hint);
-  wrap.appendChild(box);
-  wrap.appendChild(row);
+  wrap.appendChild(updPane);
+  wrap.appendChild(regenPane);
   wrap.appendChild(err);
   tdUpd.appendChild(wrap);
   trUpd.appendChild(tdUpd);
   body.appendChild(trUpd);
 
+  function setUpdMode(m) {
+    updTab.classList.toggle("active", m === "update");
+    regenTab.classList.toggle("active", m === "regen");
+    updPane.style.display = m === "update" ? "" : "none";
+    regenPane.style.display = m === "regen" ? "" : "none";
+    hint.textContent = (m === "update"
+      ? "Add today's events and vitals — " + AI.label() + " folds them into the summarised history and objective."
+      : "Paste the full patient details — " + AI.label() + " rewrites the summarised history and objective from scratch, replacing what's there.") +
+      " Nothing identifying is sent.";
+  }
+  setUpdMode("update");
+  updTab.addEventListener("click", () => { setUpdMode("update"); evBox.focus(); });
+  regenTab.addEventListener("click", () => { setUpdMode("regen"); regenBox.focus(); });
+
   updBtn.addEventListener("click", () => {
     const open = trUpd.style.display !== "none";
     trUpd.style.display = open ? "none" : "";
     updBtn.textContent = open ? "Update" : "Hide update";
-    if (!open) box.focus();
+    if (!open) (regenPane.style.display === "none" ? evBox : regenBox).focus();
   });
 
   let updController = null;
   const showUpdErr = (m) => { err.textContent = m; err.style.display = "block"; };
-  runBtn.addEventListener("click", async () => {
-    if (updController) { updController.abort(); return; }
+  // Shared runner for Update and Regenerate — one in-flight call per patient,
+  // the running button doubles as Cancel. applyLocal stamps the stored clinical
+  // context before the save; onSaved clears the input boxes only once the save
+  // has actually landed.
+  async function runGenerate(btn, label, stEl, suffix, userMessage, applyLocal, onSaved) {
     err.style.display = "none"; err.textContent = "";
     if (!AI.hasKey()) { $("settingsBox").open = true; return showUpdErr(AI.missingKeyMsg()); }
-    const updates = box.value.trim();
-    if (!updates) return showUpdErr("Paste the new reviews, results or events first.");
-
     updController = new AbortController();
-    runBtn.classList.add("is-cancel");
-    runBtn.innerHTML = '<span class="spinner"></span>Cancel';
-    st.textContent = "Updating summary…";
+    btn.classList.add("is-cancel");
+    btn.innerHTML = '<span class="spinner"></span>Cancel';
+    stEl.textContent = label === "Update" ? "Updating summary…" : "Regenerating…";
     try {
       const sysRes = await fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: updController.signal });
       if (!sysRes.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT);
       const summarySys = await sysRes.text();
       // De-identified stored content only — name/location are never sent.
-      const newSummary = await callSummary(summarySys + SUMMARY_UPDATE_SUFFIX,
-        "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
-        updController.signal);
-      if (!newSummary) throw new Error("No text returned.");
-
-      // Append the pasted updates to the stored clinical data so the
-      // "Ask about this patient" context stays current.
-      const t = new Date();
-      const stampedClinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
-        "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + updates;
-      p.summary = newSummary;
-      p.clinical = stampedClinical;
+      const out = await callSummary(summarySys + suffix, userMessage, updController.signal);
+      if (!out) throw new Error("No text returned.");
+      const parsed = parseSummaryObjective(out);
+      p.summary = parsed.summary;
+      if (parsed.objective !== null) p.objective = parsed.objective;
+      applyLocal();
       sumDiv.innerHTML = summaryHtml(p.summary);
+      objText.innerHTML = objectiveHtml(p.objective);
 
-      st.textContent = "Saving…";
+      stEl.textContent = "Saving…";
       await mutateRemote(d => {
         const rec = d[listKey].find(x => x.id === p.id);
-        if (rec) { rec.summary = p.summary; rec.clinical = stampedClinical; }
+        if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = p.clinical; }
         return d;
-      }, "Update GW summary: " + (p.name || p.location || p.id));
-      box.value = "";
-      st.textContent = "Updated ✓ " + timeNow();
-      st.classList.add("ok");
-      setTimeout(() => { st.textContent = ""; st.classList.remove("ok"); }, 4000);
+      }, label + " GW patient: " + (p.name || p.location || p.id));
+      onSaved();
+      stEl.textContent = "Updated ✓ " + timeNow();
+      stEl.classList.add("ok");
+      setTimeout(() => { stEl.textContent = ""; stEl.classList.remove("ok"); }, 4000);
     } catch (e) {
-      st.textContent = "";
-      if (e.name !== "AbortError") showUpdErr("Update failed: " + (e.message || e));
+      stEl.textContent = "";
+      if (e.name !== "AbortError") showUpdErr(label + " failed: " + (e.message || e));
     } finally {
       updController = null;
-      runBtn.classList.remove("is-cancel");
-      runBtn.innerHTML = "Update";
+      btn.classList.remove("is-cancel");
+      btn.innerHTML = label;
     }
+  }
+
+  runBtn.addEventListener("click", () => {
+    if (updController) { updController.abort(); return; }
+    const events = evBox.value.trim();
+    const vitals = vitBox.value.trim();
+    if (!events && !vitals) return showUpdErr("Paste the new events or vitals first.");
+    const msg =
+      "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") +
+      "\n\nEXISTING OBJECTIVE:\n" + ((p.objective || "").trim() || "(none)") +
+      "\n\nNEW EVENTS:\n" + (events || "(none)") +
+      "\n\nLATEST VITALS:\n" + (vitals || "(none)");
+    runGenerate(runBtn, "Update", st, SUMMARY_UPDATE_SUFFIX, msg,
+      () => {
+        // Append the pasted updates to the stored clinical data so the
+        // "Ask about this patient" context stays current.
+        const t = new Date();
+        p.clinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
+          "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" +
+          [events, vitals ? "OBS: " + vitals : ""].filter(Boolean).join("\n");
+      },
+      () => { evBox.value = ""; vitBox.value = ""; });
   });
-  // Ctrl/Cmd+Enter in the update box runs the update
-  box.addEventListener("keydown", (e) => {
+
+  regenBtn.addEventListener("click", () => {
+    if (updController) { updController.abort(); return; }
+    const details = regenBox.value.trim();
+    if (!details) return showUpdErr("Paste the full patient details first.");
+    const who = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
+    if (!confirm("Regenerate " + who + "? This replaces the current summarised history and objective.")) return;
+    runGenerate(regenBtn, "Regenerate", regenSt, SUMMARY_FRESH_SUFFIX,
+      "PATIENT DETAILS:\n" + details,
+      () => {
+        // The pasted details become the new stored clinical context for Ask —
+        // the old accumulated updates are superseded by this fresh paste.
+        const t = new Date();
+        p.clinical = "REGENERATED " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + details;
+      },
+      () => { regenBox.value = ""; });
+  });
+
+  // Ctrl/Cmd+Enter in any panel box runs its action
+  [evBox, vitBox].forEach(el => el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBtn.click(); }
+  }));
+  regenBox.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); regenBtn.click(); }
   });
 
   // --- expandable "Ask about this patient" row ---
