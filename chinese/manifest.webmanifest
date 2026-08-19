@@ -1,0 +1,19 @@
+{
+  "name": "Huxi — Respiratory Mandarin",
+  "short_name": "Huxi",
+  "description": "Practical pinyin-first respiratory Mandarin for Singapore clinical conversations.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#171817",
+  "theme_color": "#171817",
+  "lang": "en-SG",
+  "icons": [
+    {
+      "src": "../favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

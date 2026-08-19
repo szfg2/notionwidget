@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#171817" />
+  <meta name="description" content="Practical pinyin-first respiratory Mandarin for Singapore clinical conversations." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Hūxī — Respiratory Mandarin" />
+  <meta property="og:description" content="Pinyin-first clinical practice for Singapore." />
+  <meta property="og:url" content="https://szfg2.github.io/notionwidget/chinese/" />
+  <meta property="og:image" content="https://szfg2.github.io/notionwidget/chinese/og.png" />
+  <meta property="og:image:alt" content="Hūxī respiratory Mandarin app preview with a pinyin breathlessness phrase." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Hūxī — Respiratory Mandarin" />
+  <meta name="twitter:description" content="Pinyin-first clinical practice for Singapore." />
+  <meta name="twitter:image" content="https://szfg2.github.io/notionwidget/chinese/og.png" />
+  <title>Huxi — Respiratory Mandarin</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="wordmark">Hūxī</p>
+        <p class="subtitle">Respiratory Mandarin</p>
+      </div>
+      <button class="icon-button" id="headerSavedButton" type="button" aria-label="Open saved phrases" title="Saved phrases">
+        <span aria-hidden="true">♡</span>
+      </button>
+    </header>
+
+    <main id="app" tabindex="-1">
+      <section class="view active" id="todayView" aria-labelledby="todayHeading">
+        <h1 class="sr-only" id="todayHeading">Today</h1>
+
+        <label class="search-box" for="homeSearch">
+          <span class="search-icon" aria-hidden="true"></span>
+          <input id="homeSearch" type="search" autocomplete="off" placeholder="Search cough, inhaler, CT…" />
+        </label>
+
+        <section class="progress-card" aria-labelledby="practiceHeading">
+          <div class="progress-copy">
+            <p class="card-title" id="practiceHeading">Today’s practice</p>
+            <p class="muted" id="practiceProgress">0 of 8 phrases</p>
+            <div class="progress-track" aria-hidden="true"><span id="progressBar"></span></div>
+          </div>
+          <button class="primary-button" id="continueButton" type="button">Start</button>
+        </section>
+
+        <section class="section-block" aria-labelledby="scenariosHeading">
+          <div class="section-heading-row">
+            <h2 id="scenariosHeading">Common scenarios</h2>
+            <button class="text-button" id="allScenariosButton" type="button">See all</button>
+          </div>
+          <div class="scenario-grid" id="featuredScenarios"></div>
+        </section>
+
+        <section class="section-block procedure-section" aria-labelledby="proceduresHeading">
+          <div class="section-heading-row">
+            <div>
+              <p class="eyebrow">Consent practice</p>
+              <h2 id="proceduresHeading">Procedures</h2>
+            </div>
+          </div>
+          <div class="consent-caution">
+            <span aria-hidden="true">!</span>
+            <p><strong>Practise first; do not read this as a script.</strong> Until you can conduct the discussion fluently, use a competent interpreter and your institution’s consent form.</p>
+          </div>
+          <div class="procedure-grid" id="featuredProcedures"></div>
+        </section>
+
+        <section class="section-block daily-phrase" aria-labelledby="dailyPhraseHeading">
+          <div class="section-heading-row">
+            <h2 id="dailyPhraseHeading">Phrase for today</h2>
+            <span class="local-chip">Saved on this device</span>
+          </div>
+          <div id="dailyPhraseCard"></div>
+        </section>
+
+        <aside class="app-safety" aria-label="Clinical safety note">
+          <span aria-hidden="true">i</span>
+          <p><strong>Learning aid only.</strong> Use a competent interpreter for consent, complex explanations and other high-stakes decisions. Never enter or record patient information.</p>
+        </aside>
+      </section>
+
+      <section class="view" id="phrasesView" aria-labelledby="phrasesHeading" hidden>
+        <div class="view-heading">
+          <p class="eyebrow">Quick reference</p>
+          <h1 id="phrasesHeading">All phrases</h1>
+          <p class="view-intro">Search the English meaning or the pinyin you remember.</p>
+        </div>
+        <label class="search-box" for="phraseSearch">
+          <span class="search-icon" aria-hidden="true"></span>
+          <input id="phraseSearch" type="search" autocomplete="off" placeholder="Search all phrases…" />
+        </label>
+        <div class="filter-row" id="categoryFilters" aria-label="Filter phrases by scenario"></div>
+        <p class="result-count" id="phraseResultCount"></p>
+        <div class="phrase-list" id="phraseList"></div>
+      </section>
+
+      <section class="view" id="scenariosView" aria-labelledby="allScenariosHeading" hidden>
+        <div class="view-heading">
+          <p class="eyebrow">Consultation flow</p>
+          <h1 id="allScenariosHeading">Scenarios</h1>
+          <p class="view-intro">Practise the phrases in the order you would use them in clinic.</p>
+        </div>
+        <div class="scenario-list" id="scenarioList"></div>
+        <section class="scenario-procedures" aria-labelledby="scenarioProceduresHeading">
+          <div class="section-heading-row">
+            <div>
+              <p class="eyebrow">Consent pathways</p>
+              <h2 id="scenarioProceduresHeading">Procedures</h2>
+            </div>
+          </div>
+          <div class="procedure-grid" id="scenarioProcedures"></div>
+          <p class="procedure-scope">Adult intercostal chest drain and flexible bronchoscopy. Tailor indications, risks and alternatives to the individual patient and local policy. Learning scope: <a href="https://www.brit-thoracic.org.uk/clinical-resources/clinical-statements/pleural-procedures/" target="_blank" rel="noreferrer">BTS pleural guidance</a> and <a href="https://www.nbt.nhs.uk/our-services/a-z-services/respiratory-medicine/respiratory-patient-information/bronchoscopy" target="_blank" rel="noreferrer">NHS bronchoscopy information</a>.</p>
+        </section>
+      </section>
+
+      <section class="view" id="savedView" aria-labelledby="savedHeading" hidden>
+        <div class="view-heading">
+          <p class="eyebrow">Personal collection</p>
+          <h1 id="savedHeading">Saved phrases</h1>
+          <p class="view-intro">Bookmarks and learning progress stay in this browser.</p>
+        </div>
+        <div class="phrase-list" id="savedList"></div>
+        <div class="empty-state" id="savedEmpty" hidden>
+          <span class="empty-icon" aria-hidden="true">♡</span>
+          <h2>No saved phrases yet</h2>
+          <p>Tap the heart on any phrase to keep it here.</p>
+          <button class="secondary-button" id="browsePhrasesButton" type="button">Browse phrases</button>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Primary navigation">
+      <button class="nav-item active" type="button" data-view="today" aria-current="page">
+        <span class="nav-icon" aria-hidden="true">▦</span><span>Today</span>
+      </button>
+      <button class="nav-item" type="button" data-view="phrases">
+        <span class="nav-icon" aria-hidden="true">“</span><span>Phrases</span>
+      </button>
+      <button class="nav-item" type="button" data-view="scenarios">
+        <span class="nav-icon" aria-hidden="true">◎</span><span>Scenarios</span>
+      </button>
+      <button class="nav-item" type="button" data-view="saved">
+        <span class="nav-icon" aria-hidden="true">♡</span><span>Saved</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+  <section class="practice-sheet" id="practiceSheet" role="dialog" aria-modal="true" aria-labelledby="practiceSheetTitle" hidden>
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <div>
+        <p class="eyebrow" id="practiceSheetKicker">Daily practice</p>
+        <h2 id="practiceSheetTitle">Phrase</h2>
+      </div>
+      <button class="icon-button small" id="closeSheetButton" type="button" aria-label="Close practice">×</button>
+    </div>
+    <div id="practiceCard"></div>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="phrases.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
