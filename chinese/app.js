@@ -4,9 +4,13 @@
   const phrases = window.HUXI_PHRASES || [];
   const categories = window.HUXI_CATEGORIES || [];
   const procedures = window.HUXI_PROCEDURES || [];
+  const dictionary = window.HUXI_DICTIONARY || [];
+  const dictionaryCategories = window.HUXI_DICTIONARY_CATEGORIES || [];
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const procedureById = new Map(procedures.map((procedure) => [procedure.id, procedure]));
   const phraseById = new Map(phrases.map((phrase) => [phrase.id, phrase]));
+  const dictionaryById = new Map(dictionary.map((entry) => [entry.id, entry]));
+  const dictionaryCategoryById = new Map(dictionaryCategories.map((category) => [category.id, category]));
   const STORAGE_KEY = "huxi-respiratory-mandarin-v1";
   const DAILY_SIZE = 8;
 
@@ -19,6 +23,10 @@
     categoryFilters: document.getElementById("categoryFilters"),
     phraseList: document.getElementById("phraseList"),
     phraseResultCount: document.getElementById("phraseResultCount"),
+    dictionarySearch: document.getElementById("dictionarySearch"),
+    dictionaryFilters: document.getElementById("dictionaryFilters"),
+    dictionaryList: document.getElementById("dictionaryList"),
+    dictionaryResultCount: document.getElementById("dictionaryResultCount"),
     featuredScenarios: document.getElementById("featuredScenarios"),
     featuredProcedures: document.getElementById("featuredProcedures"),
     scenarioList: document.getElementById("scenarioList"),
@@ -43,6 +51,7 @@
 
   let state = loadState();
   let activeFilter = "all";
+  let activeDictionaryFilter = "all";
   let activePractice = null;
   let lastFocusedElement = null;
   let toastTimer = null;
@@ -267,6 +276,26 @@
       </button>`;
   }
 
+  function dictionaryItemMarkup(entry) {
+    const category = dictionaryCategoryById.get(entry.category);
+    const note = entry.note
+      ? `<p class="dictionary-note">${escapeHtml(entry.note)}</p>`
+      : "";
+    return `
+      <article class="dictionary-item">
+        <div class="dictionary-copy">
+          <p class="dictionary-english">${escapeHtml(entry.english)}</p>
+          <p class="dictionary-pinyin" lang="zh-Latn">${escapeHtml(entry.pinyin)}</p>
+          <p class="dictionary-category">${escapeHtml(category?.name || "Clinical concept")}</p>
+          ${note}
+        </div>
+        <button class="dictionary-audio" type="button" data-speak-dictionary-id="${entry.id}" aria-label="Hear ${escapeHtml(entry.english)} in Mandarin">
+          <span class="control-icon" aria-hidden="true">◖</span>
+          <span>Hear</span>
+        </button>
+      </article>`;
+  }
+
   function renderHome() {
     ensureDailyQueue();
     const completed = state.daily.completed.length;
@@ -315,6 +344,33 @@
     renderFilters();
   }
 
+  function renderDictionaryFilters() {
+    const filterItems = [{ id: "all", shortName: "All" }, ...dictionaryCategories];
+    els.dictionaryFilters.innerHTML = filterItems.map((category) => `
+      <button class="filter-chip ${activeDictionaryFilter === category.id ? "active" : ""}" type="button" data-dictionary-filter="${category.id}" aria-pressed="${activeDictionaryFilter === category.id}">
+        ${escapeHtml(category.shortName)}
+      </button>`).join("");
+  }
+
+  function renderDictionary() {
+    const query = normalize(els.dictionarySearch.value);
+    const matches = dictionary
+      .filter((entry) => {
+        if (activeDictionaryFilter !== "all" && entry.category !== activeDictionaryFilter) return false;
+        if (!query) return true;
+        const category = dictionaryCategoryById.get(entry.category);
+        const haystack = normalize(`${entry.english} ${entry.pinyin} ${entry.keywords || ""} ${category?.name || ""}`);
+        return haystack.includes(query);
+      })
+      .sort((left, right) => left.english.localeCompare(right.english, "en"));
+
+    els.dictionaryResultCount.textContent = `${matches.length} concept${matches.length === 1 ? "" : "s"}`;
+    els.dictionaryList.innerHTML = matches.length
+      ? matches.map(dictionaryItemMarkup).join("")
+      : `<div class="empty-state"><span class="empty-icon dictionary-empty-icon" aria-hidden="true">A</span><h2>No matching concepts</h2><p>Try a shorter English or pinyin search.</p></div>`;
+    renderDictionaryFilters();
+  }
+
   function renderScenarios() {
     els.scenarioList.innerHTML = categories.filter((category) => category.id !== "procedure").map((category) => {
       const count = phrases.filter((phrase) => phrase.category === category.id).length;
@@ -354,6 +410,7 @@
   function renderAll() {
     renderHome();
     renderPhrases();
+    renderDictionary();
     renderScenarios();
     renderSaved();
   }
@@ -375,6 +432,7 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
     els.app.focus({ preventScroll: true });
     if (name === "phrases") renderPhrases();
+    if (name === "dictionary") renderDictionary();
     if (name === "saved") renderSaved();
   }
 
@@ -485,20 +543,31 @@
       voices.find((voice) => voice.lang.toLowerCase().startsWith("zh"));
   }
 
-  function speakPhrase(id, speed) {
-    const phrase = phraseById.get(id);
-    if (!phrase || !("speechSynthesis" in window)) {
+  function speakText(spoken, speed = "normal") {
+    if (!spoken || !("speechSynthesis" in window)) {
       showToast("Speech playback is not available in this browser.");
       return;
     }
     stopSpeech();
-    const utterance = new SpeechSynthesisUtterance(phrase.spoken);
+    const utterance = new SpeechSynthesisUtterance(spoken);
     const voice = preferredVoice();
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang || "zh-SG";
     utterance.rate = speed === "slow" ? 0.58 : 0.82;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
+  }
+
+  function speakPhrase(id, speed) {
+    const phrase = phraseById.get(id);
+    if (!phrase) return;
+    speakText(phrase.spoken, speed);
+  }
+
+  function speakDictionaryEntry(id) {
+    const entry = dictionaryById.get(id);
+    if (!entry) return;
+    speakText(entry.spoken);
   }
 
   function stopSpeech() {
@@ -585,6 +654,9 @@
     const saveButton = event.target.closest("[data-save-id]");
     if (saveButton) return toggleSaved(saveButton.dataset.saveId);
 
+    const dictionarySpeakButton = event.target.closest("[data-speak-dictionary-id]");
+    if (dictionarySpeakButton) return speakDictionaryEntry(dictionarySpeakButton.dataset.speakDictionaryId);
+
     const speakButton = event.target.closest("[data-speak-id]");
     if (speakButton) return speakPhrase(speakButton.dataset.speakId, speakButton.dataset.speed);
 
@@ -608,6 +680,12 @@
       activeFilter = filterButton.dataset.filter;
       renderPhrases();
     }
+
+    const dictionaryFilterButton = event.target.closest("[data-dictionary-filter]");
+    if (dictionaryFilterButton) {
+      activeDictionaryFilter = dictionaryFilterButton.dataset.dictionaryFilter;
+      renderDictionary();
+    }
   }
 
   els.navItems.forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
@@ -619,6 +697,7 @@
   els.closeSheetButton.addEventListener("click", closePractice);
   els.sheetBackdrop.addEventListener("click", closePractice);
   els.phraseSearch.addEventListener("input", renderPhrases);
+  els.dictionarySearch.addEventListener("input", renderDictionary);
   els.homeSearch.addEventListener("input", () => {
     if (!els.homeSearch.value.trim()) return;
     els.phraseSearch.value = els.homeSearch.value;
