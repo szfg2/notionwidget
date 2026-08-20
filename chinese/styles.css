@@ -551,6 +551,46 @@ button.phrase-list-item:hover { border-color: rgb(101 193 167 / 65%); background
 .list-category { margin-top: 8px; color: var(--accent); font-size: .66rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .list-chevron { align-self: center; color: var(--faint); font-size: 1.25rem; }
 
+.dictionary-list { display: grid; gap: 10px; }
+
+.dictionary-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+}
+
+.dictionary-copy { min-width: 0; }
+.dictionary-english { margin: 0; color: var(--muted); font-size: .86rem; font-weight: 610; }
+.dictionary-pinyin { margin: 3px 0 0; font-size: 1.24rem; font-weight: 710; line-height: 1.3; }
+.dictionary-category { margin: 9px 0 0; color: var(--accent); font-size: .66rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.dictionary-note { max-width: 36rem; margin: 8px 0 0; color: var(--faint); font-size: .74rem; line-height: 1.45; }
+
+.dictionary-audio {
+  display: inline-flex;
+  min-width: 66px;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: .76rem;
+  font-weight: 650;
+}
+
+.dictionary-audio:hover { border-color: var(--accent); background: rgb(101 193 167 / 8%); }
+.dictionary-nav-icon { font-size: 1.05rem; font-weight: 780; }
+.dictionary-empty-icon { font-size: 2.25rem; font-weight: 760; }
+
 .scenario-list { display: grid; gap: 11px; }
 .scenario-row {
   display: grid;
@@ -586,7 +626,7 @@ button.phrase-list-item:hover { border-color: rgb(101 193 167 / 65%); background
   bottom: 0;
   left: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   min-height: calc(72px + env(safe-area-inset-bottom));
   padding: 7px max(12px, calc((100% - 760px) / 2 + 12px)) env(safe-area-inset-bottom);
   border-top: 1px solid var(--border-soft);
@@ -606,7 +646,7 @@ button.phrase-list-item:hover { border-color: rgb(101 193 167 / 65%); background
   background: transparent;
   color: var(--faint);
   cursor: pointer;
-  font-size: .7rem;
+  font-size: .66rem;
 }
 
 .nav-item::after {
