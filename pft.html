@@ -233,6 +233,10 @@
   <!-- 1 · SPIROMETRY -->
   <div class="card">
     <span class="eyebrow">1 · Spirometry</span>
+    <div class="paramhead">Test grade</div>
+    <div class="grid g2">
+      <div class="field"><label class="lbl">Grade (FEV1 / FVC quality letters)</label><input type="text" id="test_grade" placeholder="e.g. AA, BC, FF, UU"></div>
+    </div>
     <div class="paramhead">FEV1</div>
     <div class="grid g3">
       <div class="field"><label class="lbl">Actual (L)</label><input type="number" step="any" id="fev1_act"></div>
@@ -535,6 +539,20 @@ function zWhy(z, sev, what) {
 function build() {
   const lines = [];
   const add = (text, why) => lines.push({ text: text, why: why });
+
+  /* ---- 0 · TEST QUALITY ---- */
+  // Grade is read off the report as the FEV1/FVC quality letters (e.g. "AA", "FF").
+  // An F or U grade means the session never met ATS/ERS acceptability/repeatability,
+  // so the caveat leads the report and everything below is read against it.
+  const gradeRaw = $("test_grade").value.trim();
+  const gradeKey = gradeRaw.toUpperCase().replace(/[^A-Z]/g, "");
+  if (gradeKey === "FF" || gradeKey === "F" || gradeKey === "UU" || gradeKey === "U") {
+    const gradeWhy = gradeKey.charAt(0) === "F"
+      ? "Grade F means no acceptable manoeuvre was obtained — neither the acceptability nor the repeatability criteria were met."
+      : "Grade U means the effort is only usable: a single acceptable manoeuvre, so repeatability could not be assessed.";
+    add("Suboptimal test limits interpretation.",
+        "Test grade entered as \"" + gradeRaw + "\". " + gradeWhy + " The values below are still reported, but their reliability is limited by test quality.");
+  }
 
   /* ---- shared spirometry facts ---- */
   const fev1 = num("fev1_act"), fev1Lln = num("fev1_lln"), fev1Z = num("fev1_z");
@@ -963,6 +981,9 @@ Numeric fields (return a number, or omit the key if absent):
 - Exercise: ex_drop (max FEV1 drop %)
 - Respiratory muscle: mip_act, mip_lln, mep_act, mep_lln, mvv_act, mvv_lln
 - FeNO: feno (ppb)
+
+Text fields (return a string, or omit the key if absent):
+- test_grade: the spirometry quality grade printed on the report — the FEV1 and FVC grade letters (e.g. "A", "AB", "FF", "UU"). Copy the letters exactly as reported; never judge test quality yourself.
 
 Boolean fields (return true only if clearly stated, otherwise omit):
 - dlco_corr: default false (uncorrected). Set true ONLY when the DLCO you extracted is the Hb-corrected/adjusted value (i.e. no uncorrected value was reported)
