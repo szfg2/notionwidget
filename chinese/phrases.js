@@ -23,6 +23,18 @@ window.HUXI_PROCEDURES = [
     name: "Bronchoscopy",
     symbol: "⌁",
     description: "Explain flexible bronchoscopy, sampling, sedation and biopsy risks."
+  },
+  {
+    id: "fibrinolysis",
+    name: "Intrapleural fibrinolysis",
+    symbol: "≋",
+    description: "Explain intrapleural tPA and DNase for a poorly draining pleural infection."
+  },
+  {
+    id: "talc-pleurodesis",
+    name: "Talc pleurodesis",
+    symbol: "◇",
+    description: "Explain sterile talc through a chest drain, expected benefit, risks and alternatives."
   }
 ];
 
@@ -877,6 +889,390 @@ window.HUXI_PHRASES = [
   },
 
   {
+    id: "fibrinolysis-01", category: "procedure", procedure: "fibrinolysis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Wǒ lái jiěshì wèishénme yào tōngguò xiōngguǎn fàng yào.",
+    spoken: "我来解释为什么要通过胸管放药。",
+    english: "I will explain why we want to put medicine through your chest drain.",
+    note: "This pathway is for intrapleural tPA plus DNase in pleural infection, not systemic thrombolysis. Use an interpreter unless you can conduct the full discussion accurately.",
+    responses: [
+      { pinyin: "Hǎo, qǐng nǐ jiěshì.", spoken: "好，请你解释。", english: "All right, please explain." }
+    ]
+  },
+  {
+    id: "fibrinolysis-02", category: "procedure", procedure: "fibrinolysis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Nǐ de fèi wàimiàn yǒu bèi gǎnrǎn de jīshuǐ.",
+    spoken: "你的肺外面有被感染的积水。",
+    english: "There is infected fluid around your lung.",
+    note: "Explain the diagnosis and microbiology in patient-specific terms where known.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-03", category: "procedure", procedure: "fibrinolysis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Jīshuǐ hěn chóu, yòu fēn chéng jǐ ge xiǎo gé, suǒyǐ xiōngguǎn pái bù gānjìng.",
+    spoken: "积水很稠，又分成几个小格，所以胸管排不干净。",
+    english: "The fluid is thick and divided into pockets, so the chest drain is not clearing it fully.",
+    responses: [
+      { pinyin: "Suǒyǐ lǐmiàn hái yǒu hěn duō jīshuǐ ma?", spoken: "所以里面还有很多积水吗？", english: "So is there still a lot of fluid inside?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-04", category: "procedure", procedure: "fibrinolysis", stage: "What it is", risk: "consent",
+    pinyin: "Wǒmen xiǎng tōngguò xiànzài de xiōngguǎn fàng liǎng zhǒng yào: tPA hé DNase.",
+    spoken: "我们想通过现在的胸管放两种药：tPA和DNase。",
+    english: "We want to give two medicines, tPA and DNase, through your existing chest drain.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-05", category: "procedure", procedure: "fibrinolysis", stage: "What it does", risk: "consent",
+    pinyin: "tPA bāngzhù dǎkāi lǐmiàn zhān zhù de dìfang; DNase ràng nóngyè méi nàme chóu.",
+    spoken: "tPA帮助打开里面粘住的地方；DNase让脓液没那么稠。",
+    english: "tPA helps open the stuck pockets, while DNase makes the infected fluid less thick.",
+    note: "This is a deliberately simple explanation of fibrinolytic and enzymatic action.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-06", category: "procedure", procedure: "fibrinolysis", stage: "Expected benefit", risk: "consent",
+    pinyin: "Zhèyàng kěyǐ ràng gǎnrǎn de jīshuǐ pái de gèng gānjìng, bāngzhù gǎnrǎn hǎo qǐlái.",
+    spoken: "这样可以让感染的积水排得更干净，帮助感染好起来。",
+    english: "This may drain the infected fluid more completely and help the infection improve.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-07", category: "procedure", procedure: "fibrinolysis", stage: "Expected benefit", risk: "consent",
+    pinyin: "Zhège zhìliáo kěnéng jiǎnshǎo dòng shǒushù de xūyào, dàn bù bǎozhèng yídìng chénggōng.",
+    spoken: "这个治疗可能减少动手术的需要，但不保证一定成功。",
+    english: "The treatment may reduce the need for surgery, but it is not guaranteed to work.",
+    note: "Do not imply that surgery will definitely be avoided.",
+    responses: [
+      { pinyin: "Rúguǒ méiyǒu xiàoguǒ ne?", spoken: "如果没有效果呢？", english: "What if it does not work?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-08", category: "procedure", procedure: "fibrinolysis", stage: "Special use", risk: "consent",
+    pinyin: "Zhè liǎng zhǒng yào zài xiōngqiāng lǐ shǐyòng shì yí ge tèshū yòngfǎ.",
+    spoken: "这两种药在胸腔里使用是一个特殊用法。",
+    english: "Using these medicines inside the pleural space is an off-label use.",
+    note: "Explain off-label or unlicensed use according to institutional policy and answer questions about the evidence.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-09", category: "procedure", procedure: "fibrinolysis", stage: "What happens", risk: "consent",
+    pinyin: "Měi cì fàng yào hòu, xiōngguǎn huì zànshí guān qǐlái, ránhòu zài dǎkāi ràng jīshuǐ liú chūlái.",
+    spoken: "每次放药后，胸管会暂时关起来，然后再打开让积水流出来。",
+    english: "After each dose, the drain is temporarily closed and then reopened so the fluid can drain.",
+    note: "Use the exact local dwell time and drain-management protocol.",
+    responses: [
+      { pinyin: "Xiōngguǎn yào guān duō jiǔ?", spoken: "胸管要关多久？", english: "How long will the drain be closed?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-10", category: "procedure", procedure: "fibrinolysis", stage: "What happens", risk: "consent",
+    pinyin: "Kěnéng xūyào zuò jǐ cì, tōngcháng bú huì chāoguò sān tiān.",
+    spoken: "可能需要做几次，通常不会超过三天。",
+    english: "Several doses may be needed, usually over no more than three days.",
+    note: "State the prescribed dose and schedule; reduced-dose or once-daily protocols may be used for selected patients.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-11", category: "procedure", procedure: "fibrinolysis", stage: "Pain and discomfort", risk: "consent",
+    pinyin: "Fàng yào huò guān zhù xiōngguǎn shí, kěnéng huì xiōngtòng huò bù shūfu.",
+    spoken: "放药或关住胸管时，可能会胸痛或不舒服。",
+    english: "You may have chest pain or discomfort while the medicine is given or the drain is closed.",
+    note: "Explain the analgesia plan and what the patient should do if pain or breathlessness becomes significant.",
+    responses: [
+      { pinyin: "Rúguǒ hěn tòng zěnme bàn?", spoken: "如果很痛怎么办？", english: "What if it is very painful?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-12", category: "procedure", procedure: "fibrinolysis", stage: "Expected drainage", risk: "consent",
+    pinyin: "Fàng yào hòu, liúchūlái de shuǐ kěnéng biàn duō, yánsè yě kěnéng dài xuè.",
+    spoken: "放药后，流出来的水可能变多，颜色也可能带血。",
+    english: "After treatment, more fluid may drain and it may look blood-stained.",
+    note: "Blood-stained drainage is monitored closely and must be distinguished from clinically significant pleural bleeding.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-13", category: "procedure", procedure: "fibrinolysis", stage: "Bleeding risk", risk: "consent",
+    pinyin: "Zhège yào yǒu ràng xiōngqiāng chūxuè de fēngxiǎn.",
+    spoken: "这个药有让胸腔出血的风险。",
+    english: "There is a risk of bleeding into the pleural space.",
+    note: "This is the key material risk highlighted by BTS guidance. Give a locally approved patient-specific estimate.",
+    responses: [
+      { pinyin: "Zhège fēngxiǎn dà ma?", spoken: "这个风险大吗？", english: "How large is this risk?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-14", category: "procedure", procedure: "fibrinolysis", stage: "Serious bleeding", risk: "consent",
+    pinyin: "Yánzhòng chūxuè hěn shǎo, dàn kěnéng xūyào shūxuè, qítā shǒuxù huò shǒushù, shènzhì wēixiǎn shēngmìng.",
+    spoken: "严重出血很少，但可能需要输血、其他手续或手术，甚至危险生命。",
+    english: "Serious bleeding is uncommon but may require a blood transfusion, another procedure or surgery and can be life-threatening.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-15", category: "procedure", procedure: "fibrinolysis", stage: "Check bleeding risk", risk: "consent",
+    pinyin: "Nǐ zuìjìn yǒu dòng guò shǒushù ma? Yǒu chūxuè wèntí, huò zhèngzài chī xīxuè de yào ma?",
+    spoken: "你最近有动过手术吗？有出血问题，或正在吃稀血的药吗？",
+    english: "Have you had recent surgery, a bleeding problem, or are you taking blood-thinning medicine?",
+    note: "Review anticoagulants, antiplatelets, recent procedures, active bleeding and other contraindications using local policy.",
+    responses: [
+      { pinyin: "Wǒ yǒu chī xīxuè de yào.", spoken: "我有吃稀血的药。", english: "I take a blood thinner." }
+    ]
+  },
+  {
+    id: "fibrinolysis-16", category: "procedure", procedure: "fibrinolysis", stage: "Individual risk", risk: "consent",
+    pinyin: "Wǒmen huì kàn nǐ de yàowù, yànxuè jiéguǒ hé chūxuè fēngxiǎn, zài juédìng jìliàng.",
+    spoken: "我们会看你的药物、验血结果和出血风险，再决定剂量。",
+    english: "We will review your medicines, blood tests and bleeding risk before deciding the dose.",
+    note: "A reduced tPA dose may be considered for higher bleeding risk; this remains a clinician and local-protocol decision.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-17", category: "procedure", procedure: "fibrinolysis", stage: "Other risks", risk: "consent",
+    pinyin: "Hěn shǎo kěnéng duì yào guòmǐn.",
+    spoken: "很少可能对药过敏。",
+    english: "Rarely, an allergic reaction to the medicine can occur.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-18", category: "procedure", procedure: "fibrinolysis", stage: "If treatment fails", risk: "consent",
+    pinyin: "Yǒushí yào méiyǒu zúgòu xiàoguǒ, háishi kěnéng xūyào duō fàng yì gēn guǎnzi huò dòng shǒushù.",
+    spoken: "有时药没有足够效果，还是可能需要多放一根管子或动手术。",
+    english: "If the medicine does not work well enough, another drain or surgery may still be needed.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-19", category: "procedure", procedure: "fibrinolysis", stage: "Alternatives", risk: "consent",
+    pinyin: "Qítā fāngfǎ kěnéng bāokuò jìxù yòng kàngshēngsù hé xiōngguǎn, yòng yánshuǐ chōngxǐ, huò dòng shǒushù.",
+    spoken: "其他方法可能包括继续用抗生素和胸管、用盐水冲洗，或动手术。",
+    english: "Other options may include continuing antibiotics and drainage, saline irrigation or surgery.",
+    note: "Only discuss alternatives that are clinically reasonable for this patient and involve the thoracic surgical team where appropriate.",
+    responses: [
+      { pinyin: "Wǒ kěyǐ xuǎn shǒushù ma?", spoken: "我可以选手术吗？", english: "Can I choose surgery?" }
+    ]
+  },
+  {
+    id: "fibrinolysis-20", category: "procedure", procedure: "fibrinolysis", stage: "If not done", risk: "consent",
+    pinyin: "Rúguǒ jīshuǐ pái bù gānjìng, gǎnrǎn kěnéng jìxù, biàn chéng yánzhòng de quánshēn gǎnrǎn.",
+    spoken: "如果积水排不干净，感染可能继续，变成严重的全身感染。",
+    english: "If the fluid is not drained adequately, the infection may continue and cause severe infection throughout the body.",
+    note: "Explain the individual consequences of declining, including sepsis risk, without using coercive language.",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-21", category: "procedure", procedure: "fibrinolysis", stage: "Questions", risk: "consent",
+    pinyin: "Guānyú zhège zhìliáo, nǐ yǒu shénme wèntí?",
+    spoken: "关于这个治疗，你有什么问题？",
+    english: "What questions do you have about this treatment?",
+    responses: []
+  },
+  {
+    id: "fibrinolysis-22", category: "procedure", procedure: "fibrinolysis", stage: "Check understanding", risk: "consent",
+    pinyin: "Qǐng nǐ yòng zìjǐ de huà shuō yí biàn, zhè liǎng zhǒng yào shì yòng lái zuò shénme de?",
+    spoken: "请你用自己的话说一遍，这两种药是用来做什么的？",
+    english: "In your own words, can you tell me what these two medicines are intended to do?",
+    note: "Frame teach-back as a check of your explanation, not a test of the patient.",
+    responses: [
+      { pinyin: "Bāngzhù bǎ gǎnrǎn de jīshuǐ pái chūlái.", spoken: "帮助把感染的积水排出来。", english: "To help drain the infected fluid." }
+    ]
+  },
+  {
+    id: "fibrinolysis-23", category: "procedure", procedure: "fibrinolysis", stage: "Ask permission", risk: "red",
+    pinyin: "Nǐ míngbai zhège zhìliáo de hǎochu, fēngxiǎn hé qítā xuǎnzé ma? Nǐ tóngyì wǒmen jìxù ma?",
+    spoken: "你明白这个治疗的好处、风险和其他选择吗？你同意我们继续吗？",
+    english: "Do you understand the benefits, risks and alternatives, and do you agree to proceed?",
+    note: "This phrase does not itself establish valid consent. Confirm capacity, voluntariness, adequate information and local documentation requirements.",
+    responses: [
+      { pinyin: "Wǒ míngbai, wǒ tóngyì.", spoken: "我明白，我同意。", english: "I understand and agree." },
+      { pinyin: "Wǒ hái yǒu wèntí.", spoken: "我还有问题。", english: "I still have questions." }
+    ]
+  },
+
+  {
+    id: "talc-pleurodesis-01", category: "procedure", procedure: "talc-pleurodesis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Wǒ lái jiěshì wèishénme jiànyì zuò huáshífěn xiōngmó gùdìng.",
+    spoken: "我来解释为什么建议做滑石粉胸膜固定。",
+    english: "I will explain why we recommend talc pleurodesis.",
+    note: "This pathway describes talc slurry through an existing chest drain. Use an interpreter unless you can conduct the full discussion accurately.",
+    responses: [
+      { pinyin: "Hǎo, qǐng nǐ jiěshì.", spoken: "好，请你解释。", english: "All right, please explain." }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-02", category: "procedure", procedure: "talc-pleurodesis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Nǐ de fèi wàimiàn de jīshuǐ hěn kěnéng huì zài huílái.",
+    spoken: "你的肺外面的积水很可能会再回来。",
+    english: "The fluid around your lung is likely to come back.",
+    note: "Use this for a recurrent pleural effusion and explain the underlying cause separately.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-03", category: "procedure", procedure: "talc-pleurodesis", stage: "Explain the reason", risk: "consent",
+    pinyin: "Nǐ de fèi lòuqì, kōngqì kěnéng huì zài huílái.",
+    spoken: "你的肺漏气，空气可能会再回来。",
+    english: "Your lung has leaked air, and the air may collect again.",
+    note: "Use this for selected recurrent pneumothorax cases; do not combine it with the pleural-effusion explanation.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-04", category: "procedure", procedure: "talc-pleurodesis", stage: "What it does", risk: "consent",
+    pinyin: "Zhège zhìliáo shì ràng fèi de biǎomiàn zhān zài xiōngbì shàng, bǎ zhōngjiān de kōngjiān fēng qǐlái.",
+    spoken: "这个治疗是让肺的表面粘在胸壁上，把中间的空间封起来。",
+    english: "The treatment makes the lung lining stick to the chest wall, sealing the space between them.",
+    responses: [
+      { pinyin: "Zhèyàng jīshuǐ jiù bú huì zài lái ma?", spoken: "这样积水就不会再来吗？", english: "Does that mean the fluid will not come back?" }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-05", category: "procedure", procedure: "talc-pleurodesis", stage: "Expected benefit", risk: "consent",
+    pinyin: "Zhèyàng kěyǐ jiǎnshǎo jīshuǐ huò kōngqì zài huílái, yě kěnéng jiǎnshǎo chuǎn hé zài fàng guǎnzi de xūyào.",
+    spoken: "这样可以减少积水或空气再回来，也可能减少喘和再放管子的需要。",
+    english: "This may reduce recurrence of fluid or air, breathlessness and the need for another drain.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-06", category: "procedure", procedure: "talc-pleurodesis", stage: "Chance of success", risk: "consent",
+    pinyin: "Měi shí ge rén lǐ, dàgài qī dào bā ge chénggōng, dàn bù bǎozhèng yídìng yǒuxiào.",
+    spoken: "每十个人里，大概七到八个成功，但不保证一定有效。",
+    english: "It works in about seven or eight out of ten people, but success is not guaranteed.",
+    note: "Use the institution's outcome data when available and tailor the estimate to indication and patient factors.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-07", category: "procedure", procedure: "talc-pleurodesis", stage: "Suitability", risk: "consent",
+    pinyin: "Yào ràng zhège zhìliáo yǒuxiào, fèi xūyào xiān zhāng kāi, kào zài xiōngbì shàng.",
+    spoken: "要让这个治疗有效，肺需要先张开，靠在胸壁上。",
+    english: "For the treatment to work, the lung needs to expand and meet the chest wall.",
+    note: "If the lung is non-expandable, discuss the lower chance of success and alternatives such as an IPC.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-08", category: "procedure", procedure: "talc-pleurodesis", stage: "What happens", risk: "consent",
+    pinyin: "Wǒmen huì bǎ wújūn de yīyòng huáshífěn hé yánshuǐ hùn zài yìqǐ, tōngguò xiōngguǎn fàng jìnqù.",
+    spoken: "我们会把无菌的医用滑石粉和盐水混在一起，通过胸管放进去。",
+    english: "We mix sterile medical talc with saline and put it through the chest drain.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-09", category: "procedure", procedure: "talc-pleurodesis", stage: "Comfort", risk: "consent",
+    pinyin: "Fàng huáshífěn qián, wǒmen huì gěi zhǐtòngyào, yě kěnéng tōngguò xiōngguǎn fàng júbù mázuì.",
+    spoken: "放滑石粉前，我们会给止痛药，也可能通过胸管放局部麻醉。",
+    english: "Before giving the talc, we give pain relief and may put local anaesthetic through the drain.",
+    note: "Describe the actual analgesia and local-anaesthetic plan used by the institution.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-10", category: "procedure", procedure: "talc-pleurodesis", stage: "What happens", risk: "consent",
+    pinyin: "Fàng wán hòu, xiōngguǎn kěnéng huì guān yí dào liǎng ge xiǎoshí, ránhòu zài dǎkāi.",
+    spoken: "放完后，胸管可能会关一到两个小时，然后再打开。",
+    english: "Afterwards, the drain may be closed for one to two hours and then reopened.",
+    note: "Use the institution's exact dwell time and drain protocol.",
+    responses: [
+      { pinyin: "Zhè duàn shíjiān wǒ kěyǐ dòng ma?", spoken: "这段时间我可以动吗？", english: "Can I move during that time?" }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-11", category: "procedure", procedure: "talc-pleurodesis", stage: "After the procedure", risk: "consent",
+    pinyin: "Xiōngguǎn kěnéng hái yào liú yì dào jǐ tiān, děng wǒmen kàn páishuǐ de qíngkuàng.",
+    spoken: "胸管可能还要留一到几天，等我们看排水的情况。",
+    english: "The chest drain may need to remain for one or several days while we monitor the drainage.",
+    note: "Length of drainage varies by indication, response and local practice.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-12", category: "procedure", procedure: "talc-pleurodesis", stage: "Pain", risk: "consent",
+    pinyin: "Huáshífěn huì ràng lǐmiàn fāyán, suǒyǐ xiōngtòng hé bù shūfu hěn chángjiàn.",
+    spoken: "滑石粉会让里面发炎，所以胸痛和不舒服很常见。",
+    english: "Talc causes inflammation, so chest pain and discomfort are common.",
+    note: "Do not promise that it will be painless; explain ongoing analgesia and how to ask for more relief.",
+    responses: [
+      { pinyin: "Rúguǒ hěn tòng zěnme bàn?", spoken: "如果很痛怎么办？", english: "What if it is very painful?" }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-13", category: "procedure", procedure: "talc-pleurodesis", stage: "Common effects", risk: "consent",
+    pinyin: "Zuò wán hòu, kěnéng huì fāshāo huò xiàng gǎnmào yíyàng bù shūfu yì dào sān tiān.",
+    spoken: "做完后，可能会发烧或像感冒一样不舒服一到三天。",
+    english: "You may have a fever or flu-like symptoms for one to three days afterwards.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-14", category: "procedure", procedure: "talc-pleurodesis", stage: "Infection risk", risk: "consent",
+    pinyin: "Yǒu shǎobùfen rén huì xiōngguǎn zhōuwéi huò xiōngqiāng gǎnrǎn, kěnéng xūyào kàngshēngsù.",
+    spoken: "有少部分人会胸管周围或胸腔感染，可能需要抗生素。",
+    english: "A small number of people develop infection around the drain or in the pleural space and may need antibiotics.",
+    note: "Official NHS patient information commonly quotes approximately one to two infections per 100 procedures; use local figures.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-15", category: "procedure", procedure: "talc-pleurodesis", stage: "Breathing risk", risk: "consent",
+    pinyin: "Yǒuxiē rén huì yīnwèi fèi fāyán, duǎnshíjiān biàn de bǐjiào chuǎn.",
+    spoken: "有些人会因为肺发炎，短时间变得比较喘。",
+    english: "Some people become temporarily more breathless because of lung inflammation.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-16", category: "procedure", procedure: "talc-pleurodesis", stage: "Rare serious risk", risk: "consent",
+    pinyin: "Fēicháng shǎo de qíngkuàng xià, fèi huì yánzhòng fāyán. Měi yìqiān ge rén lǐ shǎoyú yí ge, dàn kěnéng wēixiǎn shēngmìng.",
+    spoken: "非常少的情况下，肺会严重发炎。每一千个人里少于一个，但可能危险生命。",
+    english: "Very rarely, severe lung inflammation occurs—fewer than one in 1,000 people—but it can be life-threatening.",
+    note: "Use locally approved wording for severe respiratory complications and mortality.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-17", category: "procedure", procedure: "talc-pleurodesis", stage: "Chance of failure", risk: "consent",
+    pinyin: "Zhège zhìliáo kěnéng shībài, jīshuǐ huò kōngqì háishi kěnéng zài huílái.",
+    spoken: "这个治疗可能失败，积水或空气还是可能再回来。",
+    english: "The treatment can fail, and the fluid or air may still return.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-18", category: "procedure", procedure: "talc-pleurodesis", stage: "Alternatives", risk: "consent",
+    pinyin: "Qítā fāngfǎ kěnéng bāokuò chángqī xiōngguǎn, xūyào shí zài chōu shuǐ, huò zuò qítā shǒuxù hé shǒushù.",
+    spoken: "其他方法可能包括长期胸管、需要时再抽水，或做其他手续和手术。",
+    english: "Other options may include an indwelling pleural catheter, repeat drainage, another procedure or surgery.",
+    note: "Tailor alternatives to the indication. For malignant pleural effusion, discuss IPC versus pleurodesis and non-expandable lung where relevant.",
+    responses: [
+      { pinyin: "Chángqī xiōngguǎn shì shénme?", spoken: "长期胸管是什么？", english: "What is an indwelling pleural catheter?" }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-19", category: "procedure", procedure: "talc-pleurodesis", stage: "If not done", risk: "consent",
+    pinyin: "Rúguǒ bù zuò, jīshuǐ huò kōngqì kěnéng zài huílái, nǐ kěnéng yòu chuǎn, yòu xūyào páishuǐ huò fàng guǎn.",
+    spoken: "如果不做，积水或空气可能再回来，你可能又喘，又需要排水或放管。",
+    english: "Without it, the fluid or air may return, causing breathlessness and another drainage procedure.",
+    note: "Explain the individual consequence of declining without coercive wording.",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-20", category: "procedure", procedure: "talc-pleurodesis", stage: "Questions", risk: "consent",
+    pinyin: "Guānyú zhège zhìliáo, nǐ yǒu shénme wèntí?",
+    spoken: "关于这个治疗，你有什么问题？",
+    english: "What questions do you have about this treatment?",
+    responses: []
+  },
+  {
+    id: "talc-pleurodesis-21", category: "procedure", procedure: "talc-pleurodesis", stage: "Check understanding", risk: "consent",
+    pinyin: "Qǐng nǐ yòng zìjǐ de huà shuō yí biàn, zhège zhìliáo shì yòng lái zuò shénme de?",
+    spoken: "请你用自己的话说一遍，这个治疗是用来做什么的？",
+    english: "In your own words, can you tell me what this treatment is intended to do?",
+    note: "Frame teach-back as a check of your explanation, not a test of the patient.",
+    responses: [
+      { pinyin: "Jiǎnshǎo jīshuǐ huò kōngqì zài huílái.", spoken: "减少积水或空气再回来。", english: "To reduce the chance of fluid or air returning." }
+    ]
+  },
+  {
+    id: "talc-pleurodesis-22", category: "procedure", procedure: "talc-pleurodesis", stage: "Ask permission", risk: "red",
+    pinyin: "Nǐ míngbai zhège zhìliáo de hǎochu, fēngxiǎn hé qítā xuǎnzé ma? Nǐ tóngyì wǒmen jìxù ma?",
+    spoken: "你明白这个治疗的好处、风险和其他选择吗？你同意我们继续吗？",
+    english: "Do you understand the benefits, risks and alternatives, and do you agree to proceed?",
+    note: "This phrase does not itself establish valid consent. Confirm capacity, voluntariness, adequate information and local documentation requirements.",
+    responses: [
+      { pinyin: "Wǒ míngbai, wǒ tóngyì.", spoken: "我明白，我同意。", english: "I understand and agree." },
+      { pinyin: "Wǒ hái yǒu wèntí.", spoken: "我还有问题。", english: "I still have questions." }
+    ]
+  },
+
+  {
     id: "closing-01", category: "closing", risk: "green",
     pinyin: "Qíngkuàng kàn qǐlái bǐjiào wěndìng.",
     spoken: "情况看起来比较稳定。",
@@ -954,6 +1350,7 @@ window.HUXI_DICTIONARY = [
   { id: "allergy", english: "Allergy / allergic", pinyin: "guòmǐn", spoken: "过敏", category: "conditions", keywords: "reaction" },
   { id: "alternative", english: "Alternative / other option", pinyin: "qítā xuǎnzé", spoken: "其他选择", category: "communication", keywords: "choice consent" },
   { id: "anaesthetic", english: "Anaesthetic medicine", pinyin: "mázuì yào", spoken: "麻醉药", category: "medicines", keywords: "numbing spray" },
+  { id: "antibiotic", english: "Antibiotic", pinyin: "kàngshēngsù", spoken: "抗生素", category: "medicines", keywords: "infection treatment" },
   { id: "asthma", english: "Asthma", pinyin: "qìchuǎn", spoken: "气喘", category: "conditions", keywords: "wheeze", note: "Used for asthma in these phrases; chuǎn on its own means breathless." },
   { id: "benefit", english: "Benefit", pinyin: "hǎochu", spoken: "好处", category: "communication", keywords: "advantage consent" },
   { id: "biopsy", english: "Biopsy / take tissue", pinyin: "ná zǔzhī", spoken: "拿组织", category: "tests", keywords: "tissue sample" },
@@ -961,6 +1358,8 @@ window.HUXI_DICTIONARY = [
   { id: "blood", english: "Blood", pinyin: "xuè", spoken: "血", category: "body", keywords: "haemoptysis bleeding" },
   { id: "blood-pressure", english: "Blood pressure", pinyin: "xuèyā", spoken: "血压", category: "body", keywords: "monitor observations" },
   { id: "blood-streaks", english: "Blood streaks", pinyin: "xuèsī", spoken: "血丝", category: "symptoms", keywords: "phlegm sputum haemoptysis" },
+  { id: "blood-thinner", english: "Blood-thinning medicine", pinyin: "xīxuè de yào", spoken: "稀血的药", category: "medicines", keywords: "anticoagulant antiplatelet bleeding", note: "Common Singapore patient wording; the formal term is kàng níngxuè yào." },
+  { id: "blood-transfusion", english: "Blood transfusion", pinyin: "shūxuè", spoken: "输血", category: "procedures", keywords: "bleeding haemorrhage" },
   { id: "blood-vessel", english: "Blood vessel", pinyin: "xuèguǎn", spoken: "血管", category: "body", keywords: "vessel" },
   { id: "blockage", english: "Blockage / blocked", pinyin: "dǔzhù", spoken: "堵住", category: "safety", keywords: "tube chest drain" },
   { id: "breathless", english: "Breathless / breathlessness", pinyin: "chuǎn", spoken: "喘", category: "symptoms", keywords: "short of breath dyspnoea" },
@@ -974,6 +1373,7 @@ window.HUXI_DICTIONARY = [
   { id: "chest-drain", english: "Chest drain / chest tube", pinyin: "xiōngguǎn", spoken: "胸管", category: "procedures", keywords: "intercostal drain tube" },
   { id: "chest-pain", english: "Chest pain", pinyin: "xiōngtòng", spoken: "胸痛", category: "symptoms", keywords: "pain" },
   { id: "chest-xray", english: "Chest X-ray", pinyin: "xiōngbù X-guāng", spoken: "胸部X光", category: "tests", keywords: "radiograph imaging" },
+  { id: "clamp-chest-drain", english: "Temporarily close / clamp the chest drain", pinyin: "bǎ xiōngguǎn zànshí guān qǐlái", spoken: "把胸管暂时关起来", category: "procedures", keywords: "dwell intrapleural medicine" },
   { id: "chemicals", english: "Chemicals", pinyin: "huàxuépǐn", spoken: "化学品", category: "exposure", keywords: "occupational work exposure" },
   { id: "chronic-lung-disease", english: "COPD / chronic lung disease", pinyin: "mànxìng fèibìng", spoken: "慢性肺病", category: "conditions", keywords: "chronic obstructive pulmonary disease", note: "Plain-language wording used in the asthma/COPD phrases." },
   { id: "cigarette", english: "Cigarette / cigarette smoke", pinyin: "xiāngyān", spoken: "香烟", category: "exposure", keywords: "smoking tobacco" },
@@ -984,6 +1384,7 @@ window.HUXI_DICTIONARY = [
   { id: "cough-blood", english: "Cough blood", pinyin: "késou chūxuè", spoken: "咳嗽出血", category: "symptoms", keywords: "haemoptysis blood" },
   { id: "ct-lung", english: "CT scan of the lungs", pinyin: "fèibù CT", spoken: "肺部CT", category: "tests", keywords: "scan imaging" },
   { id: "doctor", english: "Doctor", pinyin: "yīshēng", spoken: "医生", category: "communication", keywords: "physician" },
+  { id: "dnase", english: "DNase", pinyin: "DNase", spoken: "DNA酶", category: "medicines", keywords: "dornase alfa intrapleural enzyme fibrinolysis", note: "Used with tPA to make infected pleural fluid less viscous." },
   { id: "drain-air-fluid", english: "Drain air or fluid", pinyin: "bǎ kōngqì huò jīshuǐ pái chūlái", spoken: "把空气或积水排出来", category: "procedures", keywords: "chest drain remove drainage" },
   { id: "drainage-bottle", english: "Drainage bottle", pinyin: "píngzi", spoken: "瓶子", category: "procedures", keywords: "chest drain bottle", note: "The phrase uses the everyday word for bottle." },
   { id: "drive", english: "Drive", pinyin: "kāichē", spoken: "开车", category: "exposure", keywords: "sedation aftercare car" },
@@ -995,6 +1396,7 @@ window.HUXI_DICTIONARY = [
   { id: "family", english: "Family member", pinyin: "jiārén", spoken: "家人", category: "exposure", keywords: "relative accompany" },
   { id: "fasting", english: "Fasting / empty stomach", pinyin: "kōng fù", spoken: "空腹", category: "procedures", keywords: "nil by mouth preparation" },
   { id: "fever", english: "Fever", pinyin: "fāshāo", spoken: "发烧", category: "symptoms", keywords: "temperature infection" },
+  { id: "fibrinolysis", english: "Intrapleural fibrinolysis", pinyin: "xiōngqiāng nèi róngshuān zhìliáo", spoken: "胸腔内溶栓治疗", category: "procedures", keywords: "tPA DNase pleural infection enzymes" },
   { id: "fluid-around-lung", english: "Fluid around the lung / pleural effusion", pinyin: "fèi wàimiàn yǒu jīshuǐ", spoken: "肺外面有积水", category: "conditions", keywords: "pleural fluid water", note: "Plain-language wording used in the chest-drain pathway." },
   { id: "general-anaesthetic", english: "General anaesthetic", pinyin: "quánshēn mázuì", spoken: "全身麻醉", category: "medicines", keywords: "asleep anaesthesia" },
   { id: "heart", english: "Heart", pinyin: "xīnzàng", spoken: "心脏", category: "body", keywords: "cardiac" },
@@ -1002,7 +1404,10 @@ window.HUXI_DICTIONARY = [
   { id: "hold-breath", english: "Hold your breath", pinyin: "bǐngzhù hūxī", spoken: "屏住呼吸", category: "medicines", keywords: "inhaler technique" },
   { id: "hospital", english: "Hospital admission / stay in hospital", pinyin: "zhùyuàn", spoken: "住院", category: "exposure", keywords: "admitted inpatient" },
   { id: "infection", english: "Infection", pinyin: "gǎnrǎn", spoken: "感染", category: "safety", keywords: "procedure risk" },
+  { id: "infected-pleural-fluid", english: "Infected fluid around the lung", pinyin: "fèi wàimiàn yǒu bèi gǎnrǎn de jīshuǐ", spoken: "肺外面有被感染的积水", category: "conditions", keywords: "pleural infection empyema pus" },
   { id: "inhaler", english: "Inhaler", pinyin: "xīrùqì", spoken: "吸入器", category: "medicines", keywords: "puffer asthma COPD" },
+  { id: "inflammation", english: "Inflammation / become inflamed", pinyin: "fāyán", spoken: "发炎", category: "conditions", keywords: "talc reaction" },
+  { id: "indwelling-pleural-catheter", english: "Indwelling pleural catheter / IPC", pinyin: "chángqī xiōngqiāng dǎoguǎn", spoken: "长期胸腔导管", category: "procedures", keywords: "IPC long term chest drain malignant effusion" },
   { id: "injury", english: "Injure / injury", pinyin: "shāng dào", spoken: "伤到", category: "safety", keywords: "damage organ vessel" },
   { id: "interpreter", english: "Interpreter", pinyin: "fānyìyuán", spoken: "翻译员", category: "communication", keywords: "translator language" },
   { id: "local-anaesthetic", english: "Local anaesthetic", pinyin: "júbù mázuì", spoken: "局部麻醉", category: "medicines", keywords: "numb numbing" },
@@ -1021,18 +1426,25 @@ window.HUXI_DICTIONARY = [
   { id: "organ", english: "Organ", pinyin: "qìguān", spoken: "器官", category: "body", keywords: "nearby organ injury" },
   { id: "oxygen", english: "Oxygen", pinyin: "yǎngqì", spoken: "氧气", category: "body", keywords: "saturation monitor" },
   { id: "pain", english: "Pain / painful", pinyin: "tòng", spoken: "痛", category: "symptoms", keywords: "hurt" },
+  { id: "painkiller", english: "Painkiller / pain relief", pinyin: "zhǐtòngyào", spoken: "止痛药", category: "medicines", keywords: "analgesia morphine paracetamol" },
   { id: "penicillin", english: "Penicillin", pinyin: "pánníxīlín", spoken: "盘尼西林", category: "medicines", keywords: "antibiotic allergy" },
   { id: "phlegm", english: "Phlegm / sputum", pinyin: "tán", spoken: "痰", category: "symptoms", keywords: "mucus" },
+  { id: "pleural-infection", english: "Pleural infection", pinyin: "xiōngqiāng gǎnrǎn", spoken: "胸腔感染", category: "conditions", keywords: "empyema infected fluid" },
+  { id: "pleural-space", english: "Pleural space", pinyin: "xiōngqiāng", spoken: "胸腔", category: "body", keywords: "space around lung chest cavity" },
+  { id: "pleurodesis", english: "Pleurodesis", pinyin: "xiōngmó gùdìng", spoken: "胸膜固定", category: "procedures", keywords: "talc stick lung chest wall" },
   { id: "pressure", english: "Pressure", pinyin: "yālì", spoken: "压力", category: "symptoms", keywords: "chest drain insertion" },
   { id: "procedure", english: "Procedure", pinyin: "shǒuxù", spoken: "手续", category: "procedures", keywords: "consent chest drain" },
+  { id: "pus", english: "Pus / infected thick fluid", pinyin: "nóngyè", spoken: "脓液", category: "conditions", keywords: "empyema pleural infection" },
   { id: "question", english: "Question / problem", pinyin: "wèntí", spoken: "问题", category: "communication", keywords: "ask" },
   { id: "rash", english: "Red rash / red spots", pinyin: "hóngdiǎn", spoken: "红点", category: "symptoms", keywords: "contrast allergy skin" },
   { id: "reliever-inhaler", english: "Reliever inhaler", pinyin: "jíjiù xīrùqì", spoken: "急救吸入器", category: "medicines", keywords: "rescue inhaler puffer" },
   { id: "result", english: "Result", pinyin: "jiéguǒ", spoken: "结果", category: "tests", keywords: "answer report" },
   { id: "rinse-mouth", english: "Rinse your mouth", pinyin: "shùkǒu", spoken: "漱口", category: "medicines", keywords: "inhaler aftercare" },
   { id: "risk", english: "Risk", pinyin: "fēngxiǎn", spoken: "风险", category: "communication", keywords: "consent complication" },
+  { id: "saline-irrigation", english: "Saline irrigation", pinyin: "yòng yánshuǐ chōngxǐ", spoken: "用盐水冲洗", category: "procedures", keywords: "pleural infection alternative wash" },
   { id: "scan", english: "Scan / imaging", pinyin: "sǎomiáo", spoken: "扫描", category: "tests", keywords: "CT image" },
   { id: "sedation", english: "Sedation / medicine to relax", pinyin: "fàngsōng de yào", spoken: "放松的药", category: "medicines", keywords: "drowsy sleepy", note: "Plain spoken wording used in the bronchoscopy pathway." },
+  { id: "sepsis", english: "Sepsis / severe infection throughout the body", pinyin: "yánzhòng de quánshēn gǎnrǎn", spoken: "严重的全身感染", category: "safety", keywords: "life threatening infection" },
   { id: "shaking-chills", english: "Shaking chills", pinyin: "fādǒu", spoken: "发抖", category: "symptoms", keywords: "rigors infection cold" },
   { id: "side-effects", english: "Side effects", pinyin: "fùzuòyòng", spoken: "副作用", category: "safety", keywords: "medicine adverse effects" },
   { id: "smoke", english: "Smoke / smoking", pinyin: "chōuyān", spoken: "抽烟", category: "exposure", keywords: "cigarette tobacco" },
@@ -1041,11 +1453,14 @@ window.HUXI_DICTIONARY = [
   { id: "stable", english: "Stable", pinyin: "wěndìng", spoken: "稳定", category: "communication", keywords: "condition" },
   { id: "stitch", english: "Stitch / suture", pinyin: "xiàn", spoken: "线", category: "procedures", keywords: "secure chest drain", note: "The phrase uses the everyday word for thread." },
   { id: "stop-medicine", english: "Stop medicine", pinyin: "tíng yào", spoken: "停药", category: "medicines", keywords: "discontinue medication" },
+  { id: "surgery", english: "Surgery / operation", pinyin: "dòng shǒushù", spoken: "动手术", category: "procedures", keywords: "VATS operation" },
+  { id: "talc", english: "Sterile medical talc", pinyin: "wújūn de yīyòng huáshífěn", spoken: "无菌的医用滑石粉", category: "medicines", keywords: "pleurodesis powder slurry" },
   { id: "teach-back", english: "Explain back in your own words", pinyin: "yòng zìjǐ de huà shuō yí biàn", spoken: "用自己的话说一遍", category: "communication", keywords: "teach back understanding" },
   { id: "test", english: "Test / examination", pinyin: "jiǎnchá", spoken: "检查", category: "tests", keywords: "investigation procedure" },
   { id: "throat", english: "Throat", pinyin: "hóulóng", spoken: "喉咙", category: "body", keywords: "bronchoscopy" },
   { id: "tissue", english: "Tissue", pinyin: "zǔzhī", spoken: "组织", category: "body", keywords: "biopsy sample" },
   { id: "tissue-sample", english: "Small tissue sample", pinyin: "yìdiǎn zǔzhī", spoken: "一点组织", category: "tests", keywords: "biopsy specimen" },
+  { id: "tpa", english: "tPA / alteplase", pinyin: "tPA", spoken: "tPA", category: "medicines", keywords: "clot busting fibrinolytic intrapleural" },
   { id: "treatment", english: "Treatment", pinyin: "zhìliáo", spoken: "治疗", category: "medicines", keywords: "therapy management" },
   { id: "tuberculosis", english: "Tuberculosis / TB", pinyin: "fèijiéhé", spoken: "肺结核", category: "conditions", keywords: "infection" },
   { id: "tube", english: "Tube", pinyin: "guǎnzi", spoken: "管子", category: "procedures", keywords: "chest drain" },
