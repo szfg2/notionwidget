@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blue Letter Referrals</title>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-dim: #3c6f61;
+    --warn: #c9a24b;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 34px 20px 72px; }
+
+  header { margin-bottom: 26px; }
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 9px;
+  }
+  h1 { font-size: 25px; font-weight: 680; letter-spacing: -.015em; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0; max-width: 64ch; }
+  .sub b { color: var(--text); font-weight: 600; }
+
+  /* headline stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0 30px; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 11px; padding: 15px 16px;
+  }
+  .tile.lead { border-color: var(--accent-dim); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+  .tile .big { font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tile.lead .big { color: var(--accent-strong); }
+  .tile .pct { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+  .tile .cap { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.35; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 20px 22px; margin-bottom: 20px;
+  }
+  h2 { font-size: 16px; font-weight: 650; margin: 0 0 4px; letter-spacing: -.01em; }
+  .h2note { font-size: 12.5px; color: var(--faint); margin: 0 0 18px; }
+
+  /* horizontal bar chart */
+  .chart { position: relative; }
+  .bar-row {
+    display: grid; grid-template-columns: 250px 1fr; gap: 14px;
+    align-items: center; padding: 3px 0; position: relative;
+  }
+  .bar-label { font-size: 12.5px; color: var(--text); text-align: right; line-height: 1.25; }
+  .bar-label .fam { display: block; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin-top: 1px; }
+  .bar-track { position: relative; height: 24px; display: flex; align-items: center; }
+  .bar-fill {
+    height: 22px; background: var(--accent); border-radius: 3px 5px 5px 3px;
+    min-width: 3px; transition: filter .12s; position: relative;
+  }
+  .bar-row:hover .bar-fill { filter: brightness(1.14); }
+  .bar-row.lead .bar-fill { background: var(--accent-strong); }
+  .bar-val { margin-left: 9px; font-size: 12.5px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar-val .vp { color: var(--faint); font-weight: 400; font-size: 11px; margin-left: 3px; }
+  .axis { grid-column: 2; height: 1px; }
+  .axis-wrap { display: grid; grid-template-columns: 250px 1fr; gap: 14px; margin-top: 8px; }
+  .ticks { position: relative; height: 16px; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .tick { position: absolute; transform: translateX(-50%); }
+  .tick::before { content: ""; position: absolute; top: -6px; left: 50%; width: 1px; height: 5px; background: var(--border-strong); }
+  .gridline { position: absolute; top: 0; bottom: 30px; width: 1px; background: var(--border); opacity: .5; }
+
+  /* family table */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 0 10px 9px 0; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td { padding: 11px 10px 11px 0; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:first-child td { border-top: none; }
+  .fam-name { font-weight: 650; color: var(--text); }
+  .fam-sub { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .fam-n { font-size: 16px; font-weight: 700; color: var(--accent-strong); }
+  .fam-pct { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .fam-bar { height: 5px; border-radius: 3px; background: var(--accent); margin-top: 7px; }
+
+  .notes { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .notes b { color: var(--text); }
+  .notes ul { margin: 8px 0 0; padding-left: 18px; }
+  .notes li { margin: 4px 0; }
+
+  /* tooltip */
+  #tip {
+    position: fixed; z-index: 60; pointer-events: none; opacity: 0;
+    background: #0f0f0f; border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 8px 11px; font-size: 12px; color: var(--text);
+    box-shadow: 0 10px 28px rgba(0,0,0,.5); transition: opacity .1s; max-width: 240px;
+  }
+  #tip .tt { font-weight: 650; margin-bottom: 3px; }
+  #tip .tn { color: var(--accent-strong); font-weight: 600; }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 21px; }
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .bar-row, .axis-wrap { grid-template-columns: 1fr; gap: 2px; }
+    .bar-label { text-align: left; }
+    .axis-wrap { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">Respiratory Blue Letters · Referral audit</span>
+    <h1>What am I actually being referred for?</h1>
+    <p class="sub"><b>108 blue letters</b> logged over ~6 weeks (<b>13 Jul – 24 Aug 2026</b>), grouped by the primary reason the referring team asked Respiratory to see the patient. De-identified aggregate counts only.</p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile lead">
+      <div><span class="big">34</span><span class="pct">31%</span></div>
+      <div class="cap"><b style="color:var(--text)">Pleural disease</b> — the single biggest driver (effusion, empyema, malignant effusion)</div>
+    </div>
+    <div class="tile">
+      <div><span class="big">21</span><span class="pct">19%</span></div>
+      <div class="cap"><b style="color:var(--text)">Airways disease</b> — asthma, COPD, overlap, bronchiectasis, wheeze</div>
+    </div>
+    <div class="tile">
+      <div><span class="big">16</span><span class="pct">15%</span></div>
+      <div class="cap"><b style="color:var(--text)">Malignancy & nodules</b> — suspected lung cancer, masses, incidental nodules</div>
+    </div>
+    <div class="tile">
+      <div><span class="big">108</span></div>
+      <div class="cap"><b style="color:var(--text)">Total letters</b> across 15 archived days plus the live list</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Reason for referral — every letter, one category each</h2>
+    <p class="h2note">18 mutually-exclusive categories, sorted by frequency. Hover a bar for the count and share.</p>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>Rolled up by clinical family</h2>
+    <p class="h2note">The same 108 letters, partitioned into broader themes (each category sits in exactly one family).</p>
+    <table id="famTable">
+      <thead><tr><th>Clinical family</th><th class="num">n</th><th class="num" style="width:64px">%</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>How to read this</h2>
+    <div class="notes">
+      <ul>
+        <li><b>Pleural work dominates.</b> Nearly a third of everything is a pleural effusion question — and if you add the malignant and parapneumonic effusions, pleural disease is 34/108. Most of these are requests for a diagnostic or therapeutic tap, drain, or thoracoscopy decision.</li>
+        <li><b>Malignancy cuts across categories.</b> Counting suspected lung cancer/masses (10) plus malignant pleural effusions (7) gives ~17 letters (16%) where cancer is the central question — a malignant effusion is filed under Pleural here but is equally a cancer referral.</li>
+        <li><b>Infection</b> (pneumonia/abscess 6 + parapneumonic/empyema 5 + TB 5) accounts for another 16 letters (~15%).</li>
+        <li><b>Classification rule:</b> each letter is tagged by the <b>primary</b> reason the team referred, taken from the opening line of your generated reply. Effusions in a patient on active TB treatment are filed under Tuberculosis; a COPD exacerbation in a patient with background cancer is filed under COPD.</li>
+        <li><b>Source:</b> <code style="font-family:var(--mono);font-size:11.5px">resblue-patients.json</code> + <code style="font-family:var(--mono);font-size:11.5px">resblue-archive/</code> (private <code style="font-family:var(--mono);font-size:11.5px">szfg2/patient-data</code>). No names or identifiers are used anywhere above.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div id="tip"></div>
+
+<script>
+const TOTAL = 108;
+const data = [
+  ["Pleural effusion — undifferentiated / transudative", 22, "Pleural"],
+  ["Lung cancer / suspected malignancy", 10, "Malignancy"],
+  ["Asthma", 8, "Airways"],
+  ["Malignant pleural effusion", 7, "Pleural"],
+  ["Pneumonia / lung abscess", 6, "Infection"],
+  ["Pulmonary nodules / incidental findings", 6, "Malignancy"],
+  ["COPD", 6, "Airways"],
+  ["Pneumothorax / pneumomediastinum", 6, "Air leak"],
+  ["Chronic respiratory failure / NIV / OHS", 6, "Resp failure"],
+  ["Parapneumonic effusion / empyema", 5, "Pleural"],
+  ["Tuberculosis", 5, "Infection"],
+  ["Dyspnoea / hypoxia workup (incl. PH/CTEPH)", 5, "Resp failure"],
+  ["Haemoptysis", 4, "Symptom"],
+  ["Bronchoscopy / biopsy (staging / other)", 3, "Symptom"],
+  ["Bronchiectasis / airways disease", 3, "Airways"],
+  ["Asthma–COPD overlap", 2, "Airways"],
+  ["ILD / pulmonary fibrosis", 2, "ILD"],
+  ["Acute wheeze / viral bronchitis", 2, "Airways"],
+];
+const families = [
+  ["Pleural disease", 34, "Undifferentiated / transudative (22) · Malignant (7) · Parapneumonic / empyema (5)"],
+  ["Obstructive / airways disease", 21, "Asthma (8) · COPD (6) · Bronchiectasis (3) · Asthma–COPD overlap (2) · Acute wheeze (2)"],
+  ["Thoracic malignancy & nodules", 16, "Suspected lung cancer / masses (10) · Incidental nodules (6)"],
+  ["Respiratory failure & unexplained dyspnoea", 11, "Chronic resp failure / NIV / OHS (6) · Dyspnoea / hypoxia workup (5)"],
+  ["Parenchymal infection", 11, "Pneumonia / lung abscess (6) · Tuberculosis (5)"],
+  ["Symptom / procedure referrals", 7, "Haemoptysis (4) · Bronchoscopy / biopsy (3)"],
+  ["Air leak (pneumothorax / pneumomediastinum)", 6, ""],
+  ["ILD / pulmonary fibrosis", 2, ""],
+];
+
+const MAX = 22;                 // largest count -> full track
+const AXIS_MAX = 24;            // round up for ticks
+const chart = document.getElementById("chart");
+data.forEach((d, i) => {
+  const [label, n, fam] = d;
+  const row = document.createElement("div");
+  row.className = "bar-row" + (i === 0 ? " lead" : "");
+  const pct = (100 * n / TOTAL).toFixed(0);
+  row.innerHTML =
+    `<div class="bar-label">${label}<span class="fam">${fam}</span></div>` +
+    `<div class="bar-track"><div class="bar-fill" style="width:${(100*n/AXIS_MAX).toFixed(2)}%"></div>` +
+    `<span class="bar-val">${n}<span class="vp">${pct}%</span></span></div>`;
+  row.addEventListener("mousemove", (e) => showTip(e, label, n, pct, fam));
+  row.addEventListener("mouseleave", hideTip);
+  chart.appendChild(row);
+});
+// axis ticks
+const axis = document.createElement("div");
+axis.className = "axis-wrap";
+let ticks = '<div></div><div class="ticks">';
+for (let t = 0; t <= AXIS_MAX; t += 4) {
+  ticks += `<span class="tick" style="left:${(100*t/AXIS_MAX).toFixed(2)}%">${t}</span>`;
+}
+ticks += "</div>";
+axis.innerHTML = ticks;
+chart.appendChild(axis);
+
+// family table
+const tb = document.querySelector("#famTable tbody");
+families.forEach(([name, n, sub]) => {
+  const pct = (100 * n / TOTAL).toFixed(0);
+  const tr = document.createElement("tr");
+  tr.innerHTML =
+    `<td><span class="fam-name">${name}</span>` +
+    (sub ? `<div class="fam-sub">${sub}</div>` : "") +
+    `<div class="fam-bar" style="width:${(100*n/34).toFixed(1)}%"></div></td>` +
+    `<td class="num"><span class="fam-n">${n}</span></td>` +
+    `<td class="num"><span class="fam-pct">${pct}%</span></td>`;
+  tb.appendChild(tr);
+});
+
+// tooltip
+const tip = document.getElementById("tip");
+function showTip(e, label, n, pct, fam) {
+  tip.innerHTML = `<div class="tt">${label}</div><div><span class="tn">${n} letters</span> · ${pct}% of 108 · ${fam}</div>`;
+  tip.style.opacity = "1";
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + 250 > innerWidth) x = e.clientX - 250;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+function hideTip() { tip.style.opacity = "0"; }
+</script>
+</body>
+</html>
