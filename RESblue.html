@@ -1733,6 +1733,9 @@ async function mutateArchiveRemote(day, mutator, message) {
 // in the list. Kept in their own file beside the patient list so they sync too.
 const JOBS_PATH = "resblue-jobs.json";
 let adhocJobs = [];
+// False until the first sync finishes, so a cold load can say it is still
+// fetching rather than claim there is nothing outstanding.
+let jobsLoaded = false;
 
 function jobItems() {
   const items = [];
@@ -1760,6 +1763,13 @@ function jobItems() {
 async function loadAdhocJobs() {
   const { list } = await getRemote(JOBS_PATH);
   adhocJobs = (Array.isArray(list) ? list : []).filter(j => j && j.id && j.job);
+}
+// Boot and refreshJobsBanner both want these, and on a cold load they ask at
+// the same moment — share the one request instead of sending two.
+let adhocInFlight = null;
+function loadAdhocJobsOnce() {
+  if (!adhocInFlight) adhocInFlight = loadAdhocJobs().finally(() => { adhocInFlight = null; });
+  return adhocInFlight;
 }
 
 function showJobsError(msg) {
@@ -1899,7 +1909,8 @@ function renderJobsBanner() {
   el.style.display = "";      // stays up even when empty, so a job can be added
   const head = document.createElement("span");
   head.className = "eyebrow";
-  head.textContent = "📋 Outstanding jobs" + (items.length ? " · " + items.length : "");
+  head.textContent = "📋 Outstanding jobs" + (items.length ? " · " + items.length : "") +
+                     (jobsLoaded ? "" : " · syncing…");
   el.appendChild(head);
   const today = dateKey(Date.now());
   for (const it of items) {
@@ -1951,7 +1962,7 @@ function renderJobsBanner() {
   if (!items.length) {
     const none = document.createElement("div");
     none.className = "job-empty";
-    none.textContent = "Nothing outstanding.";
+    none.textContent = jobsLoaded ? "Nothing outstanding." : "Loading jobs…";
     el.appendChild(none);
   }
 
@@ -2012,13 +2023,18 @@ function focusPatient(it) {
 async function refreshJobsBanner() {
   const c = ghCfg();
   if (c.token) {
-    try {
+    // The archive listing has to wait for archiveStale() to finish writing, but
+    // the ad-hoc jobs depend on nothing — run the two together rather than
+    // queueing that small file behind every day in the archive.
+    const archive = (async () => {
       const days = await listArchiveDays();
       for (const day of [...archiveCache.keys()]) if (!days.includes(day)) archiveCache.delete(day);
       await Promise.all(days.map(d => loadArchiveDay(d, true).catch(() => [])));
-    } catch (e) { /* keep whatever the banner already shows */ }
-    try { await loadAdhocJobs(); } catch (e) { /* ditto for the ad-hoc jobs */ }
+    })().catch(() => { /* keep whatever the banner already shows */ });
+    const adhoc = loadAdhocJobsOnce().catch(() => { /* ditto for the ad-hoc jobs */ });
+    await Promise.all([archive, adhoc]);
   }
+  jobsLoaded = true;
   renderJobsBanner();
 }
 // Runs whenever the Patient List loads. A day's records are only removed from
@@ -4724,8 +4740,13 @@ renderUsage();
 refActive = (HX_REF.find(c => c.id === get(K.refCond)) || HX_REF[0]).id;
 renderRef();
 setListView(get(K.listView) || "full");    // restores the Patient List layout
+const willSyncJobs = !!get(K.ghToken);
+jobsLoaded = !willSyncJobs;                // without a token there is nothing to wait for
 renderJobsBanner();                        // shows the add-a-job box before anything loads
-if (get(K.ghToken)) loadPatients(true);   // also fills the archive cache + jobs banner
+if (willSyncJobs) {
+  loadAdhocJobsOnce().then(renderJobsBanner).catch(() => {});
+  loadPatients(true);                      // also fills the archive cache + jobs banner
+}
 </script>
 </body>
 </html>
