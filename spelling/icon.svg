@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Spell and Play app icon</title>
+  <desc id="desc">Two colorful letter blocks and a star on a warm cream background.</desc>
+  <rect width="512" height="512" rx="112" fill="#fff8e9"/>
+  <circle cx="410" cy="105" r="45" fill="#ffc928" opacity=".34"/>
+  <circle cx="91" cy="413" r="55" fill="#58adf6" opacity=".22"/>
+  <g transform="translate(74 126) rotate(-5 106 106)">
+    <rect width="212" height="212" rx="48" fill="#ff806f"/>
+    <path d="M0 163h212v49H0z" fill="#e86355" opacity=".42"/>
+    <text x="106" y="150" fill="#12305b" font-family="Arial Rounded MT Bold, Trebuchet MS, sans-serif" font-size="126" font-weight="900" text-anchor="middle">S</text>
+  </g>
+  <g transform="translate(231 179) rotate(6 103 103)">
+    <rect width="206" height="206" rx="47" fill="#ffc928"/>
+    <path d="M0 158h206v48H0z" fill="#e2a800" opacity=".32"/>
+    <text x="103" y="146" fill="#12305b" font-family="Arial Rounded MT Bold, Trebuchet MS, sans-serif" font-size="122" font-weight="900" text-anchor="middle">P</text>
+  </g>
+  <path d="m386 61 13 26 29 4-21 20 5 29-26-14-26 14 5-29-21-20 29-4 13-26Z" fill="#ffc928"/>
+</svg>

@@ -1,0 +1,21 @@
+{
+  "name": "Spell & Play — Toddler Spelling",
+  "short_name": "Spell & Play",
+  "description": "A gentle, interactive spelling game for little learners.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff8e9",
+  "theme_color": "#fff8e9",
+  "lang": "en",
+  "categories": ["education", "kids", "games"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

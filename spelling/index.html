@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff8e9">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Spell & Play">
+  <meta name="description" content="A gentle, interactive spelling game for little learners.">
+  <title>Spell &amp; Play</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand" aria-label="Spell and Play">
+        <span class="brand-blocks" aria-hidden="true"><span>S</span><span>P</span></span>
+        <span class="brand-text">Spell &amp; Play</span>
+      </div>
+
+      <div class="stars" id="stars" aria-label="0 of 5 stars"></div>
+
+      <button class="parent-access" id="parentButton" type="button" aria-label="Parent settings. Press and hold to open." title="Press and hold for parent settings">
+        <span class="hold-fill" aria-hidden="true"></span>
+        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <circle cx="18" cy="11" r="6" fill="currentColor"/>
+          <path d="M9 43V28c0-7 4-11 9-11s9 4 9 11v15M12 27l-5 9M24 27l5 7" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="35" cy="24" r="4" fill="currentColor"/>
+          <path d="M29 43V34c0-4 2-7 6-7s6 3 6 7v9M31 34l-3 5M39 34l3 5" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="game-wrap">
+      <section class="game-card" id="gameCard" aria-label="Spelling activity">
+        <div class="prompt-row">
+          <div class="word-picture" id="wordPicture" role="img" aria-label="Cat">🐱</div>
+          <div class="listen-group">
+            <button class="listen-button" id="listenButton" type="button" aria-label="Hear the word">
+              <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <path d="M9 25h12L36 13v38L21 39H9V25Z" fill="currentColor"/>
+                <path d="M44 23c4 5 4 13 0 18M51 17c8 9 8 21 0 30" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <span class="listen-label">Tap to hear</span>
+          </div>
+        </div>
+
+        <div class="letter-slots" id="letterSlots" aria-label="Put the letters here"></div>
+        <div class="letter-bank" id="letterBank" aria-label="Letter choices"></div>
+
+        <button class="main-action" id="checkButton" type="button" disabled>Check</button>
+        <button class="hint-button" id="hintButton" type="button"><span aria-hidden="true">💡</span><span>Show hint</span></button>
+        <p class="status-message" id="statusMessage" aria-live="polite">Tap the letters in order</p>
+      </section>
+    </main>
+
+    <div class="level-pill" id="levelPill">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3 6.1 6.7 1-4.9 4.7 1.2 6.7-6-3.2-6 3.2 1.2-6.7-4.9-4.7 6.7-1L12 2Z"/></svg>
+      <span>Little Learner • 3 letters</span>
+    </div>
+  </div>
+
+  <div class="celebration" id="celebration" aria-hidden="true">
+    <div class="yay-card">You did it!<small id="celebrationWord">CAT</small></div>
+  </div>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <form method="dialog" class="settings-form" id="settingsForm">
+      <div class="settings-head">
+        <div>
+          <h2 id="settingsTitle">Grown-up settings</h2>
+          <p>Choose a comfortable challenge. Changes stay on this device.</p>
+        </div>
+        <button class="close-dialog" type="button" id="closeSettings" aria-label="Close settings">×</button>
+      </div>
+
+      <fieldset>
+        <legend>Word level</legend>
+        <div class="level-options">
+          <label class="level-option">
+            <input type="radio" name="level" value="3">
+            <span>Little Learner<small>3 letters</small></span>
+          </label>
+          <label class="level-option">
+            <input type="radio" name="level" value="4">
+            <span>Growing Speller<small>4 letters</small></span>
+          </label>
+          <label class="level-option">
+            <input type="radio" name="level" value="mix">
+            <span>Mix It Up<small>3–4 letters</small></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <label class="toggle-row"><span>Show faint letter guides</span><input id="guideSetting" type="checkbox"></label>
+      <label class="toggle-row"><span>Voice and happy sounds</span><input id="soundSetting" type="checkbox"></label>
+
+      <button class="save-settings" type="submit" value="save">Save &amp; play</button>
+      <p class="parent-note">Tip: tap a letter to place it, or drag it into a box. Tap a filled box to return its letter.</p>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
