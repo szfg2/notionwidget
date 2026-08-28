@@ -420,6 +420,102 @@
   }
   .up-who { font-weight: 650; white-space: nowrap; }
   .up-task { color: var(--text); }
+
+  /* =====================================================================
+     Narrow screens — phone held vertically.
+     Six columns can't shrink usefully, so below 760px each patient row is
+     re-laid out as a stacked card: location and name share a header strip,
+     then summarised history, objective, job list and the buttons run full
+     width. The column headers are hidden and each block gets its own small
+     label instead, so the list never scrolls sideways.
+     ===================================================================== */
+  @media (max-width: 760px) {
+    .wrap { padding: 16px 12px 48px; }
+
+    header.app { margin-bottom: 16px; }
+    .head-row { flex-wrap: wrap; gap: 10px; }
+    .settings-grid { width: calc(100vw - 24px); }
+
+    /* 16px keeps iOS Safari from zooming the page in on every field focus */
+    input[type="password"], input[type="text"], input[type="search"], textarea, select { font-size: 16px; }
+
+    .mode-tab { flex: 1 1 46%; padding: 9px 10px; }
+
+    .gen-row { gap: 8px; }
+    input.search-input { flex: 1 1 100%; }
+    .ghost-btn { padding: 8px 12px; }
+    .seg-group { flex: 1 1 100%; }
+    .seg-group .ghost-btn.seg { flex: 1 1 0; }
+
+    /* ---- patient rows become cards ---- */
+    .table-scroll { overflow-x: visible; }
+    table.patients, .patients tbody { display: block; width: 100%; font-size: 14px; }
+    .patients thead { display: none; }
+
+    .patients tbody tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .patients td {
+      display: block;
+      border: none;
+      border-top: 1px solid var(--border);
+      padding: 9px 12px;
+      overflow-wrap: anywhere;
+    }
+    .patients td.loc, .patients td.name {
+      border-top: none;
+      background: var(--surface-2);
+      white-space: normal;
+    }
+    .patients td.summary, .patients td.objective,
+    .patients td.jobs, .patients td.actions { grid-column: 1 / -1; min-width: 0; }
+
+    .patients td.loc::before, .patients td.name::before,
+    .patients td.summary::before, .patients td.objective::before,
+    .patients td.jobs::before {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+    .patients td.loc::before { content: "Location"; }
+    .patients td.name::before { content: "Name"; }
+    .patients td.summary::before { content: "Summarised history"; }
+    .patients td.objective::before { content: "Objective"; }
+    .patients td.jobs::before { content: "Job list"; }
+
+    .patients input.cell-edit { width: 100%; }
+
+    .patients td.actions { display: flex; flex-wrap: wrap; gap: 8px; white-space: normal; }
+    .patients .actions .ghost-btn {
+      display: inline-block;
+      width: auto;
+      flex: 1 1 auto;
+      margin: 0;
+      min-height: 38px;
+    }
+
+    /* expanded panels (Ask / Update / Note) hang off the card above them */
+    .patients tbody tr.detail-row {
+      display: block;
+      margin-top: -12px;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .letter-head { flex-wrap: wrap; }
+    .ask-row { flex-direction: column; align-items: stretch; }
+    .ask-row .generate { justify-content: center; }
+  }
 </style>
 </head>
 <body>
