@@ -441,6 +441,122 @@
   }
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
+
+  /* ---------- Floating quick-reference drawer ---------- */
+  /* A tab pinned to the right edge, on both tabs of the page: GINA asthma
+     control and the SingHealth incidental nodule guidance, so either can be
+     glanced at mid-consult without leaving the note. */
+  #refChip {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 81;
+    writing-mode: vertical-rl;
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    color: var(--accent-strong);
+    border: 1px solid var(--accent);
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+    padding: 15px 7px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 8px 26px rgba(0,0,0,.5);
+    transition: background .12s, opacity .16s ease, visibility 0s;
+  }
+  #refChip:hover { background: color-mix(in srgb, var(--accent) 28%, var(--surface)); }
+  #refChip.open { opacity: 0; visibility: hidden; pointer-events: none; }
+
+  #refPanel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    z-index: 80;
+    width: min(480px, 100vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: -18px 0 40px rgba(0,0,0,.45);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform .18s ease, visibility 0s linear .18s;
+  }
+  #refPanel.show { transform: none; visibility: visible; transition-delay: 0s; }
+  @media (prefers-reduced-motion: reduce) { #refPanel, #refChip { transition: none; } }
+
+  .ref-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 13px 14px 11px;
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .ref-tabs { display: flex; gap: 6px; margin-top: 3px; }
+  .ref-tab {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 5px 11px; font-size: 12.5px; font-weight: 550;
+    font-family: var(--sans); cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .ref-tab:hover { color: var(--text); }
+  .ref-tab.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+
+  .ref-body { overflow-y: auto; padding: 14px 14px 40px; }
+  .ref-h { font-size: 14.5px; font-weight: 650; margin: 0 0 2px; }
+  .ref-sub { font-size: 12px; color: var(--faint); margin: 0 0 13px; }
+  .ref-body h4 { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-strong); margin: 18px 0 7px; }
+  .ref-lead { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; }
+
+  /* GINA — four questions, answered with a Yes/No pair each */
+  .gina-q {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .gina-pair { display: flex; gap: 5px; flex: none; }
+  .gina-btn {
+    background: var(--surface-2); color: var(--muted);
+    border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 4px 11px; font-size: 12px; font-family: var(--sans); cursor: pointer;
+    transition: color .12s, background .12s, border-color .12s;
+  }
+  .gina-btn:hover { color: var(--text); }
+  .gina-btn.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .gina-out {
+    margin: 13px 0 9px; padding: 9px 11px; border-radius: 8px; font-size: 13px;
+    border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--muted);
+  }
+  .gina-out.good { color: var(--accent-strong); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+  .gina-out.part { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--surface)); }
+  .gina-out.bad { color: var(--danger); border-color: var(--danger); background: var(--danger-bg); }
+  .gina-note { color: var(--faint); font-weight: 400; }
+
+  /* reference tables inside the drawer */
+  table.ref-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 8px; }
+  table.ref-tbl th, table.ref-tbl td {
+    border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.4;
+  }
+  table.ref-tbl thead th { background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  table.ref-tbl th.rh { background: var(--surface-2); color: var(--text); font-weight: 550; width: 33%; }
+  table.ref-tbl .rh-sub { display: block; color: var(--faint); font-weight: 400; font-size: 11px; margin-top: 2px; }
+  table.ref-tbl .cyc { font-family: var(--mono); color: var(--accent-strong); white-space: nowrap; }
+
+  ul.ref-notes { margin: 6px 0 0; padding-left: 17px; font-size: 12px; color: var(--muted); }
+  ul.ref-notes li { margin-bottom: 4px; }
+  .ref-nb {
+    margin-top: 15px; padding: 9px 11px; border-radius: 8px; font-size: 12px;
+    border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); color: var(--warn);
+  }
+  .ref-refs { margin-top: 13px; font-size: 11px; color: var(--faint); line-height: 1.45; }
+
+  @media print { #refChip, #refPanel { display: none !important; } }
 </style>
 </head>
 <body>
@@ -616,6 +732,131 @@
 
 <!-- Floating collapse-all, shown only while notes are open -->
 <button id="hideFab" type="button" title="Collapse every clinic note that is currently open">Hide open notes</button>
+
+<!-- Floating quick reference — GINA asthma control + SingHealth incidental nodule guidance -->
+<button id="refChip" type="button" aria-controls="refPanel" title="Quick reference — GINA asthma control &amp; SingHealth incidental pulmonary nodule guidance">Quick ref</button>
+
+<aside id="refPanel" aria-label="Quick reference" aria-hidden="true">
+  <div class="ref-head">
+    <div>
+      <span class="eyebrow" style="margin:0 0 5px">Quick reference</span>
+      <div class="ref-tabs">
+        <button class="ref-tab active" type="button" data-sec="refGina">Asthma control</button>
+        <button class="ref-tab" type="button" data-sec="refNodule">Lung nodules</button>
+      </div>
+    </div>
+    <button class="ghost-btn" id="refClose" type="button" title="Close (Esc)">✕</button>
+  </div>
+
+  <div class="ref-body">
+
+    <!-- GINA -->
+    <section class="ref-sec" id="refGina">
+      <h3 class="ref-h">GINA assessment of asthma control</h3>
+      <p class="ref-sub">Adults, adolescents and children 6–11 y · GINA 2020</p>
+      <p class="ref-lead">In the past 4 weeks, has the patient had…</p>
+      <div id="ginaQs">
+        <div class="gina-q"><span>Daytime symptoms <b>more</b> than twice/week?</span>
+          <span class="gina-pair"><button class="gina-btn" type="button" data-val="yes">Yes</button><button class="gina-btn" type="button" data-val="no">No</button></span></div>
+        <div class="gina-q"><span>Reliever needed <b>more</b> than twice/week?</span>
+          <span class="gina-pair"><button class="gina-btn" type="button" data-val="yes">Yes</button><button class="gina-btn" type="button" data-val="no">No</button></span></div>
+        <div class="gina-q"><span>Any night waking due to asthma?</span>
+          <span class="gina-pair"><button class="gina-btn" type="button" data-val="yes">Yes</button><button class="gina-btn" type="button" data-val="no">No</button></span></div>
+        <div class="gina-q"><span>Any activity limitation due to asthma?</span>
+          <span class="gina-pair"><button class="gina-btn" type="button" data-val="yes">Yes</button><button class="gina-btn" type="button" data-val="no">No</button></span></div>
+      </div>
+      <div class="gina-out" id="ginaOut"></div>
+      <button class="ghost-btn" id="ginaReset" type="button">Reset answers</button>
+
+      <h4>Levels</h4>
+      <table class="ref-tbl">
+        <tbody>
+          <tr><th class="rh">Well controlled</th><td><b>None</b> of these</td></tr>
+          <tr><th class="rh">Partly controlled</th><td><b>1–2</b> of these</td></tr>
+          <tr><th class="rh">Uncontrolled</th><td><b>3–4</b> of these</td></tr>
+        </tbody>
+      </table>
+
+      <ul class="ref-notes">
+        <li>Reliever count excludes doses taken before exercise. On MART, count the as-needed ICS-formoterol doses.</li>
+        <li>Symptoms: shortness of breath, cough, chest tightness, wheeze.</li>
+        <li>This grades <b>symptom control</b> only — assess exacerbation risk, fixed airflow limitation, inhaler technique, adherence and side effects separately.</li>
+      </ul>
+      <div class="ref-refs">Global Initiative for Asthma (GINA), 2020.</div>
+    </section>
+
+    <!-- SingHealth nodules -->
+    <section class="ref-sec" id="refNodule" style="display:none">
+      <h3 class="ref-h">Incidental pulmonary nodule</h3>
+      <p class="ref-sub">SingHealth guidance · LDCT = low-dose CT</p>
+
+      <h4>Solid nodules</h4>
+      <table class="ref-tbl">
+        <thead><tr><th></th><th>&lt;6 mm</th><th>6–8 mm</th><th>&gt;8 mm</th></tr></thead>
+        <tbody>
+          <tr>
+            <th class="rh">Single — low risk</th>
+            <td>No follow-up</td>
+            <td rowspan="2">LDCT 6 mo ×2, then 1 y <span class="cyc">[6, 12, 24]</span></td>
+            <td rowspan="2">Consider histology, PET, or follow-up (LDCT 3 mo then annual ×3, adopted from BTS)</td>
+          </tr>
+          <tr><th class="rh">Single — high risk</th><td>Optional CT at 12 mo</td></tr>
+          <tr>
+            <th class="rh">Multiple — low risk</th>
+            <td>No follow-up</td>
+            <td colspan="2" rowspan="2">LDCT 3 mo, 9 mo, 1 y <span class="cyc">[3, 12, 24]</span></td>
+          </tr>
+          <tr><th class="rh">Multiple — high risk</th><td>Optional LDCT at 12 mo</td></tr>
+          <tr><th class="rh">Clearly benign, any age</th><td colspan="3">Any size — no follow-up required</td></tr>
+        </tbody>
+      </table>
+      <ul class="ref-notes">
+        <li>Nodules &lt;6 mm may still warrant a 12-month scan if the morphology is suspicious, upper lobe, or high-risk patient.</li>
+        <li>Multiple nodules: use the <b>most suspicious</b> nodule as the guide to management.</li>
+      </ul>
+
+      <h4>Pure ground-glass nodule</h4>
+      <table class="ref-tbl">
+        <tbody>
+          <tr>
+            <th class="rh">Small (&lt;6 mm) and multiple</th>
+            <td>Consider viral infection or other conditions (e.g. RB-ILD). If considered non-inflammatory: follow up 3 mo, 6 mo, then annually ×3 y.</td>
+          </tr>
+          <tr>
+            <th class="rh">&lt;6 mm, indeterminate<span class="rh-sub">visible sub-solid component, or significant risk factors</span></th>
+            <td>Follow up 3 mo, 6 mo, then annually ×4 y. PET / guided biopsy not recommended.</td>
+          </tr>
+          <tr>
+            <th class="rh">Significant size (≥6 mm)</th>
+            <td>LDCT <span class="cyc">6, 18, 30, 42, 60 mo</span>. PET and CT-guided biopsy not recommended.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>Part-solid nodule</h4>
+      <table class="ref-tbl">
+        <tbody>
+          <tr>
+            <th class="rh">Any size, small solid component<span class="rh-sub">solid component &lt;6 mm</span></th>
+            <td>LDCT <span class="cyc">3, 9, 18, 30, 42, 60 mo</span>. Consider taking key images for future comparison.</td>
+          </tr>
+          <tr>
+            <th class="rh">Any size, big solid component<span class="rh-sub">solid component ≥6 mm</span></th>
+            <td>Histological correlation suggested. If biopsy not appropriate, PET is an option where the solid component is &gt;1 cm. Where appropriate, consider MDT or chest radiologist discussion.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="ref-nb"><b>NB:</b> this guidance applies only to patients aged &gt;35 without a history of primary cancer or immunocompromise. Peri-fissural nodules and lung cancer screening cases are <b>not</b> covered.</div>
+
+      <div class="ref-refs">
+        Callister MEJ, Baldwin DR, Akram AR, et al. British Thoracic Society guidelines for the investigation and management of pulmonary nodules. <i>Thorax</i> 2015;70:ii1–ii54.<br>
+        MacMahon H, Naidich DP, Goo JM, et al. Guidelines for management of incidental pulmonary nodules detected on CT images: from the Fleischner Society 2017. <i>Radiology</i>.
+      </div>
+    </section>
+
+  </div>
+</aside>
 
 <script>
 /* ============================================================== *
@@ -2337,11 +2578,64 @@ $("deleteAllBtn").addEventListener("click", async () => {
 });
 
 /* ============================================================== *
+ *  Quick reference drawer                                        *
+ * ============================================================== */
+/* GINA asthma control and the SingHealth nodule guidance, pinned to the right
+   edge so either can be checked mid-consult without leaving the note. */
+function openRef(open) {
+  $("refPanel").classList.toggle("show", open);
+  $("refPanel").setAttribute("aria-hidden", open ? "false" : "true");
+  $("refChip").classList.toggle("open", open);
+}
+$("refChip").addEventListener("click", () => openRef(!$("refPanel").classList.contains("show")));
+$("refClose").addEventListener("click", () => openRef(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("refPanel").classList.contains("show")) openRef(false);
+});
+
+document.querySelectorAll("#refPanel .ref-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#refPanel .ref-tab").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll("#refPanel .ref-sec").forEach(s => { s.style.display = s.id === btn.dataset.sec ? "" : "none"; });
+    document.querySelector("#refPanel .ref-body").scrollTop = 0;
+  });
+});
+
+/* GINA control level is just the count of "Yes" answers across the four questions. */
+function scoreGina() {
+  const out = $("ginaOut");
+  const answered = document.querySelectorAll("#ginaQs .gina-btn.on").length;
+  if (!answered) {
+    out.className = "gina-out";
+    out.textContent = "Answer the four questions to grade control.";
+    return;
+  }
+  const yes = document.querySelectorAll('#ginaQs .gina-btn.on[data-val="yes"]').length;
+  const level = yes === 0 ? ["Well controlled", "good"] : yes <= 2 ? ["Partly controlled", "part"] : ["Uncontrolled", "bad"];
+  out.className = "gina-out " + level[1];
+  out.innerHTML = "<b>" + level[0] + "</b> — " + yes + " of 4" +
+    (answered < 4 ? " <span class='gina-note'>(" + (4 - answered) + " still unanswered)</span>" : "");
+}
+document.querySelectorAll("#ginaQs .gina-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const wasOn = btn.classList.contains("on");
+    btn.parentElement.querySelectorAll(".gina-btn").forEach(b => b.classList.remove("on"));
+    if (!wasOn) btn.classList.add("on");   // clicking the chosen answer again clears it
+    scoreGina();
+  });
+});
+$("ginaReset").addEventListener("click", () => {
+  document.querySelectorAll("#ginaQs .gina-btn").forEach(b => b.classList.remove("on"));
+  scoreGina();
+});
+
+/* ============================================================== *
  *  Init                                                          *
  * ============================================================== */
 loadSettings();
 if (get(K.ghToken)) loadPatients(true);
 updateHideFab();
+scoreGina();
 </script>
 </body>
 </html>
