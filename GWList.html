@@ -368,6 +368,187 @@
   }
   .up-who { font-weight: 650; white-space: nowrap; }
   .up-task { color: var(--text); }
+
+  /* =====================================================================
+     Narrow screens — phone held vertically.
+     Six columns can't shrink usefully, so below 760px each patient row is
+     re-laid out as a stacked card: location and name share a header strip,
+     then summarised history, objective, job list and the buttons run full
+     width. The column headers are hidden and each block gets its own small
+     label instead, so the list never scrolls sideways.
+     ===================================================================== */
+  @media (max-width: 760px) {
+    .wrap { padding: 16px 12px 48px; }
+
+    header.app { margin-bottom: 16px; }
+    .head-row { flex-wrap: wrap; gap: 10px; }
+    .settings-grid { width: calc(100vw - 24px); }
+
+    /* 16px keeps iOS Safari from zooming the page in on every field focus */
+    input[type="password"], input[type="text"], input[type="search"], textarea, select { font-size: 16px; }
+
+    .mode-tab { flex: 1 1 46%; padding: 9px 10px; }
+
+    .gen-row { gap: 8px; }
+    input.search-input { flex: 1 1 100%; }
+    .ghost-btn { padding: 8px 12px; }
+
+    /* ---- patient rows become cards ---- */
+    .table-scroll { overflow-x: visible; }
+    table.patients, .patients tbody { display: block; width: 100%; font-size: 14px; }
+    .patients thead { display: none; }
+
+    .patients tbody tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .patients td {
+      display: block;
+      border: none;
+      border-top: 1px solid var(--border);
+      padding: 9px 12px;
+      overflow-wrap: anywhere;
+    }
+    .patients td.loc, .patients td.name {
+      border-top: none;
+      background: var(--surface-2);
+      white-space: normal;
+    }
+    .patients td.summary, .patients td.objective,
+    .patients td.jobs, .patients td.actions { grid-column: 1 / -1; min-width: 0; }
+
+    .patients td.loc::before, .patients td.name::before,
+    .patients td.summary::before, .patients td.objective::before,
+    .patients td.jobs::before {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+    .patients td.loc::before { content: "Location"; }
+    .patients td.name::before { content: "Name"; }
+    .patients td.summary::before { content: "Summarised history"; }
+    .patients td.objective::before { content: "Objective"; }
+    .patients td.jobs::before { content: "Job list"; }
+
+    .patients input.cell-edit { width: 100%; }
+
+    .patients td.actions { display: flex; flex-wrap: wrap; gap: 8px; white-space: normal; }
+    .patients .actions .ghost-btn {
+      display: inline-block;
+      width: auto;
+      flex: 1 1 auto;
+      margin: 0;
+      min-height: 38px;
+    }
+
+    /* expanded panels (Ask / Update) hang off the card above them */
+    .patients tbody tr.detail-row {
+      display: block;
+      margin-top: -12px;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+
+    .upd-boxes .field, .upd-boxes .field.vitals { flex: 1 1 100%; }
+    .letter-head { flex-wrap: wrap; }
+    .ask-row { flex-direction: column; align-items: stretch; }
+    .ask-row .generate { justify-content: center; }
+  }
+
+  /* ---------------------------------------------------------------
+     Quick jump — a floating index pinned to the left edge of the
+     screen. Tap the handle and it slides out a list of everyone
+     currently on screen (location + name); tap one to scroll straight
+     to that patient's row. Built fresh each time it opens, so it
+     always matches the current tab, search and filter.
+     --------------------------------------------------------------- */
+  .patnav[hidden] { display: none; }
+  .patnav-tab {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 88;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    padding: 15px 6px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .45);
+    transition: color .12s, border-color .12s, opacity .18s;
+  }
+  .patnav-tab:hover { color: var(--accent-strong); border-color: var(--accent); }
+  .patnav.open .patnav-tab { opacity: 0; pointer-events: none; }
+
+  .patnav-backdrop {
+    position: fixed; inset: 0; z-index: 89;
+    background: rgba(0, 0, 0, .5);
+    opacity: 0; pointer-events: none;
+    transition: opacity .18s ease;
+  }
+  .patnav.open .patnav-backdrop { opacity: 1; pointer-events: auto; }
+
+  .patnav-panel {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 90;
+    width: min(300px, 84vw);
+    background: var(--surface);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: 0 0 44px rgba(0, 0, 0, .6);
+    padding: 14px 12px calc(16px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-103%);
+    transition: transform .18s ease;
+  }
+  .patnav.open .patnav-panel { transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .patnav-panel, .patnav-backdrop, .patnav-tab { transition: none; }
+  }
+
+  .patnav-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .patnav-head .eyebrow { margin: 0; }
+  .patnav-item {
+    display: block; width: 100%; text-align: left;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-bottom: 6px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.35;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .patnav-item:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .patnav-item .pn-loc { display: block; font-weight: 650; color: var(--accent-strong); }
+  .patnav-item .pn-name { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .patnav-empty { color: var(--faint); font-size: 12.5px; padding: 6px 2px; line-height: 1.45; }
+
+  /* brief highlight on the row you just jumped to (after the mobile
+     rules above, so it also wins over the stacked card's header strip) */
+  .patients tr > td { transition: background .35s ease; }
+  .patients tr.pn-target > td,
+  .patients tr.pn-target > td.loc,
+  .patients tr.pn-target > td.name { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); }
 </style>
 </head>
 <body>
@@ -501,6 +682,20 @@
 
   </div>
 
+</div>
+
+
+<!-- floating quick-jump index (left edge) -->
+<div class="patnav" id="patNav" hidden>
+  <button class="patnav-tab" id="patNavTab" type="button" aria-expanded="false">Patients</button>
+  <div class="patnav-backdrop" id="patNavBackdrop"></div>
+  <div class="patnav-panel" id="patNavPanel" role="dialog" aria-label="Jump to patient">
+    <div class="patnav-head">
+      <span class="eyebrow">Jump to patient</span>
+      <button class="ghost-btn" id="patNavClose" type="button">✕</button>
+    </div>
+    <div id="patNavList"></div>
+  </div>
 </div>
 
 <script>
@@ -639,6 +834,7 @@ function setTab(t, skipLoad) {
   $("inTab").style.display = t === "in" ? "" : "none";
   document.querySelector(".wrap").classList.toggle("full", t !== "create");
   if (!skipLoad && t !== "create" && get(K.ghToken)) loadPatients(true);
+  refreshPatNav();
 }
 $("tabCreate").addEventListener("click", () => setTab("create"));
 $("tabIn").addEventListener("click", () => setTab("in"));
@@ -1078,6 +1274,7 @@ function renderList(listKey) {
     : LISTS[listKey].emptyText;
   for (const p of list) buildRow(p, listKey, body);
   renderUpcoming(listKey);
+  refreshPatNav();
 }
 
 $("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
@@ -1705,6 +1902,101 @@ $("printBtn").addEventListener("click", () => {
  * ============================================================== */
 loadSettings();
 if (get(K.ghToken)) loadPatients(true);
+
+/* ============================================================== *
+ *  Quick jump — floating patient index on the left edge          *
+ * ============================================================== */
+// The list is rebuilt from the rows that are actually on screen each
+// time the panel opens, so it needs no wiring into the render code
+// beyond refreshPatNav() deciding whether to show the handle at all.
+
+// Location / name text for a row, ignoring the small date line under the name.
+function pnCellText(tr, cls) {
+  const td = tr.querySelector("td." + cls);
+  if (!td) return "";
+  const src = td.querySelector(".editable");
+  if (src) return (src.textContent || "").trim();
+  const copy = td.cloneNode(true);
+  for (const n of copy.querySelectorAll(".rowmeta")) n.remove();
+  return (copy.textContent || "").trim();
+}
+
+// Every patient row in whichever patient tables are currently displayed.
+// Expanded detail rows have no location cell, so they drop out here.
+function pnRows() {
+  const out = [];
+  for (const tb of document.querySelectorAll("table.patients tbody")) {
+    if (!tb.getClientRects().length) continue;
+    for (const tr of tb.children) {
+      if (!tr.querySelector("td.loc") && !tr.querySelector("td.name")) continue;
+      out.push({ tr, loc: pnCellText(tr, "loc"), name: pnCellText(tr, "name") });
+    }
+  }
+  return out;
+}
+
+function pnBuild() {
+  const host = $("patNavList");
+  const rows = pnRows();
+  host.innerHTML = "";
+  if (!rows.length) {
+    const msg = document.createElement("div");
+    msg.className = "patnav-empty";
+    msg.textContent = "No patients on screen — open a patient list tab first.";
+    host.appendChild(msg);
+    return;
+  }
+  for (const r of rows) {
+    const b = document.createElement("button");
+    b.className = "patnav-item";
+    b.type = "button";
+    const loc = document.createElement("span");
+    loc.className = "pn-loc";
+    loc.textContent = r.loc || "—";
+    const nm = document.createElement("span");
+    nm.className = "pn-name";
+    nm.textContent = r.name || "—";
+    b.appendChild(loc);
+    b.appendChild(nm);
+    b.addEventListener("click", () => pnJump(r.tr));
+    host.appendChild(b);
+  }
+}
+
+let pnFlashTimer = null;
+function pnJump(tr) {
+  pnClose();
+  tr.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (pnFlashTimer) clearTimeout(pnFlashTimer);
+  for (const el of document.querySelectorAll("tr.pn-target")) el.classList.remove("pn-target");
+  tr.classList.add("pn-target");
+  pnFlashTimer = setTimeout(() => tr.classList.remove("pn-target"), 1800);
+}
+
+function pnOpen() {
+  pnBuild();
+  $("patNav").classList.add("open");
+  $("patNavTab").setAttribute("aria-expanded", "true");
+}
+function pnClose() {
+  $("patNav").classList.remove("open");
+  $("patNavTab").setAttribute("aria-expanded", "false");
+}
+
+// Called after every list render and tab switch — the handle only shows
+// when there is a patient list on screen to jump around in.
+function refreshPatNav() {
+  const on = pnRows().length > 0;
+  $("patNav").hidden = !on;
+  if (!on) pnClose();
+}
+
+$("patNavTab").addEventListener("click", pnOpen);
+$("patNavClose").addEventListener("click", pnClose);
+$("patNavBackdrop").addEventListener("click", pnClose);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("patNav").classList.contains("open")) pnClose();
+});
 </script>
 </body>
 </html>
