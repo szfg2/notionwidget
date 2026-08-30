@@ -1,4 +1,4 @@
-const CACHE_NAME = "spell-and-play-shell-v1";
+const CACHE_NAME = "spell-and-play-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -25,20 +25,22 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(event.request).then((response) => {
-        if (response.ok && new URL(event.request.url).origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => {
+    fetch(event.request).then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        event.waitUntil(
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
+        );
+      }
+      return response;
+    }).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
         if (event.request.mode === "navigate") return caches.match("./index.html");
-        throw new Error("Offline resource unavailable");
+        return Response.error();
       });
     })
   );

@@ -43,6 +43,11 @@
     var hintTimer = 0;
     var audioContext = null;
     var dragState = null;
+    var preferredVoice = null;
+    var activeUtterance = null;
+    var speechRequestId = 0;
+    var speechStartTimer = 0;
+    var speechFinishTimer = 0;
 
     var starsEl = document.getElementById("stars");
     var pictureEl = document.getElementById("wordPicture");
@@ -336,29 +341,127 @@
     function playTryAgain() { tone(300, .18, 0, .08); tone(260, .2, .16, .07); }
     function playSuccess() { tone(523, .32, 0, .11); tone(659, .34, .11, .11); tone(784, .48, .22, .12); }
 
-    function speak(text) {
-      if (!settings.sound || !("speechSynthesis" in window)) return;
+    function refreshPreferredVoice() {
+      if (!("speechSynthesis" in window)) return null;
+      var voices = window.speechSynthesis.getVoices();
+      preferredVoice = voices.find(function (voice) {
+        return /^en(-|_)/i.test(voice.lang) && /female|samantha|ava|zira/i.test(voice.name);
+      }) || voices.find(function (voice) {
+        return /^en(-|_)/i.test(voice.lang);
+      }) || null;
+      return preferredVoice;
+    }
+
+    function clearSpeechTimers() {
+      window.clearTimeout(speechStartTimer);
+      window.clearTimeout(speechFinishTimer);
+    }
+
+    function finishSpeech(requestId) {
+      if (requestId !== speechRequestId) return;
+      clearSpeechTimers();
+      activeUtterance = null;
+      listenButton.classList.remove("speaking");
+    }
+
+    function stopSpeaking() {
+      speechRequestId += 1;
+      clearSpeechTimers();
+      activeUtterance = null;
+      listenButton.classList.remove("speaking");
+      if ("speechSynthesis" in window) {
+        try { window.speechSynthesis.cancel(); } catch (error) {}
+      }
+    }
+
+    function startSpeech(text, requestId, canRetry, reportProblem) {
+      if (requestId !== speechRequestId || !settings.sound) return;
+      var synthesis = window.speechSynthesis;
+      var started = false;
+
       try {
-        window.speechSynthesis.cancel();
         var utterance = new SpeechSynthesisUtterance(text);
+        activeUtterance = utterance;
         utterance.rate = .78;
         utterance.pitch = 1.08;
         utterance.volume = 1;
-        var voices = window.speechSynthesis.getVoices();
-        var english = voices.find(function (voice) { return /^en(-|_)/i.test(voice.lang) && /female|samantha|ava|zira/i.test(voice.name); }) || voices.find(function (voice) { return /^en(-|_)/i.test(voice.lang); });
-        if (english) utterance.voice = english;
-        listenButton.classList.add("speaking");
-        utterance.onend = function () { listenButton.classList.remove("speaking"); };
-        utterance.onerror = function () { listenButton.classList.remove("speaking"); };
-        window.speechSynthesis.speak(utterance);
+        if (preferredVoice || refreshPreferredVoice()) utterance.voice = preferredVoice;
+
+        utterance.onstart = function () {
+          if (requestId !== speechRequestId) return;
+          started = true;
+          window.clearTimeout(speechStartTimer);
+          listenButton.classList.add("speaking");
+        };
+        utterance.onend = function () { finishSpeech(requestId); };
+        utterance.onerror = function () {
+          if (requestId !== speechRequestId) return;
+          finishSpeech(requestId);
+          if (reportProblem) setStatus("Voice paused. Tap the speaker to try again.", false);
+        };
+
+        synthesis.resume();
+        synthesis.speak(utterance);
+
+        speechStartTimer = window.setTimeout(function () {
+          if (started || requestId !== speechRequestId) return;
+          utterance.onstart = null;
+          utterance.onend = null;
+          utterance.onerror = null;
+          try { synthesis.cancel(); } catch (error) {}
+          clearSpeechTimers();
+          activeUtterance = null;
+
+          if (canRetry) {
+            window.setTimeout(function () {
+              startSpeech(text, requestId, false, reportProblem);
+            }, 100);
+          } else {
+            finishSpeech(requestId);
+            if (reportProblem) setStatus("Voice didn’t start. Tap the speaker again.", false);
+          }
+        }, 1500);
+
+        speechFinishTimer = window.setTimeout(function () {
+          finishSpeech(requestId);
+        }, 10000);
       } catch (error) {
-        listenButton.classList.remove("speaking");
+        finishSpeech(requestId);
+        if (reportProblem) setStatus("Voice isn’t available right now. Tap to retry.", false);
+      }
+    }
+
+    function speak(text, reportProblem) {
+      if (!settings.sound) {
+        if (reportProblem) setStatus("Voice is off. Hold the family button to turn it on.", false);
+        return;
+      }
+      if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+        if (reportProblem) setStatus("Voice isn’t supported on this device.", false);
+        return;
+      }
+
+      var synthesis = window.speechSynthesis;
+      var needsReset = synthesis.speaking || synthesis.pending || synthesis.paused;
+      speechRequestId += 1;
+      var requestId = speechRequestId;
+      clearSpeechTimers();
+      activeUtterance = null;
+      listenButton.classList.remove("speaking");
+
+      if (needsReset) {
+        try { synthesis.cancel(); } catch (error) {}
+        window.setTimeout(function () {
+          startSpeech(text, requestId, true, !!reportProblem);
+        }, 80);
+      } else {
+        startSpeech(text, requestId, true, !!reportProblem);
       }
     }
 
     function speakWord() {
       playPop(1);
-      speak("Can you spell " + current.label + "? " + current.label + ".");
+      speak("Can you spell " + current.label + "? " + current.label + ".", true);
     }
 
     function enablePointerDrag(element, item) {
@@ -459,9 +562,12 @@
     settingsForm.addEventListener("submit", function (event) {
       event.preventDefault();
       var chosen = settingsForm.querySelector('input[name="level"]:checked');
+      var soundWasEnabled = settings.sound;
       settings.level = chosen ? chosen.value : "3";
       settings.guides = document.getElementById("guideSetting").checked;
       settings.sound = document.getElementById("soundSetting").checked;
+      if (!settings.sound) stopSpeaking();
+      else if (!soundWasEnabled) refreshPreferredVoice();
       saveJSON(STORE_KEY, settings);
       settingsDialog.close();
       starCount = 0;
@@ -472,10 +578,30 @@
     hintButton.addEventListener("click", showHint);
     checkButton.addEventListener("click", checkAnswer);
     document.addEventListener("visibilitychange", function () {
-      if (document.hidden && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      if (document.hidden) stopSpeaking();
+    });
+    window.addEventListener("pageshow", function () {
+      if (!("speechSynthesis" in window)) return;
+      try { window.speechSynthesis.resume(); } catch (error) {}
+      refreshPreferredVoice();
     });
 
+    if ("speechSynthesis" in window) {
+      refreshPreferredVoice();
+      if (typeof window.speechSynthesis.addEventListener === "function") {
+        window.speechSynthesis.addEventListener("voiceschanged", refreshPreferredVoice);
+      } else {
+        window.speechSynthesis.onvoiceschanged = refreshPreferredVoice;
+      }
+    }
+
     if ("serviceWorker" in navigator) {
+      var reloadingForUpdate = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (reloadingForUpdate) return;
+        reloadingForUpdate = true;
+        window.location.reload();
+      });
       window.addEventListener("load", function () {
         navigator.serviceWorker.register("./sw.js").catch(function () {
           // The game remains fully usable when service workers are unavailable.
