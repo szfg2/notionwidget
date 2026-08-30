@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Count and Play app icon</title>
+  <desc id="desc">Two colourful number blocks and simple shapes on a warm cream background.</desc>
+  <rect width="512" height="512" rx="112" fill="#fff8e9"/>
+  <circle cx="414" cy="103" r="42" fill="#6d65d8" opacity=".18"/>
+  <path d="M76 393h78l-39-70z" fill="#43bd68" opacity=".3"/>
+  <g transform="translate(70 118) rotate(-5 108 108)">
+    <rect width="216" height="216" rx="49" fill="#58adf6"/>
+    <path d="M0 165h216v51H0z" fill="#267dcc" opacity=".35"/>
+    <text x="108" y="155" fill="#12305b" font-family="Arial Rounded MT Bold, Trebuchet MS, sans-serif" font-size="132" font-weight="900" text-anchor="middle">1</text>
+  </g>
+  <g transform="translate(228 176) rotate(6 104 104)">
+    <rect width="208" height="208" rx="47" fill="#ffc928"/>
+    <path d="M0 159h208v49H0z" fill="#de9e00" opacity=".32"/>
+    <text x="104" y="149" fill="#12305b" font-family="Arial Rounded MT Bold, Trebuchet MS, sans-serif" font-size="126" font-weight="900" text-anchor="middle">2</text>
+  </g>
+  <circle cx="385" cy="88" r="25" fill="#ff806f"/>
+</svg>

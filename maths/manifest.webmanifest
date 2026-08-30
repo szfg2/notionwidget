@@ -1,0 +1,21 @@
+{
+  "name": "Count & Play — First Maths",
+  "short_name": "Count & Play",
+  "description": "A gentle first maths game for children aged 2 to 3.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff8e9",
+  "theme_color": "#fff8e9",
+  "lang": "en",
+  "categories": ["education", "kids", "games"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
