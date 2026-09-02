@@ -667,7 +667,10 @@
 
     <!-- READING TOPICS -->
     <div class="card">
-      <span class="eyebrow">Learn from this case</span>
+      <div class="out-head">
+        <span class="eyebrow">Learn from this case</span>
+        <span class="pill" id="topicsCase"></span>
+      </div>
       <div class="gen-row">
         <button class="generate" id="topicsBtn" type="button">Suggest reading topics</button>
         <span class="status" id="topicsStatus"></span>
@@ -681,7 +684,10 @@
     <div class="card ask-card">
       <div class="out-head">
         <span class="eyebrow">Ask about this case</span>
-        <button class="ghost-btn" id="askClear" type="button">New conversation</button>
+        <div class="gen-row" style="gap:10px">
+          <span class="pill" id="askCase"></span>
+          <button class="ghost-btn" id="askClear" type="button">New conversation</button>
+        </div>
       </div>
       <p class="ask-note">Uses the case details and the generated clinic note as context. A reasoning aid to support your judgement, not a replacement for it. Nothing identifying is sent.</p>
       <div class="thread" id="thread"></div>
@@ -970,6 +976,9 @@ const noteSyncs = new Map();    // patient id -> the rendered note row's sync ba
 // the first, so its audio still gets transcribed rather than thrown away.
 let micOwner = null;
 let micBusy = false;        // true from the first press until the merge finishes
+// The case whose boxes were cleared after a successful generate. Keeps the
+// reading-topics and ask panels grounded once the input boxes are empty again.
+let activeCase = null;
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -1108,6 +1117,26 @@ function setNoteLink(name) {
   $("noteLink").textContent = name ? "↳ autosaving to " + name : "";
 }
 
+// Case material for the topics and ask panels: whatever is in the boxes now,
+// falling back to the case just generated — the boxes are cleared once it is
+// saved, but both panels still have to work on the note sitting above them.
+function caseFields() {
+  const past = $("pastMedical").value.trim();
+  const clinical = $("clinical").value.trim();
+  if (past || clinical) return { past, clinical };
+  return activeCase ? { past: activeCase.past, clinical: activeCase.clinical } : { past: "", clinical: "" };
+}
+// Says which case those panels are working from, so an empty box never looks
+// like an empty context. Typing a new case takes over from the stored one.
+function refreshCasePill() {
+  const typing = $("pastMedical").value.trim() || $("clinical").value.trim();
+  const name = (typing || !activeCase) ? "" : activeCase.name;
+  const text = name ? "using " + name + "’s case details" : "";
+  $("topicsCase").textContent = text;
+  $("askCase").textContent = text;
+}
+[$("pastMedical"), $("clinical")].forEach(el => el.addEventListener("input", refreshCasePill));
+
 /* ============================================================== *
  *  Model API - see provider.js                                   *
  * ============================================================== */
@@ -1232,6 +1261,10 @@ $("generateBtn").addEventListener("click", async () => {
     pendingOutputSave = null;
     if (noteSaveTimer) { clearTimeout(noteSaveTimer); noteSaveTimer = null; }
     setNoteLink("");
+    // New patient — the previous case's topics and conversation no longer apply.
+    askMessages = []; renderThread(); clearAskError();
+    $("topicsOut").style.display = "none"; $("topicsOut").innerHTML = "";
+    $("topicsError").style.display = "none"; $("topicsError").textContent = "";
     $("output").value = note || "(No text returned.)";
     updateCount();
 
@@ -1268,7 +1301,15 @@ $("generateBtn").addEventListener("click", async () => {
       editNoteId = record.id;   // edits in the Clinic note box now autosave to this patient
       setNoteLink(name);
       renderTable();
-      setGenStatus("Done ✓ — saved to Previous Patients", true);
+      // Stored, so the input boxes are emptied ready for the next patient. The
+      // details live on in activeCase, which is what the topics and ask panels
+      // fall back to — clearing the boxes doesn't lose the case.
+      activeCase = { name, past, clinical };
+      $("ptName").value = "";
+      $("pastMedical").value = "";
+      $("clinical").value = "";
+      refreshCasePill();
+      setGenStatus("Done ✓ — saved · boxes cleared for the next patient", true);
       // Anything typed while the save was in flight had no autosave target yet —
       // kick the saver now so it isn't left behind.
       if ($("output").value !== noteForSave) $("output").dispatchEvent(new Event("input"));
@@ -1369,9 +1410,10 @@ $("askBtn").addEventListener("click", async () => {
   // Rebuild case context on every send so it reflects what's there now.
   // De-identified content only — the name is never sent.
   const note = $("output").value.trim();
+  const fields = caseFields();
   const caseContext =
-    "PATIENT DETAILS:\n" + ($("pastMedical").value.trim() || "(none provided)") +
-    "\n\nLATEST CLINICAL DATA:\n" + ($("clinical").value.trim() || "(none provided)") +
+    "PATIENT DETAILS:\n" + (fields.past || "(none provided)") +
+    "\n\nLATEST CLINICAL DATA:\n" + (fields.clinical || "(none provided)") +
     (note ? "\n\nCLINIC NOTE (assessment & plan):\n" + note : "");
 
   try {
@@ -1426,8 +1468,7 @@ $("topicsBtn").addEventListener("click", async () => {
     return;
   }
 
-  const past = $("pastMedical").value.trim();
-  const clinical = $("clinical").value.trim();
+  const { past, clinical } = caseFields();
   const note = $("output").value.trim();
   if (!past && !clinical && !note) {
     errEl.textContent = "Nothing to work from — add case details or generate a clinic note first.";
