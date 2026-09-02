@@ -7,6 +7,7 @@ window.HUXI_CATEGORIES = [
   { id: "infection", name: "Infection & TB", shortName: "Infection & TB", symbol: "+", description: "Fever, weight loss, contacts and travel." },
   { id: "medicine", name: "Medicines & inhalers", shortName: "Medicines", symbol: "◫", description: "Adherence, allergies and simple technique coaching." },
   { id: "investigation", name: "Investigations", shortName: "Investigations", symbol: "⌕", description: "X-ray, CT, lung function and sputum tests." },
+  { id: "nodule", name: "Explaining a lung nodule", shortName: "Lung nodule", symbol: "•", description: "The finding, uncertainty, risk assessment, follow-up CT, PET-CT and biopsy." },
   { id: "procedure", name: "Procedures", shortName: "Procedures", symbol: "⊕", description: "Simple, structured consent conversations for respiratory procedures." },
   { id: "closing", name: "Explain & close", shortName: "Closing", symbol: "✓", description: "Teach-back, safety-netting and follow-up." }
 ];
@@ -507,6 +508,171 @@ window.HUXI_PHRASES = [
     spoken: "请用力吹，直到我说停。",
     english: "Blow hard until I tell you to stop.",
     responses: []
+  },
+
+  {
+    id: "nodule-01", category: "nodule", risk: "amber",
+    pinyin: "Nín de CT xiǎnshì fèi lǐ yǒu yí ge xiǎo diǎn, jiàozuò fèi jiéjié.",
+    spoken: "您的CT显示肺里有一个小点，叫做肺结节。",
+    english: "Your CT scan shows a small spot in your lung called a lung nodule.",
+    note: "Use the report's exact number, size and location; avoid calling a nodule a mass.",
+    responses: [
+      { pinyin: "Fèi jiéjié shì shénme?", spoken: "肺结节是什么？", english: "What is a lung nodule?" }
+    ]
+  },
+  {
+    id: "nodule-02", category: "nodule", risk: "red",
+    pinyin: "Fèi jiéjié bù yídìng shì áizhèng.",
+    spoken: "肺结节不一定是癌症。",
+    english: "A lung nodule does not necessarily mean cancer.",
+    note: "Give the patient's individual risk and plan with a competent interpreter; do not offer false reassurance.",
+    responses: [
+      { pinyin: "Nà tā kěnéng shì shénme?", spoken: "那它可能是什么？", english: "What else could it be?" }
+    ]
+  },
+  {
+    id: "nodule-03", category: "nodule", risk: "amber",
+    pinyin: "Yǒuxiē fèi jiéjié shì yǐqián gǎnrǎn huò fāyán hòu liúxià de bāhén.",
+    spoken: "有些肺结节是以前感染或发炎后留下的疤痕。",
+    english: "Some lung nodules are scars left by an old infection or inflammation.",
+    responses: [
+      { pinyin: "Wǒ yǐqián dé guo fèiyán.", spoken: "我以前得过肺炎。", english: "I had pneumonia before." }
+    ]
+  },
+  {
+    id: "nodule-04", category: "nodule", risk: "red",
+    pinyin: "Zhǐ kàn zhè yí cì CT, wǒmen hái bù néng quèdìng tā shì shénme.",
+    spoken: "只看这一次CT，我们还不能确定它是什么。",
+    english: "From this CT scan alone, we cannot yet be certain what it is.",
+    note: "Explain the estimated risk and the recommended next step, not uncertainty alone.",
+    responses: [
+      { pinyin: "Nà xià yí bù zěnme bàn?", spoken: "那下一步怎么办？", english: "What happens next?" }
+    ]
+  },
+  {
+    id: "nodule-05", category: "nodule", risk: "amber",
+    pinyin: "Wǒmen xūyào bǎ zhè cì CT hé nín yǐqián de piànzi bǐjiào.",
+    spoken: "我们需要把这次CT和您以前的片子比较。",
+    english: "We need to compare this CT scan with any previous scans.",
+    responses: [
+      { pinyin: "Wǒ zài bié de yīyuàn zuò guo CT.", spoken: "我在别的医院做过CT。", english: "I had a CT scan at another hospital." }
+    ]
+  },
+  {
+    id: "nodule-06", category: "nodule", risk: "red",
+    pinyin: "Jiéjié de dàxiǎo, xíngzhuàng hé yǒu méiyǒu biànhuà, huì bāngzhù wǒmen pànduàn tā shì áizhèng de kěnéngxìng.",
+    spoken: "结节的大小、形状和有没有变化，会帮助我们判断它是癌症的可能性。",
+    english: "The nodule's size, shape and any change over time help us assess how likely it is to be cancer.",
+    responses: [
+      { pinyin: "Wǒ de jiéjié yǒu duō dà?", spoken: "我的结节有多大？", english: "How large is my nodule?" }
+    ]
+  },
+  {
+    id: "nodule-07", category: "nodule", risk: "amber",
+    pinyin: "Wǒmen yě huì kǎolǜ nín de niánlíng, chōuyān qíngkuàng hé yǐwǎng bìngshǐ.",
+    spoken: "我们也会考虑您的年龄、抽烟情况和以往病史。",
+    english: "We will also consider your age, smoking history and previous medical history.",
+    responses: [
+      { pinyin: "Wǒ yǐqián chōu guo yān.", spoken: "我以前抽过烟。", english: "I used to smoke." }
+    ]
+  },
+  {
+    id: "nodule-08", category: "nodule", risk: "red",
+    pinyin: "Gēnjù pínggū jiéguǒ, nín kěnéng bù xūyào jìnyíbù jiǎnchá, yě kěnéng xūyào fùchá CT, zuò PET-CT, huójiǎn huò zhuānkē pínggū.",
+    spoken: "根据评估结果，您可能不需要进一步检查，也可能需要复查CT、做PET-CT、活检或专科评估。",
+    english: "Depending on the assessment, you may need no further tests, or you may need a repeat CT scan, PET-CT, biopsy or specialist review.",
+    note: "These are examples, not a routine bundle or exhaustive list; state only the plan that applies. Very high-risk findings may lead to a specialist discussion of treatment rather than biopsy.",
+    responses: [
+      { pinyin: "Wǒ xūyào zuò nǎ yí ge?", spoken: "我需要做哪一个？", english: "Which one do I need?" }
+    ]
+  },
+  {
+    id: "nodule-09", category: "nodule", risk: "amber",
+    pinyin: "Wǒmen jiànyì guò yí duàn shíjiān zài fùchá CT, kàn jiéjié yǒu méiyǒu biànhuà.",
+    spoken: "我们建议过一段时间再复查CT，看结节有没有变化。",
+    english: "We recommend a follow-up CT scan after a period of time to see whether the nodule changes.",
+    note: "Give the exact interval from the agreed plan; some nodules do not require imaging follow-up.",
+    responses: [
+      { pinyin: "Shì jǐ ge yuè hòu?", spoken: "是几个月后？", english: "How many months later?" }
+    ]
+  },
+  {
+    id: "nodule-10", category: "nodule", risk: "amber",
+    pinyin: "Rúguǒ jiéjié zài yí duàn shíjiān nèi yìzhí méiyǒu biànhuà, zhīhòu kěnéng jiù bù xūyào zài fùchá.",
+    spoken: "如果结节在一段时间内一直没有变化，之后可能就不需要再复查。",
+    english: "If the nodule remains unchanged over time, you may not need any more scans.",
+    note: "Only use this after applying the appropriate surveillance period for that nodule.",
+    responses: [
+      { pinyin: "Wǒmen yào guānchá duō jiǔ?", spoken: "我们要观察多久？", english: "How long do we need to monitor it?" }
+    ]
+  },
+  {
+    id: "nodule-11", category: "nodule", risk: "red",
+    pinyin: "Rúguǒ jiéjié jiào dà huò kàn qǐlái kěyí, wǒmen kěnéng huì ānpái PET-CT.",
+    spoken: "如果结节较大或看起来可疑，我们可能会安排PET-CT。",
+    english: "If the nodule is larger or looks suspicious, we may arrange a PET-CT scan.",
+    note: "PET-CT suitability depends on the nodule's size and clinical context; it is not diagnostic by itself.",
+    responses: [
+      { pinyin: "PET-CT shì zuò shénme de?", spoken: "PET-CT是做什么的？", english: "What is a PET-CT scan for?" }
+    ]
+  },
+  {
+    id: "nodule-12", category: "nodule", risk: "red",
+    pinyin: "PET-CT kěyǐ gěi wǒmen gèng duō xìnxī, dàn bù néng dān kào zhège jiǎnchá quèdìng shì bú shì áizhèng.",
+    spoken: "PET-CT可以给我们更多信息，但不能单靠这个检查确定是不是癌症。",
+    english: "A PET-CT scan can give us more information, but it cannot by itself determine whether it is cancer.",
+    responses: [
+      { pinyin: "Nà hái xūyào huójiǎn ma?", spoken: "那还需要活检吗？", english: "Will I still need a biopsy?" }
+    ]
+  },
+  {
+    id: "nodule-13", category: "nodule", risk: "red",
+    pinyin: "Yǒuxiē rén xūyào zuò huójiǎn, jiùshì qǔ yìdiǎn zǔzhī lái huàyàn.",
+    spoken: "有些人需要做活检，就是取一点组织来化验。",
+    english: "Some people need a biopsy to take a small tissue sample for testing.",
+    note: "The biopsy method, feasibility and risks vary; conduct a separate consent discussion with a competent interpreter.",
+    responses: [
+      { pinyin: "Huójiǎn zěnme zuò?", spoken: "活检怎么做？", english: "How is a biopsy done?" }
+    ]
+  },
+  {
+    id: "nodule-14", category: "nodule", risk: "red",
+    pinyin: "Bú shì měi ge rén dōu xūyào huójiǎn; juédìng qián, wǒmen huì hé nín tǎolùn hǎochu, fēngxiǎn hé qítā xuǎnzé.",
+    spoken: "不是每个人都需要活检；决定前，我们会和您讨论好处、风险和其他选择。",
+    english: "Not everyone needs a biopsy; before deciding, we will discuss the benefits, risks and other options with you.",
+    note: "Use a competent interpreter for the full consent discussion and allow time for questions.",
+    responses: [
+      { pinyin: "Wǒ kěyǐ xiān kǎolǜ yíxià ma?", spoken: "我可以先考虑一下吗？", english: "Can I think about it first?" }
+    ]
+  },
+  {
+    id: "nodule-15", category: "nodule", risk: "amber",
+    pinyin: "Zhuānkē tuánduì huì yìqǐ kàn nín de piànzi, ránhòu jiànyì xià yí bù zěnme zuò.",
+    spoken: "专科团队会一起看您的片子，然后建议下一步怎么做。",
+    english: "A specialist team will review your scans together and recommend the next step.",
+    note: "Use this only when the case will be reviewed by an appropriate specialist or multidisciplinary team.",
+    responses: [
+      { pinyin: "Shénme shíhou huì yǒu jiéguǒ?", spoken: "什么时候会有结果？", english: "When will there be a result?" }
+    ]
+  },
+  {
+    id: "nodule-16", category: "nodule", risk: "amber",
+    pinyin: "Jíshǐ nín méiyǒu bù shūfu, yě qǐng ànzhào ānpái zuò CT bìng huílái fùzhěn.",
+    spoken: "即使您没有不舒服，也请按照安排做CT并回来复诊。",
+    english: "Even if you feel well, please attend your scheduled CT scan and follow-up.",
+    responses: [
+      { pinyin: "Hǎo, wǒ huì ànshí lái.", spoken: "好，我会按时来。", english: "All right, I will come on time." }
+    ]
+  },
+  {
+    id: "nodule-17", category: "nodule", risk: "amber",
+    pinyin: "Rúguǒ dào le yuēdìng shíjiān hái méi shōudào CT huò fùzhěn tōngzhī, qǐng liánxì zhěnsuǒ.",
+    spoken: "如果到了约定时间还没收到CT或复诊通知，请联系诊所。",
+    english: "If you have not received your CT scan or follow-up notice by the agreed time, please contact the clinic.",
+    note: "Give the actual contact route and agreed time, and follow the local results-tracking process.",
+    responses: [
+      { pinyin: "Wǒ yīnggāi dǎ nǎ ge diànhuà hàomǎ?", spoken: "我应该打哪个电话号码？", english: "Which phone number should I call?" }
+    ]
   },
 
   {
@@ -1353,7 +1519,7 @@ window.HUXI_DICTIONARY = [
   { id: "antibiotic", english: "Antibiotic", pinyin: "kàngshēngsù", spoken: "抗生素", category: "medicines", keywords: "infection treatment" },
   { id: "asthma", english: "Asthma", pinyin: "qìchuǎn", spoken: "气喘", category: "conditions", keywords: "wheeze", note: "Used for asthma in these phrases; chuǎn on its own means breathless." },
   { id: "benefit", english: "Benefit", pinyin: "hǎochu", spoken: "好处", category: "communication", keywords: "advantage consent" },
-  { id: "biopsy", english: "Biopsy / take tissue", pinyin: "ná zǔzhī", spoken: "拿组织", category: "tests", keywords: "tissue sample" },
+  { id: "biopsy", english: "Biopsy / take tissue", pinyin: "huójiǎn", spoken: "活检", category: "tests", keywords: "take tissue tissue sample", note: "Formal term; the phrase library explains this in plain language as taking a small tissue sample." },
   { id: "bleeding", english: "Bleeding", pinyin: "chūxuè", spoken: "出血", category: "safety", keywords: "blood haemorrhage" },
   { id: "blood", english: "Blood", pinyin: "xuè", spoken: "血", category: "body", keywords: "haemoptysis bleeding" },
   { id: "blood-pressure", english: "Blood pressure", pinyin: "xuèyā", spoken: "血压", category: "body", keywords: "monitor observations" },
@@ -1368,6 +1534,7 @@ window.HUXI_DICTIONARY = [
   { id: "breathe-out", english: "Breathe out", pinyin: "hūqì", spoken: "呼气", category: "medicines", keywords: "exhale inhaler" },
   { id: "bronchoscope", english: "Bronchoscope / small camera", pinyin: "xiǎo jìngzi", spoken: "小镜子", category: "procedures", keywords: "scope flexible camera" },
   { id: "bronchoscopy", english: "Bronchoscopy", pinyin: "qìguǎnjìng jiǎnchá", spoken: "气管镜检查", category: "procedures", keywords: "scope camera airway test" },
+  { id: "cancer", english: "Cancer", pinyin: "áizhèng", spoken: "癌症", category: "conditions", keywords: "malignant malignancy tumour tumor" },
   { id: "cause", english: "Cause / reason", pinyin: "yuányīn", spoken: "原因", category: "communication", keywords: "diagnosis" },
   { id: "chest", english: "Chest", pinyin: "xiōngkǒu", spoken: "胸口", category: "body", keywords: "thorax" },
   { id: "chest-drain", english: "Chest drain / chest tube", pinyin: "xiōngguǎn", spoken: "胸管", category: "procedures", keywords: "intercostal drain tube" },
@@ -1398,6 +1565,7 @@ window.HUXI_DICTIONARY = [
   { id: "fever", english: "Fever", pinyin: "fāshāo", spoken: "发烧", category: "symptoms", keywords: "temperature infection" },
   { id: "fibrinolysis", english: "Intrapleural fibrinolysis", pinyin: "xiōngqiāng nèi róngshuān zhìliáo", spoken: "胸腔内溶栓治疗", category: "procedures", keywords: "tPA DNase pleural infection enzymes" },
   { id: "fluid-around-lung", english: "Fluid around the lung / pleural effusion", pinyin: "fèi wàimiàn yǒu jīshuǐ", spoken: "肺外面有积水", category: "conditions", keywords: "pleural fluid water", note: "Plain-language wording used in the chest-drain pathway." },
+  { id: "follow-up-ct", english: "Follow-up / repeat CT scan", pinyin: "fùchá CT", spoken: "复查CT", category: "tests", keywords: "surveillance monitoring interval rescan" },
   { id: "general-anaesthetic", english: "General anaesthetic", pinyin: "quánshēn mázuì", spoken: "全身麻醉", category: "medicines", keywords: "asleep anaesthesia" },
   { id: "heart", english: "Heart", pinyin: "xīnzàng", spoken: "心脏", category: "body", keywords: "cardiac" },
   { id: "heart-rate", english: "Heart rate", pinyin: "xīntiào", spoken: "心跳", category: "body", keywords: "pulse monitor" },
@@ -1414,6 +1582,7 @@ window.HUXI_DICTIONARY = [
   { id: "lung", english: "Lung", pinyin: "fèi", spoken: "肺", category: "body", keywords: "pulmonary" },
   { id: "lung-expand", english: "Lung expands", pinyin: "fèi zhāng kāi", spoken: "肺张开", category: "body", keywords: "re-expand chest drain" },
   { id: "lung-function", english: "Lung function test", pinyin: "fèigōngnéng jiǎnchá", spoken: "肺功能检查", category: "tests", keywords: "PFT spirometry blow" },
+  { id: "lung-nodule", english: "Lung nodule / small spot in the lung", pinyin: "fèi jiéjié", spoken: "肺结节", category: "conditions", keywords: "pulmonary nodule shadow lump spot" },
   { id: "major-bleeding", english: "Major bleeding", pinyin: "dà chūxuè", spoken: "大出血", category: "safety", keywords: "haemorrhage biopsy" },
   { id: "medicine", english: "Medicine", pinyin: "yào", spoken: "药", category: "medicines", keywords: "medication drug" },
   { id: "medicine-allergy", english: "Medicine allergy", pinyin: "yào guòmǐn", spoken: "药过敏", category: "conditions", keywords: "drug allergy reaction" },
@@ -1428,11 +1597,13 @@ window.HUXI_DICTIONARY = [
   { id: "pain", english: "Pain / painful", pinyin: "tòng", spoken: "痛", category: "symptoms", keywords: "hurt" },
   { id: "painkiller", english: "Painkiller / pain relief", pinyin: "zhǐtòngyào", spoken: "止痛药", category: "medicines", keywords: "analgesia morphine paracetamol" },
   { id: "penicillin", english: "Penicillin", pinyin: "pánníxīlín", spoken: "盘尼西林", category: "medicines", keywords: "antibiotic allergy" },
+  { id: "pet-ct", english: "PET-CT scan", pinyin: "PET-CT", spoken: "PET-CT", category: "tests", keywords: "nodule metabolic imaging scan" },
   { id: "phlegm", english: "Phlegm / sputum", pinyin: "tán", spoken: "痰", category: "symptoms", keywords: "mucus" },
   { id: "pleural-infection", english: "Pleural infection", pinyin: "xiōngqiāng gǎnrǎn", spoken: "胸腔感染", category: "conditions", keywords: "empyema infected fluid" },
   { id: "pleural-space", english: "Pleural space", pinyin: "xiōngqiāng", spoken: "胸腔", category: "body", keywords: "space around lung chest cavity" },
   { id: "pleurodesis", english: "Pleurodesis", pinyin: "xiōngmó gùdìng", spoken: "胸膜固定", category: "procedures", keywords: "talc stick lung chest wall" },
   { id: "pressure", english: "Pressure", pinyin: "yālì", spoken: "压力", category: "symptoms", keywords: "chest drain insertion" },
+  { id: "previous-scan", english: "Previous / old scan", pinyin: "yǐqián de piànzi", spoken: "以前的片子", category: "tests", keywords: "prior imaging comparison CT x-ray" },
   { id: "procedure", english: "Procedure", pinyin: "shǒuxù", spoken: "手续", category: "procedures", keywords: "consent chest drain" },
   { id: "pus", english: "Pus / infected thick fluid", pinyin: "nóngyè", spoken: "脓液", category: "conditions", keywords: "empyema pleural infection" },
   { id: "question", english: "Question / problem", pinyin: "wèntí", spoken: "问题", category: "communication", keywords: "ask" },
@@ -1443,12 +1614,14 @@ window.HUXI_DICTIONARY = [
   { id: "risk", english: "Risk", pinyin: "fēngxiǎn", spoken: "风险", category: "communication", keywords: "consent complication" },
   { id: "saline-irrigation", english: "Saline irrigation", pinyin: "yòng yánshuǐ chōngxǐ", spoken: "用盐水冲洗", category: "procedures", keywords: "pleural infection alternative wash" },
   { id: "scan", english: "Scan / imaging", pinyin: "sǎomiáo", spoken: "扫描", category: "tests", keywords: "CT image" },
+  { id: "scar", english: "Scar / scarring", pinyin: "bāhén", spoken: "疤痕", category: "conditions", keywords: "old infection inflammation nodule fibrosis" },
   { id: "sedation", english: "Sedation / medicine to relax", pinyin: "fàngsōng de yào", spoken: "放松的药", category: "medicines", keywords: "drowsy sleepy", note: "Plain spoken wording used in the bronchoscopy pathway." },
   { id: "sepsis", english: "Sepsis / severe infection throughout the body", pinyin: "yánzhòng de quánshēn gǎnrǎn", spoken: "严重的全身感染", category: "safety", keywords: "life threatening infection" },
   { id: "shaking-chills", english: "Shaking chills", pinyin: "fādǒu", spoken: "发抖", category: "symptoms", keywords: "rigors infection cold" },
   { id: "side-effects", english: "Side effects", pinyin: "fùzuòyòng", spoken: "副作用", category: "safety", keywords: "medicine adverse effects" },
   { id: "smoke", english: "Smoke / smoking", pinyin: "chōuyān", spoken: "抽烟", category: "exposure", keywords: "cigarette tobacco" },
   { id: "sore-throat", english: "Sore throat", pinyin: "hóulóng tòng", spoken: "喉咙痛", category: "symptoms", keywords: "bronchoscopy aftercare" },
+  { id: "specialist-team", english: "Specialist team", pinyin: "zhuānkē tuánduì", spoken: "专科团队", category: "communication", keywords: "multidisciplinary MDT review" },
   { id: "sputum-test", english: "Sputum test", pinyin: "jiǎnchá tán", spoken: "检查痰", category: "tests", keywords: "phlegm sample" },
   { id: "stable", english: "Stable", pinyin: "wěndìng", spoken: "稳定", category: "communication", keywords: "condition" },
   { id: "stitch", english: "Stitch / suture", pinyin: "xiàn", spoken: "线", category: "procedures", keywords: "secure chest drain", note: "The phrase uses the everyday word for thread." },

@@ -304,7 +304,7 @@
     els.progressBar.style.width = `${total ? (completed / total) * 100 : 0}%`;
     els.continueButton.textContent = completed === 0 ? "Start" : completed >= total ? "Review" : "Continue";
 
-    const featuredIds = ["breathlessness", "cough", "asthma", "investigation"];
+    const featuredIds = ["breathlessness", "cough", "nodule", "investigation"];
     els.featuredScenarios.innerHTML = featuredIds.map((id) => {
       const category = categoryById.get(id);
       const count = phrases.filter((phrase) => phrase.category === id).length;
