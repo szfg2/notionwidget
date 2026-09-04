@@ -1119,6 +1119,24 @@
       <div class="error" id="textsError" style="margin:10px 0 0"></div>
     </div>
 
+    <div class="card">
+      <div class="out-head">
+        <span class="eyebrow">Add a block</span>
+        <span class="status" id="textsAddStatus"></span>
+      </div>
+      <div class="field">
+        <label class="lbl" for="textsAddTitle">Title</label>
+        <input type="text" id="textsAddTitle" placeholder="e.g. Prep for Indwelling Pleural Catheter" autocomplete="off">
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label class="lbl" for="textsAddBody">Text</label>
+        <textarea id="textsAddBody" class="text-block" spellcheck="false" placeholder="Paste the wording you want to keep — it becomes a card below with its own Copy button."></textarea>
+      </div>
+      <div class="gen-row" style="margin-top:10px">
+        <button class="ghost-btn" id="textsAddBtn" type="button">Add block</button>
+      </div>
+    </div>
+
     <div id="textsBody"></div>
     <div class="empty-note" id="textsEmpty" style="display:none">No block matches that search.</div>
 
@@ -1422,6 +1440,24 @@ const TEXTS_CACHE = "resblue_texts_cache_v2";
 const DEFAULT_TEXTS = [
   { id: "prep_pleural_tap",     title: "Prep for Pleural Tap" },
   { id: "prep_chest_drain",     title: "Prep for Chest Drain" },
+  {
+    id: "prep_fibrinolysis",
+    title: "Prep for Fibrinolysis",
+    body: `RES SR
+For fibrinolysis today
+
+I have ordered up 4mg alteplase and 5mg DORNase; please inform me when medication is by bedside
+
+Please also prepare
+Normal saline (100ml in total)
+Dressing set
+Sterile gloves size 7
+Green needles x 6
+Hexanol
+50ml syringe x 3
+20ml syringe x 3
+Blue sheet`
+  },
   { id: "proc_pleural_tap",     title: "Procedure for Pleural Tap" },
   { id: "proc_chest_drain",     title: "Procedure for Chest Drain" },
   { id: "consent_bronchoscopy", title: "Consent for Bronchoscopy" },
@@ -1445,6 +1481,9 @@ const DEFAULT_TEXTS = [
 let textBlocks = [];              // [{ id, title, body }] — what the cards show
 let textsLoaded = false;          // remote fetched at least once this session
 const textTimers = new Map();     // id -> pending autosave
+// Blocks you add yourself live only in the saved file, so they can be removed
+// again; the built-in titles above are always rebuilt and have no Delete.
+const DEFAULT_TEXT_IDS = new Set(DEFAULT_TEXTS.map(d => d.id));
 
 // The default titles keep their order and are always present; a block that only
 // exists remotely (added by hand in the repo) is appended rather than dropped.
@@ -1509,6 +1548,14 @@ function textCard(block) {
   copyBtn.type = "button";
   copyBtn.textContent = "Copy";
   tools.appendChild(stat);
+  if (!DEFAULT_TEXT_IDS.has(block.id)) {
+    const delBtn = document.createElement("button");
+    delBtn.className = "ghost-btn danger";
+    delBtn.type = "button";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteTextBlock(block.id, block.title));
+    tools.appendChild(delBtn);
+  }
   tools.appendChild(copyBtn);
   head.appendChild(eyebrow);
   head.appendChild(tools);
@@ -1642,8 +1689,70 @@ function queueTextSave(id, value, stat) {
   }, 1500));
 }
 
+// A block you add gets an id derived from its title, so the saved file stays
+// readable; a suffix keeps it unique if the same title is used twice.
+function newTextId(title) {
+  const base = (title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "block").slice(0, 40);
+  const taken = new Set(textBlocks.map(b => b.id));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(base + "_" + n)) n++;
+  return base + "_" + n;
+}
+
+function setTextsAddStatus(msg, ok) {
+  const el = $("textsAddStatus");
+  el.textContent = msg || "";
+  el.classList.toggle("ok", !!ok);
+}
+
+async function addTextBlock() {
+  const title = $("textsAddTitle").value.trim();
+  const body = $("textsAddBody").value;
+  if (!title) { setTextsAddStatus("Give the block a title first."); $("textsAddTitle").focus(); return; }
+  const block = { id: newTextId(title), title, body };
+  textBlocks = [...textBlocks, block];
+  set(TEXTS_CACHE, JSON.stringify(textBlocks));
+  $("textsAddTitle").value = "";
+  $("textsAddBody").value = "";
+  renderTexts();
+  setTextsAddStatus("Saving…");
+  try {
+    await mutateRemoteFile(TEXTS_PATH, list => {
+      const next = mergeTexts(list);
+      if (!next.some(b => b.id === block.id)) next.push(block);
+      return next;
+    }, "Add commonly used text: " + title);
+    setTextsAddStatus("Added ✓ " + timeNow(), true);
+    showTextsError("");
+  } catch (e) {
+    setTextsAddStatus("");
+    showTextsError("Couldn't save the new block: " + (e.message || e) + " — it is kept on this device; press Refresh once you're back online.");
+  }
+}
+
+async function deleteTextBlock(id, title) {
+  if (!confirm("Delete \"" + title + "\"? This removes it on every device.")) return;
+  if (textTimers.has(id)) { clearTimeout(textTimers.get(id)); textTimers.delete(id); }
+  textBlocks = textBlocks.filter(b => b.id !== id);
+  set(TEXTS_CACHE, JSON.stringify(textBlocks));
+  renderTexts();
+  setTextsStatus("Deleting…");
+  try {
+    await mutateRemoteFile(TEXTS_PATH, list => mergeTexts(list).filter(b => b.id !== id),
+      "Delete commonly used text: " + title);
+    setTextsStatus("Deleted ✓ " + timeNow(), true);
+    showTextsError("");
+  } catch (e) {
+    setTextsStatus("");
+    showTextsError("Couldn't delete that block: " + (e.message || e) + " — press Refresh to see what is actually saved.");
+  }
+}
+
 $("textsSearch").addEventListener("input", applyTextSearch);
 $("textsRefresh").addEventListener("click", () => loadTexts(false));
+$("textsAddBtn").addEventListener("click", addTextBlock);
+$("textsAddTitle").addEventListener("input", () => setTextsAddStatus(""));
 
 // Paint from the last copy on this device, then let the tab pull from GitHub.
 try { textBlocks = mergeTexts(JSON.parse(get(TEXTS_CACHE) || "[]")); }
