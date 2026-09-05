@@ -567,6 +567,7 @@
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
         <div class="hint">Applies to every page (index, ICU, Blue Letters, Clinic, dictation, PFT). ⚠ DeepSeek is a separate company: the de-identified medical text is processed on their servers under their retention terms, not Anthropic's.</div>
 
@@ -576,7 +577,11 @@
 
         <label class="lbl">DeepSeek API key</label>
         <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-        <div class="hint">Only used when the provider above is set to DeepSeek. Both keys can be stored at once, so you can switch back and forth.</div>
+        <div class="hint">Only used when the provider above is set to DeepSeek.</div>
+
+        <label class="lbl">Gemini (Google AI Studio) API key</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+        <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>). ⚠ Google is a separate company with its own retention terms. All three keys can be stored at once, so you can switch between them freely.</div>
 
         <label class="lbl">GitHub token — to save the patient list (fine-grained, Contents: Read &amp; Write)</label>
         <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
@@ -714,8 +719,11 @@ const CONFIG = {
 
 /* The provider adapter lives in provider.js and is shared with every other
  * page — the dropdown in Settings switches all of them at once. */
-const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
-AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
+AI.fallbackKey = () => {
+  const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
+  return $(box).value.trim();
+};
 
 /* Blank objective template for new patients — filled in by hand on rounds. */
 const OBJECTIVE_TEMPLATE = "BP: \nTemp: \nSats: ";

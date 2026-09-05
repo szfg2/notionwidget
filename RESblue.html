@@ -851,6 +851,7 @@
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
         <div class="hint">Shared across every page (stored as <code>cdg_provider</code>). ⚠ DeepSeek is a separate company: the de-identified medical text is processed on their servers under their retention terms, not Anthropic's.</div>
 
@@ -860,7 +861,11 @@
 
         <label class="lbl">DeepSeek API key</label>
         <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-        <div class="hint">Only used when the provider above is set to DeepSeek. Both keys can be stored at once, so you can switch back and forth.</div>
+        <div class="hint">Only used when the provider above is set to DeepSeek.</div>
+
+        <label class="lbl">Gemini (Google AI Studio) API key</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+        <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>). ⚠ Google is a separate company with its own retention terms. All three keys can be stored at once, so you can switch between them freely.</div>
 
         <label class="lbl">OpenAI API key — for Whisper dictation in History taking mode</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
@@ -1284,8 +1289,11 @@ const HX_MERGE_INSTRUCTIONS =
   "clipped style, near the point it relates to.";
 
 /* localStorage keys — Claude + GitHub settings shared with the other pages */
-const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
-AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
+AI.fallbackKey = () => {
+  const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
+  return $(box).value.trim();
+};
 
 const K = {
   claude: "cdg_api_key",              // shared with index.html + dictation.html

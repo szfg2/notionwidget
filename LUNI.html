@@ -206,6 +206,7 @@
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
         <div class="hint">The selected provider receives only the text that passes the local identifier check. Provider choice is shared with the other tools.</div>
 
@@ -214,7 +215,10 @@
 
         <label class="lbl" for="deepseekKey">DeepSeek API key</label>
         <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-        <div class="hint">Keys stay in browser localStorage. DeepSeek and Anthropic are separate companies with their own data-handling terms.</div>
+
+        <label class="lbl" for="geminiKey">Gemini (Google AI Studio) API key</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+        <div class="hint">Keys stay in browser localStorage. DeepSeek, Google and Anthropic are separate companies with their own data-handling terms.</div>
 
         <div class="actions">
           <button id="saveSettings" type="button">Save settings</button>
@@ -375,8 +379,11 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
-  const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
-  AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+  const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
+  AI.fallbackKey = () => {
+    const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
+    return $(box).value.trim();
+  };
 
   const SOURCES = [
     {

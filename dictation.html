@@ -84,6 +84,7 @@
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
         <div class="hint">Shared across every page (stored as <code>cdg_provider</code>). Whisper transcription always uses OpenAI regardless.</div>
 
@@ -94,6 +95,10 @@
         <label>DeepSeek API key — for formatting</label>
         <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off">
         <div class="hint">Only used when the provider above is set to DeepSeek.</div>
+
+        <label>Gemini (Google AI Studio) API key — for formatting</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off">
+        <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>).</div>
 
         <label>OpenAI API key — for Whisper transcription</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
@@ -182,8 +187,11 @@ const CONFIG = {
 };
 
 /* localStorage keys */
-const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey" };
-AI.fallbackKey = () => $(AI.id() === "deepseek" ? "deepseekKey" : "claudeKey").value.trim();
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
+AI.fallbackKey = () => {
+  const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
+  return $(box).value.trim();
+};
 
 const K = {
   claude: "cdg_api_key",        // shared with index.html

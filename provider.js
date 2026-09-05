@@ -5,10 +5,11 @@
  *  directly. Switching provider is then a single dropdown, stored once
  *  in localStorage under "cdg_provider" and honoured everywhere.
  *
- *  Both providers are called straight from the browser, which each has
- *  to allow explicitly: Anthropic via the dangerous-direct-browser-access
+ *  All three providers are called straight from the browser, which each
+ *  has to allow explicitly: Anthropic via the dangerous-direct-browser-access
  *  header, DeepSeek by serving permissive CORS on its OpenAI-compatible
- *  endpoint.
+ *  endpoint, and Google by allowing browser origins on the Generative
+ *  Language API when the key is sent as an x-goog-api-key header.
  * ==================================================================== */
 (function (global) {
   "use strict";
@@ -40,6 +41,21 @@
       thinkingMinMaxTokens: 32768,
       keyPlaceholder: "sk-...",
       keyHint: "DeepSeek API key"
+    },
+    gemini: {
+      label: "Gemini",
+      longLabel: "Gemini (Google)",
+      /* Google puts the model id in the URL path, so this is only the stem —
+       * the full endpoint is assembled per call in AI.call(). */
+      url: "https://generativelanguage.googleapis.com/v1beta/models/",
+      models: { default: "gemini-3.8-flash", ask: "gemini-3.8-flash" },
+      /* Gemini 3.x picks its own thinking budget. Leave these null to accept
+       * that default; set either to "low" or "high" to force the routine or
+       * reasoning tier to think less/more. A non-null value is sent as
+       * generationConfig.thinkingConfig.thinkingLevel. */
+      thinkingLevel: { default: null, ask: null },
+      keyPlaceholder: "AIza...",
+      keyHint: "Gemini (Google AI Studio) API key"
     }
   };
 
@@ -54,15 +70,19 @@
     "claude-sonnet-4-6": { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 },
     // Whisper is billed per minute of audio, not per token.
     "whisper-1":         { perMinute: 0.006 }
-    // DeepSeek v4 rates are deliberately absent — add them here to price those calls.
+    // DeepSeek v4 and Gemini 3.x rates are deliberately absent — add them here
+    // to price those calls.
   };
 
   const LS = {
     provider: "cdg_provider",
     anthropic: "cdg_api_key",
     deepseek: "cdg_deepseek_key",
+    gemini: "cdg_gemini_key",
     // pft.html predates the shared key and stored its own copy
     anthropicLegacy: "anthropic_api_key",
+    // the council on RES.html has its own Gemini box; keep the two in step
+    geminiLegacy: "council_gemini_key",
     usage: "cdg_usage_log"
   };
 
@@ -100,28 +120,40 @@
     try { window.dispatchEvent(new CustomEvent("ai-usage")); } catch (e) {}
   }
 
-  /* Both providers report usage on the response, under different names. A
+  /* Every provider reports usage on the response, under different names. A
    * missing field counts as zero rather than breaking the tally. */
-  function readUsage(data, isDeep) {
-    const u = data.usage || {};
-    if (!isDeep) {
+  function readUsage(data, id) {
+    if (id === "gemini") {
+      // Google reports the cached slice inside the prompt count, and bills
+      // thinking tokens as output alongside the visible answer.
+      const g = data.usageMetadata || {};
+      const cached = g.cachedContentTokenCount || 0;
       return {
-        in: u.input_tokens || 0,
-        out: u.output_tokens || 0,
-        cw: u.cache_creation_input_tokens || 0,
-        cr: u.cache_read_input_tokens || 0
+        in: Math.max((g.promptTokenCount || 0) - cached, 0),
+        out: (g.candidatesTokenCount || 0) + (g.thoughtsTokenCount || 0),
+        cw: 0,
+        cr: cached
       };
     }
-    // DeepSeek splits the prompt into cache hits and misses; its cache is
-    // automatic, so there is no separate write charge to record.
-    const hit = u.prompt_cache_hit_tokens != null
-      ? u.prompt_cache_hit_tokens
-      : ((u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0);
+    const u = data.usage || {};
+    if (id === "deepseek") {
+      // DeepSeek splits the prompt into cache hits and misses; its cache is
+      // automatic, so there is no separate write charge to record.
+      const hit = u.prompt_cache_hit_tokens != null
+        ? u.prompt_cache_hit_tokens
+        : ((u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0);
+      return {
+        in: Math.max((u.prompt_tokens || 0) - hit, 0),
+        out: u.completion_tokens || 0,
+        cw: 0,
+        cr: hit
+      };
+    }
     return {
-      in: Math.max((u.prompt_tokens || 0) - hit, 0),
-      out: u.completion_tokens || 0,
-      cw: 0,
-      cr: hit
+      in: u.input_tokens || 0,
+      out: u.output_tokens || 0,
+      cw: u.cache_creation_input_tokens || 0,
+      cr: u.cache_read_input_tokens || 0
     };
   }
 
@@ -138,8 +170,8 @@
       dayKey,
 
       // Called by AI.call for every successful model response.
-      record(model, data, isDeep) {
-        const t = readUsage(data, isDeep);
+      record(model, data, id) {
+        const t = readUsage(data, id);
         const p = PRICES[model];
         const usd = p
           ? (t.in * p.in + t.out * p.out + t.cw * p.cacheWrite + t.cr * p.cacheRead) / 1e6
@@ -187,14 +219,28 @@
       return kind === "ask" ? m.ask : m.default;
     },
 
-    storedKey(id) {
+    /* Where a provider's key lives. Some have a second, older location kept
+     * in step on save so pages written before the shared adapter (and the
+     * council on RES.html) still find the key they expect. */
+    keyStorage(id) {
       const which = id || AI.id();
-      if (which === "deepseek") return get(LS.deepseek);
-      return get(LS.anthropic) || get(LS.anthropicLegacy);
+      if (which === "deepseek") return [LS.deepseek];
+      if (which === "gemini") return [LS.gemini, LS.geminiLegacy];
+      return [LS.anthropic, LS.anthropicLegacy];
+    },
+    storedKey(id) {
+      const slots = AI.keyStorage(id);
+      for (let i = 0; i < slots.length; i++) {
+        const v = get(slots[i]);
+        if (v) return v;
+      }
+      return "";
     },
     saveKey(id, value) {
-      if (id === "deepseek") set(LS.deepseek, value);
-      else { set(LS.anthropic, value); set(LS.anthropicLegacy, value); }
+      AI.keyStorage(id).forEach(k => set(k, value));
+    },
+    clearKey(id) {
+      AI.keyStorage(id).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
     },
     key() {
       return AI.storedKey() || (typeof AI.fallbackKey === "function" ? (AI.fallbackKey() || "") : "");
@@ -206,17 +252,21 @@
      * are absent are skipped, so pages can adopt this piecemeal. */
     fillSettings(ids) {
       const el = (id) => (id ? document.getElementById(id) : null);
-      const sel = el(ids.provider), a = el(ids.anthropicKey), d = el(ids.deepseekKey);
+      const sel = el(ids.provider);
       if (sel) sel.value = AI.id();
+      const a = el(ids.anthropicKey), d = el(ids.deepseekKey), g = el(ids.geminiKey);
       if (a) a.value = AI.storedKey("anthropic");
       if (d) d.value = AI.storedKey("deepseek");
+      if (g) g.value = AI.storedKey("gemini");
     },
     saveSettings(ids) {
       const el = (id) => (id ? document.getElementById(id) : null);
-      const sel = el(ids.provider), a = el(ids.anthropicKey), d = el(ids.deepseekKey);
+      const sel = el(ids.provider);
       if (sel) AI.setProvider(sel.value);
+      const a = el(ids.anthropicKey), d = el(ids.deepseekKey), g = el(ids.geminiKey);
       if (a) AI.saveKey("anthropic", a.value.trim());
       if (d) AI.saveKey("deepseek", d.value.trim());
+      if (g) AI.saveKey("gemini", g.value.trim());
     },
 
     /* The one request path.
@@ -226,7 +276,7 @@
      */
     async call(opts) {
       const p = AI.current();
-      const isDeep = AI.id() === "deepseek";
+      const id = AI.id();
       const key = opts.key || AI.key();
       if (!key) throw new Error(AI.missingKeyMsg());
 
@@ -234,8 +284,27 @@
       const systems = opts.systems || [];
       const maxTokens = opts.maxTokens || 4096;
 
-      let headers, body;
-      if (isDeep) {
+      let url = p.url, headers, body;
+      if (id === "gemini") {
+        // The model goes in the path, the key in a header, and the system
+        // prompt in its own field. Google has no cache_control equivalent to
+        // honour, so `cache` on a system block is simply ignored here.
+        url = p.url + encodeURIComponent(model) + ":generateContent";
+        headers = { "content-type": "application/json", "x-goog-api-key": key };
+        const generationConfig = { maxOutputTokens: maxTokens };
+        if (opts.temperature != null) generationConfig.temperature = opts.temperature;
+        const level = p.thinkingLevel[opts.kind === "ask" ? "ask" : "default"];
+        if (level) generationConfig.thinkingConfig = { thinkingLevel: level };
+        body = {
+          // Gemini calls the assistant "model" and takes a parts array per turn.
+          contents: (opts.messages || []).map(m => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }]
+          })),
+          generationConfig
+        };
+        if (systems.length) body.systemInstruction = { parts: systems.map(sys => ({ text: sys.text })) };
+      } else if (id === "deepseek") {
         const thinks = p.thinking[model] !== undefined ? p.thinking[model] : true;
         headers = { "content-type": "application/json", "Authorization": "Bearer " + key };
         body = {
@@ -270,7 +339,7 @@
         if (opts.temperature != null) body.temperature = opts.temperature;
       }
 
-      const res = await fetch(p.url, {
+      const res = await fetch(url, {
         method: "POST",
         signal: opts.signal,
         headers,
@@ -280,10 +349,26 @@
       if (!res.ok) {
         throw new Error(p.label + ": " + ((data.error && data.error.message) || ("API error " + res.status)));
       }
-      AI.usage.record(model, data, isDeep);
-      const text = isDeep
-        ? ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "")
-        : (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+      AI.usage.record(model, data, id);
+
+      let text;
+      if (id === "gemini") {
+        const cand = (data.candidates || [])[0];
+        const parts = (cand && cand.content && cand.content.parts) || [];
+        // `thought` parts are the model's reasoning, not the answer.
+        text = parts.filter(b => typeof b.text === "string" && !b.thought).map(b => b.text).join("\n");
+        // A safety filter or a truncated answer comes back 200 with no
+        // text, so say why rather than handing the page an empty string.
+        if (!text.trim()) {
+          const why = (data.promptFeedback && data.promptFeedback.blockReason) ||
+                      (cand && cand.finishReason && cand.finishReason !== "STOP" ? cand.finishReason : "");
+          if (why) throw new Error(p.label + ": no answer returned (" + why + ").");
+        }
+      } else if (id === "deepseek") {
+        text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+      } else {
+        text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+      }
       return String(text).trim();
     }
   };

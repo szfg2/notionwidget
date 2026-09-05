@@ -182,12 +182,13 @@
 
     <div class="card">
       <span class="eyebrow">Paste report (auto-fill with Claude)</span>
-      <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to Anthropic's API — the fields and interpretation stay in your browser.</p>
+      <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to the selected provider's API — the fields and interpretation stay in your browser.</p>
       <div class="field" style="margin:10px 0 10px">
         <label class="lbl" for="provider">Model provider</label>
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
       </div>
       <div class="field" style="margin:10px 0 10px">

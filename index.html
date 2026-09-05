@@ -396,6 +396,7 @@
         <select id="provider">
           <option value="anthropic">Claude (Anthropic)</option>
           <option value="deepseek">DeepSeek</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
       </div>
       <div class="field">
@@ -804,7 +805,6 @@ function analyzePastedHtml(html) {
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-function safeDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 
 // Init. One key box, showing whichever provider is selected — switching the
 // dropdown swaps the stored key in and out (see provider.js for the adapter).
@@ -828,7 +828,7 @@ els.apiKey.addEventListener("input", () => {
 });
 els.remember.addEventListener("change", () => {
   if (els.remember.checked) AI.saveKey(AI.id(), els.apiKey.value.trim());
-  else safeDel(AI.id() === "deepseek" ? AI.LS.deepseek : AI.LS.anthropic);
+  else AI.clearKey(AI.id());
 });
 els.toggleKey.addEventListener("click", () => {
   const showing = els.apiKey.type === "text";
@@ -836,7 +836,7 @@ els.toggleKey.addEventListener("click", () => {
   els.toggleKey.textContent = showing ? "Show" : "Hide";
 });
 els.clearKey.addEventListener("click", () => {
-  els.apiKey.value = ""; safeDel(AI.id() === "deepseek" ? AI.LS.deepseek : AI.LS.anthropic); els.apiKey.focus();
+  els.apiKey.value = ""; AI.clearKey(AI.id()); els.apiKey.focus();
 });
 
 // Clear the active mode's input boxes when the checkbox is ticked, then reset it
