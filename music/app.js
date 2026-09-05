@@ -7,10 +7,12 @@
   var PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
   var PENTA_NAMES = ["C", "D", "E", "G", "A", "C", "D", "E"];
   var KEY_COLORS = ["#ff806f", "#ff9f43", "#ffc928", "#43bd68", "#2bb3a3", "#58adf6", "#746ade", "#ef7bb4"];
+  // The coloured keys carry the app, so they sit well above the instrument demos.
+  var KEY_VOLUME = .9;
 
   var VOICES = {
     xylophone: { partials: [[1, .9, "sine"], [3.01, .22, "sine"]], attack: .004, decay: .85 },
-    piano: { partials: [[1, .95, "triangle"], [2, .38, "sine"]], attack: .006, decay: 1.5, filter: 4200, level: 1.7 },
+    piano: { partials: [[1, .95, "triangle"], [2, .38, "sine"]], attack: .006, decay: 1.5, filter: 4200, level: 1.3 },
     bell: { partials: [[1, .7, "sine"], [2.76, .35, "sine"], [5.4, .14, "sine"]], attack: .005, decay: 2.3 },
     flute: { partials: [[1, .8, "sine"], [2, .12, "sine"]], attack: .08, decay: 1, vibrato: 5 },
     guitar: { partials: [[1, .7, "sawtooth"]], attack: .005, decay: 1.1, filter: 2600, sweep: true },
@@ -173,8 +175,8 @@
       // A limiter after the mix keeps overlapping notes from clipping harshly.
       if (typeof audioContext.createDynamicsCompressor === "function") {
         var limiter = audioContext.createDynamicsCompressor();
-        limiter.threshold.value = -8;
-        limiter.knee.value = 6;
+        limiter.threshold.value = -3;
+        limiter.knee.value = 4;
         limiter.ratio.value = 12;
         limiter.attack.value = .003;
         limiter.release.value = .25;
@@ -546,7 +548,7 @@
     var notes = scaleNotes();
     var names = scaleNames();
     stage.appendChild(buildKeyboard(notes, names, function (index, key) {
-      playVoice(notes[index], settings.voice, 0, .5);
+      playVoice(notes[index], settings.voice, 0, KEY_VOLUME);
       pressFeedback(key, "pressed", 160);
       floatNote(key);
       countNote(true);
@@ -590,7 +592,7 @@
     setStatus("Listen to your song", true);
     recording.forEach(function (event) {
       later(function () {
-        playVoice(notes[event.index], settings.voice, 0, .5);
+        playVoice(notes[event.index], settings.voice, 0, KEY_VOLUME);
         flashKey(event.index, 200);
       }, event.at);
     });
@@ -786,7 +788,7 @@
 
     stage.appendChild(buildKeyboard(MAJOR, MAJOR_NAMES, function (index, key) {
       if (busy) return;
-      playVoice(MAJOR[index], settings.voice, 0, .5);
+      playVoice(MAJOR[index], settings.voice, 0, KEY_VOLUME);
       pressFeedback(key, "pressed", 150);
       floatNote(key);
       if (index === currentSong.notes[songPosition] - 1) {
@@ -870,7 +872,7 @@
     var gap = 460;
     currentSong.notes.forEach(function (degree, index) {
       later(function () {
-        playVoice(MAJOR[degree - 1], settings.voice, 0, .5);
+        playVoice(MAJOR[degree - 1], settings.voice, 0, KEY_VOLUME);
         flashKey(degree - 1, 260);
         songPosition = index;
         updateSongView();
@@ -893,7 +895,7 @@
     speak("You played the whole song. Wonderful!", false);
     var start = audioNow() + .05;
     [1, 3, 5, 8].forEach(function (degree, index) {
-      playVoice(MAJOR[degree - 1], "music_box", start + index * .12, .5);
+      playVoice(MAJOR[degree - 1], "music_box", start + index * .12, KEY_VOLUME);
     });
     later(function () {
       busy = false;
@@ -908,7 +910,7 @@
   function renderCopy() {
     stage.appendChild(buildKeyboard(PENTA, PENTA_NAMES, function (index, key) {
       if (busy) return;
-      playVoice(PENTA[index], settings.voice, 0, .5);
+      playVoice(PENTA[index], settings.voice, 0, KEY_VOLUME);
       pressFeedback(key, "pressed", 150);
       floatNote(key);
       if (!echoSequence.length) {
@@ -960,7 +962,7 @@
     var gap = 550;
     echoSequence.forEach(function (index, position) {
       later(function () {
-        playVoice(PENTA[index], settings.voice, 0, .5);
+        playVoice(PENTA[index], settings.voice, 0, KEY_VOLUME);
         flashKey(index, 320);
       }, position * gap);
     });
