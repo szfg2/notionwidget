@@ -49,10 +49,10 @@
        * the full endpoint is assembled per call in AI.call(). */
       url: "https://generativelanguage.googleapis.com/v1beta/models/",
       models: { default: "gemini-3.8-flash", ask: "gemini-3.8-flash" },
-      /* Gemini 3.x picks its own thinking budget. Leave these null to accept
-       * that default; set either to "low" or "high" to force the routine or
-       * reasoning tier to think less/more. A non-null value is sent as
-       * generationConfig.thinkingConfig.thinkingLevel. */
+      /* 3.x replaced the old thinkingBudget number with a thinkingLevel enum:
+       * "low" | "medium" | "high" ("minimal" is rejected). Medium is the
+       * default; leave these null to accept it, or name a level to force the
+       * routine or reasoning tier to think less/more. */
       thinkingLevel: { default: null, ask: null },
       keyPlaceholder: "AIza...",
       keyHint: "Gemini (Google AI Studio) API key"
@@ -291,8 +291,9 @@
         // honour, so `cache` on a system block is simply ignored here.
         url = p.url + encodeURIComponent(model) + ":generateContent";
         headers = { "content-type": "application/json", "x-goog-api-key": key };
+        // 3.8 dropped temperature/top_p/top_k — a request carrying them is
+        // rejected, so opts.temperature is deliberately ignored here.
         const generationConfig = { maxOutputTokens: maxTokens };
-        if (opts.temperature != null) generationConfig.temperature = opts.temperature;
         const level = p.thinkingLevel[opts.kind === "ask" ? "ask" : "default"];
         if (level) generationConfig.thinkingConfig = { thinkingLevel: level };
         body = {

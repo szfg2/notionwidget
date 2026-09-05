@@ -754,7 +754,7 @@
               <label class="model-option" style="--provider-color:#d39a72">
                 <input type="checkbox" name="councilModel" value="anthropic" checked />
                 <span class="model-dot">CL</span>
-                <span class="model-copy"><span class="model-name">Claude</span><span class="model-state" data-model-label="anthropic">claude-opus-5</span></span>
+                <span class="model-copy"><span class="model-name">Claude</span><span class="model-state" data-model-label="anthropic">claude-fable-5-1</span></span>
                 <span class="model-check" aria-hidden="true"></span>
               </label>
               <label class="model-option" style="--provider-color:#789be8">
@@ -766,7 +766,7 @@
               <label class="model-option" style="--provider-color:#7fb5f7">
                 <input type="checkbox" name="councilModel" value="openai" checked />
                 <span class="model-dot">OA</span>
-                <span class="model-copy"><span class="model-name">OpenAI</span><span class="model-state" data-model-label="openai">gpt-5.6-sol</span></span>
+                <span class="model-copy"><span class="model-name">OpenAI</span><span class="model-state" data-model-label="openai">gpt-6-astra</span></span>
                 <span class="model-check" aria-hidden="true"></span>
               </label>
               <label class="model-option" style="--provider-color:#c296e8">
@@ -788,7 +788,7 @@
                   <label for="anthropicKey">Anthropic API key</label>
                   <input type="password" id="anthropicKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
                   <label for="anthropicModel">Model ID</label>
-                  <input type="text" id="anthropicModel" value="claude-opus-5" spellcheck="false" />
+                  <input type="text" id="anthropicModel" value="claude-fable-5-1" spellcheck="false" />
                 </div>
                 <div class="setting-group" style="--provider-color:#789be8">
                   <div class="setting-title">DeepSeek</div>
@@ -802,7 +802,7 @@
                   <label for="openaiKey">OpenAI API key</label>
                   <input type="password" id="openaiKey" placeholder="sk-…" autocomplete="off" spellcheck="false" />
                   <label for="openaiModel">Model ID</label>
-                  <input type="text" id="openaiModel" value="gpt-5.6-sol" spellcheck="false" />
+                  <input type="text" id="openaiModel" value="gpt-6-astra" spellcheck="false" />
                 </div>
                 <div class="setting-group" style="--provider-color:#c296e8">
                   <div class="setting-title">Gemini</div>
@@ -872,30 +872,39 @@
     "Keep the response under about 350 words unless additional detail is necessary to avoid unsafe or misleading advice."
   ].join(" ");
 
+  /* `retired` lists model ids this page used to default to. A saved setting
+   * matching one of them is treated as "never changed from the default" and
+   * replaced by the current default, so bumping the council to a new
+   * generation reaches devices that had already saved their settings. A model
+   * id typed in by hand is never in that list, so it survives untouched. */
   const PROVIDERS = {
     anthropic: {
       label: "Claude", initials: "CL", color: "#d39a72",
       keyInput: "anthropicKey", modelInput: "anthropicModel",
       keyStorage: "cdg_api_key", modelStorage: "council_model_anthropic",
-      defaultModel: "claude-opus-5"
+      defaultModel: "claude-fable-5-1",
+      retired: ["claude-opus-5", "claude-sonnet-4-6", "claude-3-7-sonnet-latest"]
     },
     deepseek: {
       label: "DeepSeek", initials: "DS", color: "#789be8",
       keyInput: "deepseekKey", modelInput: "deepseekModel",
       keyStorage: "cdg_deepseek_key", modelStorage: "council_model_deepseek",
-      defaultModel: "deepseek-v4-pro"
+      defaultModel: "deepseek-v4-pro",
+      retired: ["deepseek-reasoner", "deepseek-chat"]
     },
     openai: {
       label: "OpenAI", initials: "OA", color: "#7fb5f7",
       keyInput: "openaiKey", modelInput: "openaiModel",
       keyStorage: "dictation_openai_key", modelStorage: "council_model_openai",
-      defaultModel: "gpt-5.6-sol"
+      defaultModel: "gpt-6-astra",
+      retired: ["gpt-5.6-sol", "gpt-5.1", "gpt-5", "o3"]
     },
     gemini: {
       label: "Gemini", initials: "GE", color: "#c296e8",
       keyInput: "geminiKey", modelInput: "geminiModel",
       keyStorage: "council_gemini_key", modelStorage: "council_model_gemini",
-      defaultModel: "gemini-3.8-flash"
+      defaultModel: "gemini-3.8-flash",
+      retired: ["gemini-3.5-flash", "gemini-2.5-pro", "gemini-2.5-flash"]
     }
   };
 
@@ -919,7 +928,10 @@
   function loadSettings() {
     Object.entries(PROVIDERS).forEach(([id, provider]) => {
       $(provider.keyInput).value = safeGet(provider.keyStorage);
-      $(provider.modelInput).value = safeGet(provider.modelStorage) || provider.defaultModel;
+      const saved = safeGet(provider.modelStorage);
+      const stale = !saved || (provider.retired || []).indexOf(saved) !== -1;
+      $(provider.modelInput).value = stale ? provider.defaultModel : saved;
+      if (stale && saved) safeSet(provider.modelStorage, provider.defaultModel);
       updateModelLabel(id);
     });
 
@@ -996,7 +1008,10 @@
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
-      body: JSON.stringify({ model, max_tokens: 8192, system: SYSTEM_PROMPT, messages })
+      // Fable 5.1 thinks by default at high effort and those tokens come out
+      // of max_tokens, so the ceiling is well clear of the ~350-word answer.
+      // You are billed only for tokens generated, so the headroom is free.
+      body: JSON.stringify({ model, max_tokens: 32768, system: SYSTEM_PROMPT, messages })
     }, provider);
     return (data.content || []).filter((part) => part.type === "text").map((part) => part.text).join("\n").trim();
   }
@@ -1039,8 +1054,10 @@
         model,
         instructions: SYSTEM_PROMPT,
         input: messages.map((message) => ({ role: message.role, content: message.content })),
+        // gpt-6-astra takes low | medium | high | xhigh | max. temperature,
+        // top_p and the GPT-5 text.verbosity knob are gone — sending any of
+        // them is rejected, so the answer length is left to the prompt.
         reasoning: { effort: "medium" },
-        text: { verbosity: "medium" },
         max_output_tokens: 16384,
         store: false
       })
@@ -1057,6 +1074,9 @@
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents: messages.map((message) => ({ role: message.role === "assistant" ? "model" : "user", parts: [{ text: message.content }] })),
+        // 3.8 dropped temperature/top_p/top_k and replaced thinkingBudget with
+        // the thinkingLevel enum (low | medium | high). Medium is the default
+        // and suits a council answer, so only the output ceiling is set here.
         generationConfig: { maxOutputTokens: 8192 }
       })
     }, provider);
