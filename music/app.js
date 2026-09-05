@@ -10,7 +10,7 @@
 
   var VOICES = {
     xylophone: { partials: [[1, .9, "sine"], [3.01, .22, "sine"]], attack: .004, decay: .85 },
-    piano: { partials: [[1, .8, "triangle"], [2, .3, "sine"]], attack: .006, decay: 1.5, filter: 3200 },
+    piano: { partials: [[1, .95, "triangle"], [2, .38, "sine"]], attack: .006, decay: 1.5, filter: 4200, level: 1.7 },
     bell: { partials: [[1, .7, "sine"], [2.76, .35, "sine"], [5.4, .14, "sine"]], attack: .005, decay: 2.3 },
     flute: { partials: [[1, .8, "sine"], [2, .12, "sine"]], attack: .08, decay: 1, vibrato: 5 },
     guitar: { partials: [[1, .7, "sawtooth"]], attack: .005, decay: 1.1, filter: 2600, sweep: true },
@@ -170,7 +170,19 @@
       audioContext = new AudioConstructor();
       masterGain = audioContext.createGain();
       masterGain.gain.value = .55;
-      masterGain.connect(audioContext.destination);
+      // A limiter after the mix keeps overlapping notes from clipping harshly.
+      if (typeof audioContext.createDynamicsCompressor === "function") {
+        var limiter = audioContext.createDynamicsCompressor();
+        limiter.threshold.value = -8;
+        limiter.knee.value = 6;
+        limiter.ratio.value = 12;
+        limiter.attack.value = .003;
+        limiter.release.value = .25;
+        masterGain.connect(limiter);
+        limiter.connect(audioContext.destination);
+      } else {
+        masterGain.connect(audioContext.destination);
+      }
     }
     if (audioContext.state === "suspended") audioContext.resume();
     return audioContext;
@@ -198,7 +210,7 @@
     var start = when || context.currentTime;
     var duration = spec.decay;
     var output = context.createGain();
-    output.gain.value = volume == null ? .5 : volume;
+    output.gain.value = (volume == null ? .5 : volume) * (spec.level || 1);
     output.connect(masterGain);
 
     var destination = output;
