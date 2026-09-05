@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Sing and Play app icon</title>
+  <desc id="desc">Colourful xylophone bars with a music note on a warm cream background.</desc>
+  <rect width="512" height="512" rx="112" fill="#fff8e9"/>
+  <circle cx="416" cy="102" r="44" fill="#746ade" opacity=".16"/>
+  <circle cx="84" cy="404" r="36" fill="#43bd68" opacity=".22"/>
+  <g transform="translate(66 150) rotate(-6 190 106)">
+    <rect x="0" y="26" width="60" height="160" rx="18" fill="#ff806f"/>
+    <rect x="72" y="14" width="60" height="184" rx="18" fill="#ffc928"/>
+    <rect x="144" y="4" width="60" height="204" rx="18" fill="#43bd68"/>
+    <rect x="216" y="14" width="60" height="184" rx="18" fill="#58adf6"/>
+    <rect x="288" y="26" width="60" height="160" rx="18" fill="#ef7bb4"/>
+  </g>
+  <g transform="translate(300 62) rotate(9 76 76)" fill="#12305b">
+    <path d="M62 14 138 0v26L86 36v76a30 26 0 1 1-14-22V14Z"/>
+    <circle cx="118" cy="96" r="26"/>
+    <path d="M124 96V22l14-2v76Z"/>
+  </g>
+</svg>
