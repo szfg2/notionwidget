@@ -4,7 +4,7 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
 ## Output format — follow exactly
 - Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
 - Output ONLY the summary — no preamble, no explanation, no closing remarks.
-- Produce labelled blocks in this order: B/G, RES Hx, Active, Counters, Course.
+- Produce labelled blocks in this order: B/G, RES Hx, Active, Counters, Course, Social, TCUs.
 - Each block starts on its own line with NO blank lines between blocks — one block per line, directly under the previous one.
 - Each block label is in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
   **B/G:** ...
@@ -12,7 +12,9 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
   **Active:** ...
   **Counters:** ...
   **Course:** ...
-- The labels (B/G / RES Hx / Active / Counters / Course) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is treatments that are currently ongoing, which are bolded inside the Counters line (see below).
+  **Social:** ...
+  **TCUs:** ...
+- The labels (B/G / RES Hx / Active / Counters / Course / Social / TCUs) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is treatments that are currently ongoing, which are bolded inside the Counters line (see below).
 - Omit any block that has no content — do not print an empty label.
 - NEVER write placeholder phrases for missing information — no "not reported", "not provided", "not available", "not documented", "unknown" or anything similar. If the information is absent, leave it out entirely.
 
@@ -22,6 +24,8 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
 - **Active:** up to THREE current issues being worked up, most important first, all on ONE line separated by " | " (e.g. "HAP D5 | ?PE — CTPA pending | AKI on CKD, resolving"). The label **Active:** appears ONCE at the start of the line; the issues themselves are not bold.
 - **Counters:** running tallies of therapy and location durations on ONE line, separated by " | ". Include: antibiotics started and stopped with dates, steroids started and stopped with dates (incl. taper), and durations in ICU, HD (high dependency), or GW (general ward). Chain switches/escalations with ">", separate distinct items with " | ". Dates as d/m. BOLD any treatment that is currently ongoing (e.g. **Tazo**, **Pred 30mg**). Include antifungal/antiviral prophylaxis where relevant (e.g. "**Tazo** 2/7 (D4); Augmentin 26/6–1/7 | **Pred 30mg** 3/7 (D3), taper wkly | ICU 26/6–30/6 (4d) > HD 30/6–2/7 > GW D3").
 - **Course:** ALL significant dated events on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
+- **Social:** short-form social situation on ONE line — baseline ambulatory status and who the patient lives with, plus any care support if given. Compress hard (e.g. "Amb indep, lives w wife + son" / "Wheelchair-bound, ADL-dep, lives alone, FDW daytime" / "Amb c stick, nursing home"). Use accepted shortforms: amb (ambulant), indep, ADL-dep, FDW (foreign domestic worker), NOK.
+- **TCUs:** planned follow-up appointments on ONE line, separated by ", ". Each entry: "TCU <specialty> d/m", with a short parenthetical purpose only when it adds something (e.g. "TCU CVM 28/8, GERI 19/10 (dementia f/u)"). Write "TCU" once at the start of the line; subsequent clinics need only the specialty and date. Include scheduled scans or procedures with dates where they are follow-up appointments.
 
 ## Compression rules (apply to the whole summary)
 - Maximum character economy — aim well under 150 words; density over prose. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
@@ -35,3 +39,5 @@ Create a SHORT, dense summary of an inpatient for a ward rounding table. Maximum
 **Active:** HAP D5, improving | ?PE — CTPA pending | AKI on CKD, resolving
 **Counters:** **Tazo** 2/7 (D4); Augmentin 26/6–1/7 (failed) | **Pred 30mg** 3/7 (D3), taper wkly | ICU 26/6–30/6 (4d, NIV) > GW D5
 **Course:** 26/6 admitted ICU, NIV | 28/6 BC −ve, sputum +Pseudomonas | 30/6 > GW | 2/7 escalated Tazo | 4/7 off O2
+**Social:** Amb c stick, lives w wife, ADL indep
+**TCUs:** TCU CVM 28/8, GERI 19/10 (dementia f/u), RES 5/9 (post-exac + PFT)

@@ -682,7 +682,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab.</div>
       </div>
-      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
+      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats / HR / RR / I/O / CBG) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
     </div>
 
   </div>
@@ -726,7 +726,7 @@ AI.fallbackKey = () => {
 };
 
 /* Blank objective template for new patients — filled in by hand on rounds. */
-const OBJECTIVE_TEMPLATE = "BP: \nTemp: \nSats: ";
+const OBJECTIVE_TEMPLATE = "BP: \nTemp: \nSats: \nHR: \nRR: \nI/O: \nCBG: ";
 
 /* Instruction that shapes the "Ask about this patient" answers (matches index.html). */
 const ASK_SYSTEM =
@@ -750,10 +750,12 @@ const SUMMARY_UPDATE_SUFFIX =
   "(short \"Label: value\" vitals lines), and today's NEW EVENTS and/or LATEST VITALS. " +
   "Merge the new information into the existing summary: keep everything still accurate, update Active, Counters and " +
   "Course with the new events, dates and day counts, and remove items only when the updates clearly supersede them. " +
-  "Then update the objective: rewrite it with the newest observations, one \"Label: value\" per line " +
-  "(BP, Temp, Sats first, then any other obs given, e.g. HR, RR, O2 support). Observations may appear in either " +
+  "Then update the objective: rewrite it with the newest observations, one \"Label: value\" per line. " +
+  "The objective takes ONLY these seven labels, in this order, and NOTHING else: BP, Temp, Sats, HR, RR, I/O (intake/output), CBG (capillary glucose). Never add any other line — no O2 support, weight, GCS, pain score, labs, exam findings or free text. Omit a label entirely if no value is available for it. " +
+  "Observations may appear in either " +
   "input section — use them wherever they appear. Keep an existing objective value when no newer reading replaces it; " +
-  "if no new observations are given at all, reproduce the existing objective unchanged.\n" +
+  "if no new observations are given at all, reproduce the existing objective unchanged. " +
+  "Drop any line in the existing objective whose label is not one of the seven above.\n" +
   "Output BOTH sections in full, using exactly these markers and nothing else:\n" +
   "===SUMMARY===\n" +
   "(the full updated summary in the format above — never only the changes)\n" +
@@ -767,10 +769,11 @@ const SUMMARY_FRESH_SUFFIX =
   "You will be given the FULL PATIENT DETAILS as free text (background, current issues, medications, results, " +
   "observations — in any order or state of tidiness). Write the summary fresh from these details in exactly the " +
   "format above; do not invent anything not in the details. " +
-  "Also produce an objective: the latest observations as short \"Label: value\" lines " +
-  "(BP, Temp, Sats first, then any other relevant obs given). Keep it succinct — the most recent value for each " +
-  "vital only, never trends or serial numbers. Leave a vital's value blank if it isn't in the details. " +
-  "If no observations appear at all, output:\nBP: \nTemp: \nSats: \n" +
+  "Also produce an objective: the latest observations as short \"Label: value\" lines. " +
+  "The objective takes ONLY these seven labels, in this order, and NOTHING else: BP, Temp, Sats, HR, RR, I/O (intake/output), CBG (capillary glucose). Never add any other line — no O2 support, weight, GCS, pain score, labs, exam findings or free text. Omit a label entirely if no value is available for it. " +
+  "Keep it succinct — the most recent value for each " +
+  "vital only, never trends or serial numbers. " +
+  "If no observations appear at all, output:\nBP: \nTemp: \nSats: \nHR: \nRR: \nI/O: \nCBG: \n" +
   "Output BOTH sections in full, using exactly these markers and nothing else:\n" +
   "===SUMMARY===\n" +
   "(the full summary)\n" +
@@ -874,7 +877,7 @@ function summaryHtml(s) {
   esc = esc.replace(/\*\*(?!\s)([^\n]+?)\*\*/g, "<strong>$1</strong>");
   return esc.replace(/\n/g, "<br>");
 }
-// Objective -> safe HTML with each line's leading label (BP / Temp / Sats …)
+// Objective -> safe HTML with each line's leading label (BP / Temp / Sats / HR / RR / I/O / CBG)
 // bold, styled like the summary labels
 function objectiveHtml(s) {
   if (!String(s).trim()) return "—";
@@ -1477,7 +1480,7 @@ function buildRow(p, listKey, body) {
   vitLbl.textContent = "Latest vitals";
   const vitBox = document.createElement("textarea");
   vitBox.className = "update-box";
-  vitBox.placeholder = "e.g. BP 110/70, HR 88, afebrile, sats 96% RA";
+  vitBox.placeholder = "e.g. BP 110/70, HR 88, RR 18, T 37.2, sats 96%, I/O +450, CBG 7.8";
   vitField.appendChild(vitLbl);
   vitField.appendChild(vitBox);
   boxes.appendChild(evField);
