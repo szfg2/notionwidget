@@ -442,6 +442,50 @@
 
   .empty-note { color: var(--faint); font-size: 13px; padding: 14px 4px; }
 
+  /* ---------- Previous-patients search ---------- */
+  .pt-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 260px;
+    min-width: 0;
+  }
+  .pt-search .search-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
+  .pt-search .search-wrap::before {
+    content: "🔍";
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    opacity: .55;
+    pointer-events: none;
+  }
+  input#ptSearch {
+    padding: 6px 30px 6px 30px;
+    font-size: 13px;
+    border-radius: 7px;
+  }
+  .pt-search .search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: 0;
+    color: var(--faint);
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+    display: none;
+  }
+  .pt-search .search-clear:hover { color: var(--text); }
+  .pt-search.has-query .search-clear { display: block; }
+  .search-count { font-size: 12px; color: var(--faint); white-space: nowrap; }
+
+  tr.filtered-out { display: none !important; }
+
   /* ---------- Floating quick-reference drawer ---------- */
   /* A tab pinned to the right edge, on both tabs of the page: GINA asthma
      control and the SingHealth incidental nodule guidance, so either can be
@@ -719,6 +763,15 @@
         <button class="ghost-btn danger" id="deleteAllBtn" type="button">Delete all patients</button>
         <span class="status" id="listStatus"></span>
       </div>
+      <div class="gen-row" style="margin-top:10px">
+        <div class="pt-search" id="ptSearchWrap">
+          <div class="search-wrap">
+            <input type="text" id="ptSearch" placeholder="Search name, history, to-dos or note…" autocomplete="off" spellcheck="false">
+            <button class="search-clear" id="ptSearchClear" type="button" title="Clear search (Esc)">✕</button>
+          </div>
+          <span class="search-count" id="ptSearchCount"></span>
+        </div>
+      </div>
       <div class="error" id="listError" style="margin:10px 0 0"></div>
       <div class="table-scroll" style="margin-top:12px">
         <table class="patients">
@@ -980,6 +1033,11 @@ let editNoteId = null;      // patient the Clinic note box is editing (autosave 
 let noteSaveTimer = null;
 let pendingOutputSave = null;   // the debounced Clinic note save, so it can be run early
 const noteSyncs = new Map();    // patient id -> the rendered note row's sync baseline
+// The rendered rows of the Previous Patients table, one entry per patient, so
+// the search box can hide and show them without rebuilding the table (a rebuild
+// would collapse open notes and drop anything half-typed).
+let ptRows = [];
+let ptQuery = "";           // the current search text, kept across re-renders
 // One microphone at a time across the whole list — starting a second row stops
 // the first, so its audio still gets transcribed rather than thrown away.
 let micOwner = null;
@@ -1675,6 +1733,7 @@ function renderTable() {
   unwatchAll();        // every row is about to be rebuilt collapsed
   noteSyncs.clear();   // the sync baselines belong to rows that are about to go
   body.innerHTML = "";
+  ptRows = [];         // the row handles the search box filters on
   $("emptyNote").style.display = patients.length ? "none" : "";
   for (const p of patients) {
     const tr = document.createElement("tr");
@@ -2189,6 +2248,18 @@ function renderTable() {
     trAsk.appendChild(tdAsk);
     body.appendChild(trAsk);
 
+    // Register the row with the search box. The to-dos and note are read from
+    // their live boxes, so a patient stays findable by text typed a second ago
+    // that hasn't been saved back to GitHub yet.
+    ptRows.push({
+      p: p,
+      rows: [tr, trNote, trAsk],
+      haystack: () => [
+        p.name, p.summary, p.pastMedical, p.clinical,
+        box.value, noteBox.value, fmtDate(p.created)
+      ].join(" | ").toLowerCase()
+    });
+
     askBtn.addEventListener("click", () => {
       const open = trAsk.style.display !== "none";
       trAsk.style.display = open ? "none" : "";
@@ -2327,8 +2398,60 @@ function renderTable() {
       }
     });
   }
+  applyPatientFilter();   // a rebuilt table still honours whatever is in the search box
   updateHideFab();     // rows were just rebuilt collapsed
 }
+
+/* ============================================================== *
+ *  Previous patients — search                                    *
+ * ============================================================== */
+// Every whitespace-separated word has to appear somewhere in the row, in any
+// order, so "john copd" finds the same patient as "copd john". Rows that don't
+// match get a class rather than an inline display, which leaves the note and ask
+// panels' own open/closed state untouched underneath the filter.
+function applyPatientFilter() {
+  const q = ptQuery.trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  const wrap = $("ptSearchWrap");
+  const countEl = $("ptSearchCount");
+  wrap.classList.toggle("has-query", !!q);
+
+  let shown = 0;
+  for (const row of ptRows) {
+    const hit = !terms.length || (() => { const h = row.haystack(); return terms.every(t => h.includes(t)); })();
+    if (hit) shown++;
+    for (const el of row.rows) el.classList.toggle("filtered-out", !hit);
+  }
+
+  countEl.textContent = !terms.length
+    ? (ptRows.length ? ptRows.length + " patient" + (ptRows.length === 1 ? "" : "s") : "")
+    : shown + " of " + ptRows.length + " match" + (shown === 1 ? "" : "es");
+
+  // The stock empty note is about having no patients at all — a search that
+  // matches nothing needs its own message.
+  const empty = $("emptyNote");
+  if (ptRows.length && terms.length && !shown) {
+    empty.style.display = "";
+    empty.textContent = 'No patient matches “' + ptQuery.trim() + '”.';
+  } else {
+    empty.textContent = "No patients saved yet — generate a clinic note in the Create New Patient tab and it will appear here.";
+    empty.style.display = ptRows.length ? "none" : "";
+  }
+}
+
+$("ptSearch").addEventListener("input", (e) => {
+  ptQuery = e.target.value;
+  applyPatientFilter();
+});
+$("ptSearch").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { e.preventDefault(); $("ptSearchClear").click(); }
+});
+$("ptSearchClear").addEventListener("click", () => {
+  ptQuery = "";
+  $("ptSearch").value = "";
+  applyPatientFilter();
+  $("ptSearch").focus();
+});
 
 /* ============================================================== *
  *  Debounced field autosave (job list + note edits)              *
@@ -2573,7 +2696,9 @@ function openNoteCount() {
   let n = 0;
   // Ask panels are collapsed by the same button but aren't notes, so they don't
   // inflate the count the label is built from.
-  document.querySelectorAll("#ptBody tr.letter-row:not(.ask-panel)").forEach(tr => { if (tr.style.display !== "none") n++; });
+  // A note on a row the search has filtered out is open but invisible, so it
+  // shouldn't be counted either.
+  document.querySelectorAll("#ptBody tr.letter-row:not(.ask-panel):not(.filtered-out)").forEach(tr => { if (tr.style.display !== "none") n++; });
   return n;
 }
 
