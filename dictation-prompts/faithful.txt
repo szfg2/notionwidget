@@ -1,0 +1,32 @@
+TEMPLATE: Faithful Transcription (clean-up only — no reformatting into sections)
+
+Reproduce exactly what the doctor said, tidied up. Nothing added, nothing taken away.
+
+- Do not add a title line, headers, sections, or bullets. The output is plain
+  sentences only.
+- Correct spelling, grammar, and obvious speech-to-text mishears of clinical
+  terms, drug names and abbreviations. Change nothing else.
+- Keep the doctor's own words, word order and abbreviations wherever they
+  already read correctly. Do not paraphrase, summarise, expand, condense, or
+  reorder.
+- One sentence per line. No blank lines between sentences.
+- Capitalise the first word of each sentence; end each sentence with a full stop.
+- Remove fillers, false starts, stutters and repeated words ("um", "er", "you
+  know", "so basically", "let me see").
+- Where the doctor corrects themselves, keep only the corrected version.
+- Numbers, units, doses, routes and laterality exactly as spoken (write them in
+  figures: "ninety four percent" becomes 94%, "two litres" becomes 2L).
+- This template OVERRIDES the shared placeholder rule: do not insert "__" for
+  missing names, numbers or identifiers. Write only what was actually said.
+
+EXAMPLE
+Transcript: "um so the patient uh was seen this morning she's still a bit
+breathless er sats are ninety four percent on two litres we'll continue the IV
+antibiotics and um repeat the chest x-ray tomorrow morning"
+
+Output:
+The patient was seen this morning.
+She is still a bit breathless.
+Sats are 94% on 2L.
+We will continue the IV antibiotics.
+Repeat the chest X-ray tomorrow morning.

@@ -1,186 +1,482 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dictation → Note</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<script src="provider.js"></script>
 <style>
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --ink: #1c1f23;
-    --muted: #6b7280;
-    --line: #e3e6ea;
-    --accent: #2563eb;
-    --accent-ink: #ffffff;
-    --rec: #dc2626;
-    --ok: #16a34a;
-    --warn: #b45309;
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --danger-bg: #2a1d18;
+    --rec: #d9604a;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
+
   * { box-sizing: border-box; }
+
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 820px; margin: 0 auto; padding: 20px 16px 80px; }
-  h1 { font-size: 20px; margin: 6px 0 2px; }
-  .sub { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.app { margin-bottom: 22px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .sub a { color: var(--accent-strong); text-decoration: none; }
+  .sub a:hover { text-decoration: underline; }
+
+  .eyebrow {
+    display: block;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint);
+    margin: 0 0 7px;
+  }
+
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 16px; margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
   }
-  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
-  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
-  input[type=text], input[type=password], select, textarea {
-    width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
-    font-size: 14px; font-family: inherit; background: #fff; color: var(--ink);
+
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+  input[type="password"], input[type="text"], textarea, select {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
   }
-  textarea { resize: vertical; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; white-space: pre-wrap; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .row > * { flex: 0 0 auto; }
-  .grow { flex: 1 1 200px; }
-  button {
-    font: inherit; font-size: 14px; border: 1px solid var(--line); background: #fff; color: var(--ink);
-    border-radius: 8px; padding: 9px 14px; cursor: pointer;
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
-  button:hover { background: #f0f2f5; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  button.primary:hover { filter: brightness(1.05); background: var(--accent); }
-  button.rec { background: var(--rec); color: #fff; border-color: var(--rec); }
-  button.rec:hover { background: var(--rec); filter: brightness(1.05); }
-  .pill { font-size: 12px; color: var(--muted); }
-  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--rec); margin-right: 6px; vertical-align: middle; animation: blink 1s steps(2, start) infinite; }
-  @keyframes blink { to { visibility: hidden; } }
-  details.settings summary { cursor: pointer; font-size: 13px; color: var(--accent); list-style: none; }
-  details.settings summary::-webkit-details-marker { display: none; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .err { color: var(--rec); font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
-  .status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 18px; }
-  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 7px; vertical-align: -2px; }
+  textarea { resize: vertical; line-height: 1.5; }
+
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .row .field { flex: 1 1 220px; min-width: 0; }
+
+  .keymeta {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 12px; font-size: 12.5px; color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; font-size: 12.5px; color: var(--muted); }
+  .check input { width: 14px; height: 14px; accent-color: var(--accent); margin: 0; }
+
+  .ghost-btn {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border-strong); border-radius: 7px;
+    padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+    font-family: var(--sans);
+    transition: color .12s, border-color .12s;
+  }
+  .ghost-btn:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+  .ghost-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .ghost-btn.danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+
+  .model-tag {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 11.5px; color: var(--faint);
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .model-tag b { color: var(--accent); font-weight: 600; }
+
+  /* --- settings disclosure --- */
+  details.settings > summary {
+    cursor: pointer; list-style: none;
+    font-size: 12.5px; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  details.settings > summary::-webkit-details-marker { display: none; }
+  details.settings > summary:hover { color: var(--text); }
+  details.settings > summary::before {
+    content: "▸"; font-size: 10px; color: var(--faint);
+    transition: transform .12s ease;
+  }
+  details.settings[open] > summary::before { transform: rotate(90deg); }
+  .settings-body { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .settings-body .lbl { margin-top: 12px; }
+  .settings-body > .lbl:first-child { margin-top: 0; }
+  .hint { font-size: 11.5px; color: var(--faint); margin: 5px 0 0; }
+  .hint code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* --- de-id reminder --- */
+  .deid {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12.5px; color: var(--warn);
+    margin: -4px 2px 16px;
+  }
+  .deid .warndot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+
+  /* --- record --- */
+  .rec-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  button.record {
+    background: var(--rec); color: #fff; border: none; border-radius: 9px;
+    padding: 0 22px; height: 46px; min-width: 168px;
+    font-size: 15px; font-weight: 600; font-family: var(--sans);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
+    transition: filter .12s ease, transform .06s ease;
+  }
+  button.record:hover:not(:disabled) { filter: brightness(1.08); }
+  button.record:active:not(:disabled) { transform: translateY(1px); }
+  button.record:disabled { opacity: .5; cursor: not-allowed; }
+  button.record .icon { width: 11px; height: 11px; border-radius: 50%; background: #fff; flex: none; }
+  button.record.is-rec { background: var(--surface-2); color: var(--text); border: 1px solid var(--rec); }
+  button.record.is-rec .icon { border-radius: 2px; background: var(--rec); }
+
+  .timer {
+    font-family: var(--mono); font-size: 15px; color: var(--rec);
+    display: none; align-items: center; gap: 8px;
+  }
+  .timer.on { display: inline-flex; }
+  .timer .pulse {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--rec);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+  /* --- pipeline steps --- */
+  .steps {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-top: 14px; font-size: 12px; color: var(--faint);
+  }
+  .step { display: inline-flex; align-items: center; gap: 6px; }
+  .step + .step::before { content: "→"; color: var(--border-strong); margin-right: 4px; }
+  .step .bullet {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--border-strong); flex: none;
+  }
+  .step.is-active { color: var(--accent-strong); }
+  .step.is-active .bullet { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  .step.is-done { color: var(--muted); }
+  .step.is-done .bullet { background: var(--accent); animation: none; }
+  .step.is-err { color: var(--danger); }
+  .step.is-err .bullet { background: var(--danger); animation: none; }
+
+  .status { font-size: 12.5px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+
+  /* --- transcript disclosure --- */
+  details.disclose { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  details.disclose > summary {
+    cursor: pointer; list-style: none;
+    font-size: 12.5px; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  details.disclose > summary::-webkit-details-marker { display: none; }
+  details.disclose > summary:hover { color: var(--text); }
+  details.disclose > summary::before {
+    content: "▸"; font-size: 10px; color: var(--faint); transition: transform .12s ease;
+  }
+  details.disclose[open] > summary::before { transform: rotate(90deg); }
+  details.disclose .body { margin-top: 12px; }
+  .summary-meta { color: var(--faint); font-size: 11.5px; }
+
+  textarea.transcript {
+    min-height: 130px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    background: #161616;
+  }
+
+  /* --- template viewer --- */
+  pre.tpl {
+    margin: 0; padding: 12px 13px;
+    background: #161616; border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+    max-height: 340px; overflow-y: auto;
+  }
+  .tpl-label { font-size: 11.5px; color: var(--faint); margin: 14px 0 6px; }
+  .tpl-label:first-child { margin-top: 0; }
+
+  /* --- generate --- */
+  button.generate {
+    background: var(--accent); color: var(--accent-ink);
+    border: none; border-radius: 8px;
+    padding: 10px 20px; font-size: 14px; font-weight: 600; font-family: var(--sans);
+    cursor: pointer; height: 38px;
+    display: inline-flex; align-items: center; gap: 9px;
+    transition: background .12s ease, transform .06s ease;
+    white-space: nowrap;
+  }
+  button.generate:hover:not(:disabled) { background: var(--accent-strong); }
+  button.generate:active:not(:disabled) { transform: translateY(1px); }
+  button.generate:disabled { opacity: .5; cursor: not-allowed; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink);
+    border-radius: 50%; animation: spin .7s linear infinite; flex: none;
+  }
+  .spinner.on-dark {
+    border-color: color-mix(in srgb, var(--muted) 45%, transparent);
+    border-top-color: transparent;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .savedlist { margin: 6px 0 0; padding: 0; list-style: none; }
-  .savedlist li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
-  .savedlist a { color: var(--accent); cursor: pointer; text-decoration: none; word-break: break-all; }
-  .copied { color: var(--ok) !important; border-color: var(--ok) !important; }
-  .autosave-row { display: flex; align-items: center; gap: 7px; }
-  .autosave-row input[type=checkbox] { width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: var(--ok); }
-  .autosave-row label { font-size: 13px; color: var(--ink); margin: 0; cursor: pointer; user-select: none; }
+  @media (prefers-reduced-motion: reduce) { .spinner, .step .bullet, .timer .pulse { animation: none; } }
+
+  /* --- error --- */
+  .error {
+    display: none;
+    background: var(--danger-bg);
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--danger);
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; margin-bottom: 16px; white-space: pre-wrap;
+  }
+
+  /* --- note output --- */
+  .out-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
+  .out-head .eyebrow { margin: 0; }
+  .out-head .spacer { flex: 1 1 auto; }
+
+  .save-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-family: var(--mono);
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--faint);
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .save-pill .bullet { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); flex: none; }
+  .save-pill.is-saved { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .save-pill.is-saved .bullet { background: var(--accent); }
+  .save-pill.is-busy { color: var(--accent-strong); }
+  .save-pill.is-busy .bullet { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  .save-pill.is-dirty { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  .save-pill.is-dirty .bullet { background: var(--warn); }
+  .save-pill.is-err { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+  .save-pill.is-err .bullet { background: var(--danger); }
+
+  .output-wrap {
+    display: flex; align-items: stretch;
+    background: #161616; border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .line-nums {
+    padding: 11px 8px 11px 6px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    color: var(--faint); text-align: right; user-select: none;
+    white-space: pre; min-width: 36px;
+    border-right: 1px solid var(--border); background: #161616;
+    overflow: hidden; flex-shrink: 0;
+  }
+  textarea.output {
+    min-height: 330px;
+    padding: 11px 13px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    background: #161616; border: none; border-radius: 0;
+    flex: 1; resize: vertical;
+  }
+  textarea.output:focus { border: none; box-shadow: none; }
+  .output-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .out-foot {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 11px;
+  }
+  .out-foot .count { font-size: 11.5px; color: var(--faint); margin-left: auto; }
+  .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  .kbd-hint { font-size: 11px; color: var(--faint); margin-top: 10px; }
+  .kbd {
+    font-family: var(--mono); font-size: 10.5px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 20px 14px 56px; }
+    button.record { width: 100%; justify-content: center; }
+    .model-tag { margin-left: 0; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Dictation → Note</h1>
-  <p class="sub">Record &rarr; transcribe (OpenAI Whisper) &rarr; format into your chosen note (Claude) &rarr; copy or save to GitHub. De-identified dictation only — no names, NRIC, or other identifiers. <a href="index.html" style="color: var(--accent);">Go to Document Generator →</a></p>
 
-  <!-- SETTINGS -->
+  <header class="app">
+    <h1>Dictation → Note</h1>
+    <p class="sub">Record, and the note writes and saves itself: Whisper transcribes, the model formats it to your chosen template, and it syncs to GitHub. <a href="index.html">Go to Document Generator →</a></p>
+  </header>
+
+  <!-- CONNECTION + SETTINGS -->
   <div class="card">
+    <span class="eyebrow">Connection</span>
     <details class="settings" id="settingsBox">
-      <summary id="settingsSummary">⚙ Settings &amp; keys (set once per device)</summary>
-      <div style="margin-top:12px">
-        <label>Model provider — for formatting</label>
-        <select id="provider">
-          <option value="anthropic">Claude (Anthropic)</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="gemini">Gemini (Google)</option>
-        </select>
-        <div class="hint">Shared across every page (stored as <code>cdg_provider</code>). Whisper transcription always uses OpenAI regardless.</div>
-
-        <label>Anthropic (Claude) API key — for formatting</label>
-        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off">
-        <div class="hint">Shared with your index.html (stored as <code>cdg_api_key</code>). If you've used that page, it may already be filled.</div>
-
-        <label>DeepSeek API key — for formatting</label>
-        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off">
-        <div class="hint">Only used when the provider above is set to DeepSeek.</div>
-
-        <label>Gemini (Google AI Studio) API key — for formatting</label>
-        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off">
-        <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>).</div>
-
-        <label>OpenAI API key — for Whisper transcription</label>
-        <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off">
-
-        <label>GitHub token — to save notes (fine-grained, Contents: Read &amp; Write)</label>
-        <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off">
-
-        <div class="row" style="margin-top:6px">
-          <div class="grow"><label>GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2"></div>
-          <div class="grow"><label>Repo to save into</label><input type="text" id="ghRepo" placeholder="patient-data"></div>
-        </div>
+      <summary>Settings &amp; keys — set once per device</summary>
+      <div class="settings-body">
         <div class="row">
-          <div class="grow"><label>Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
-          <div class="grow"><label>Saved note file</label><input type="text" id="ghPath" placeholder="dictation-note.txt"></div>
+          <div class="field" style="flex:0 0 200px">
+            <label class="lbl" for="provider">Model provider — formatting</label>
+            <select id="provider">
+              <option value="anthropic">Claude (Anthropic)</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="gemini">Gemini (Google)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="lbl" for="openaiKey">OpenAI API key — Whisper transcription</label>
+            <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+          </div>
         </div>
-        <div class="hint">Your keys live only in this browser (localStorage). The saved note is written to the repo above as a single file that all your devices share. Note: in a <b>public</b> repo that saved note is publicly readable — point this at a private repo if you don't want that.</div>
-        <div class="row" style="margin-top:10px">
-          <button id="saveSettings" class="primary">Save settings</button>
-          <span class="pill" id="settingsSaved"></span>
+        <p class="hint">The provider is shared across every page (<code>cdg_provider</code>). Transcription always uses OpenAI Whisper regardless of the provider.</p>
+
+        <label class="lbl" for="claudeKey">Anthropic (Claude) API key</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+        <p class="hint">Shared with index.html (<code>cdg_api_key</code>) — it may already be filled.</p>
+
+        <label class="lbl" for="deepseekKey">DeepSeek API key</label>
+        <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+
+        <label class="lbl" for="geminiKey">Gemini (Google AI Studio) API key</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+        <p class="hint">Shared with the council on RES.html (<code>cdg_gemini_key</code>).</p>
+
+        <label class="lbl" for="ghToken">GitHub token — fine-grained, Contents: Read &amp; Write</label>
+        <input type="password" id="ghToken" placeholder="github_pat_..." autocomplete="off" spellcheck="false" />
+
+        <div class="row" style="margin-top:12px">
+          <div class="field"><label class="lbl" for="ghOwner">GitHub owner</label><input type="text" id="ghOwner" placeholder="szfg2" spellcheck="false" /></div>
+          <div class="field"><label class="lbl" for="ghRepo">Repo</label><input type="text" id="ghRepo" placeholder="patient-data" spellcheck="false" /></div>
         </div>
+        <div class="row" style="margin-top:12px">
+          <div class="field"><label class="lbl" for="ghBranch">Branch</label><input type="text" id="ghBranch" placeholder="main" spellcheck="false" /></div>
+          <div class="field"><label class="lbl" for="ghPath">Saved note file</label><input type="text" id="ghPath" placeholder="dictation-note.txt" spellcheck="false" /></div>
+        </div>
+        <p class="hint">Keys live only in this browser (localStorage). The note is written to the repo above as one file shared by all your devices — keep that repo private.</p>
+
+        <div class="keymeta">
+          <button class="generate" id="saveSettings" type="button" style="height:34px;padding:8px 16px;font-size:13px">Save settings</button>
+          <span class="hint" id="settingsSaved" style="margin:0"></span>
+        </div>
+      </div>
+    </details>
+    <div class="keymeta">
+      <span class="model-tag">format&nbsp;<b id="modelTag">—</b></span>
+      <span class="model-tag" style="margin-left:0">transcribe&nbsp;<b>whisper-1</b></span>
+    </div>
+  </div>
+
+  <p class="deid"><span class="warndot"></span><span>De-identified dictation only — no names, NRIC, MRN, address or date of birth.</span></p>
+
+  <!-- 1 · DICTATE -->
+  <div class="card">
+    <span class="eyebrow">1 · Dictate</span>
+    <div class="rec-row">
+      <button class="record" id="recBtn" type="button"><span class="icon"></span><span id="recLabel">Record</span></button>
+      <span class="timer" id="timer"><span class="pulse"></span><span id="timerText">00:00</span></span>
+      <div class="field" style="flex:1 1 220px;min-width:180px">
+        <label class="lbl" for="docType">Note type</label>
+        <select id="docType"><option value="">Loading note types…</option></select>
+      </div>
+    </div>
+
+    <div class="steps" id="steps">
+      <span class="step" data-step="rec"><span class="bullet"></span>Record</span>
+      <span class="step" data-step="txn"><span class="bullet"></span>Transcribe</span>
+      <span class="step" data-step="fmt"><span class="bullet"></span>Format</span>
+      <span class="step" data-step="save"><span class="bullet"></span>Save</span>
+    </div>
+    <div class="status" id="recMsg">Press Record, speak, press Stop — the note is written and saved automatically.</div>
+
+    <div class="keymeta" style="margin-top:4px">
+      <label class="check"><input type="checkbox" id="autogenToggle" checked /> Auto-write the note when recording stops</label>
+      <label class="check"><input type="checkbox" id="autosaveToggle" checked /> Autosave to GitHub</label>
+    </div>
+
+    <details class="disclose" id="transcriptBox">
+      <summary>Show transcription <span class="summary-meta" id="transcriptMeta"></span></summary>
+      <div class="body">
+        <textarea class="transcript" id="transcript" spellcheck="false" placeholder="The transcript appears here. Edit any mishears, then press Write note."></textarea>
+        <div class="keymeta">
+          <button class="generate" id="genBtn" type="button" style="height:34px;padding:8px 16px;font-size:13px">Write note</button>
+          <button class="ghost-btn" id="clearTranscript" type="button">Clear transcript</button>
+        </div>
+        <div class="kbd-hint">Press <span class="kbd">Ctrl/⌘ + Enter</span> to write the note from whatever is in this box.</div>
       </div>
     </details>
   </div>
 
-  <!-- RECORD + TYPE -->
+  <!-- 2 · TEMPLATE -->
   <div class="card">
-    <h2>1 · Record &amp; transcribe</h2>
-    <div class="row">
-      <button id="recBtn" class="rec">● Record</button>
-      <span class="pill" id="recStatus"></span>
-      <div class="grow"></div>
-      <div>
-        <select id="docType" style="min-width:200px"><option value="">Loading note types…</option></select>
+    <span class="eyebrow">2 · Template</span>
+    <details class="disclose" id="tplBox" style="margin-top:0;padding-top:0;border-top:none">
+      <summary>Show the prompt for <span class="summary-meta" id="tplName">—</span></summary>
+      <div class="body">
+        <div class="tpl-label" id="tplFileLabel">Template</div>
+        <pre class="tpl" id="tplText">Loading…</pre>
+        <div class="tpl-label">Shared rules — applied to every note type</div>
+        <pre class="tpl" id="baseText">Loading…</pre>
+        <p class="hint">Edit these in <code>dictation-prompts/</code> and commit; this page reads them live.</p>
       </div>
-    </div>
-    <label for="transcript">Transcript (editable — fix any mishears before generating)</label>
-    <textarea id="transcript" class="mono" rows="6" placeholder="Your transcribed dictation appears here. You can also type or paste directly."></textarea>
-    <div class="status" id="recMsg"></div>
+    </details>
   </div>
 
-  <!-- GENERATE -->
+  <!-- ERROR -->
+  <div class="error" id="error"></div>
+
+  <!-- 3 · NOTE -->
   <div class="card">
-    <h2>2 · Generate note</h2>
-    <div class="row">
-      <button id="genBtn" class="primary">Generate note</button>
-      <span class="pill">Note type set above</span>
+    <div class="out-head">
+      <span class="eyebrow">3 · Note</span>
+      <span class="spacer"></span>
+      <span class="save-pill" id="savePill"><span class="bullet"></span><span id="savePillText">Not saved</span></span>
+      <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
     </div>
-    <label for="output">Note (editable)</label>
-    <textarea id="output" class="mono" rows="14" placeholder="The formatted note appears here."></textarea>
-    <div class="row" style="margin-top:10px">
-      <button id="copyBtn">Copy</button>
-      <button id="saveBtn">Save to GitHub</button>
-      <button id="clearBtn">Clear all</button>
-      <div class="autosave-row">
-        <input type="checkbox" id="autosaveToggle" checked>
-        <label for="autosaveToggle">Autosave to GitHub</label>
-      </div>
-      <span class="status" id="genMsg" style="margin-top:0"></span>
+    <div class="output-wrap" id="outputWrap">
+      <div class="line-nums" id="lineNums" aria-hidden="true">1</div>
+      <textarea class="output" id="output" spellcheck="false" placeholder="The formatted note appears here. Edit it freely — Save writes whatever is in this box."></textarea>
     </div>
-    <div class="err" id="err"></div>
+    <div class="out-foot">
+      <button class="ghost-btn" id="saveBtn" type="button">Save to GitHub</button>
+      <button class="ghost-btn" id="loadSaved" type="button">Load latest</button>
+      <button class="ghost-btn danger" id="clearBtn" type="button">Clear all</button>
+      <span class="count" id="count"></span>
+    </div>
   </div>
 
-  <!-- SYNCED NOTE -->
-  <div class="card">
-    <h2>3 · Synced note</h2>
-    <p class="hint" style="margin-top:0">Save stores the note above as a single shared note. Open this page on any device and it loads automatically; saving again overwrites it.</p>
-    <div class="row">
-      <button id="loadSaved">Load latest</button>
-      <span class="pill" id="savedMsg"></span>
-    </div>
-  </div>
 </div>
 
-<script src="provider.js"></script>
 <script>
 /* ============================================================ *
- *  CONFIG                                                       *
+ *  CONFIG                                                      *
  * ============================================================ */
 const CONFIG = {
-  CLAUDE_MODEL: "claude-sonnet-5",   // formatting model (matches index.html)
-  CLAUDE_MAX_TOKENS: 4096,
-  WHISPER_MODEL: "whisper-1",          // OpenAI transcription model
+  MAX_TOKENS: 4096,
+  WHISPER_MODEL: "whisper-1",
   PROMPTS_INDEX: "dictation-prompts/index.json",
   PROMPTS_DIR: "dictation-prompts/",
   BASE_PROMPT: "dictation-prompts/base.txt"
@@ -188,62 +484,71 @@ const CONFIG = {
 
 /* localStorage keys */
 const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
-AI.fallbackKey = () => {
-  const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
-  return $(box).value.trim();
-};
-
 const K = {
-  claude: "cdg_api_key",        // shared with index.html
-  openai: "dictation_openai_key",
-  ghToken: "dictation_gh_token",
-  ghOwner: "dictation_gh_owner",
-  ghRepo: "dictation_gh_repo",
+  openai:   "dictation_openai_key",
+  ghToken:  "dictation_gh_token",
+  ghOwner:  "dictation_gh_owner",
+  ghRepo:   "dictation_gh_repo",
   ghBranch: "dictation_gh_branch",
-  ghPath: "dictation_gh_path",
-  autosave: "dictation_autosave"
+  ghPath:   "dictation_gh_path",
+  autosave: "dictation_autosave",
+  autogen:  "dictation_autogen",
+  docType:  "dictation_doctype"
 };
 
 const $ = (id) => document.getElementById(id);
 function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
 function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
+/* A key typed into Settings but not yet saved still works for the first call. */
+AI.fallbackKey = () => {
+  const box = { deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()] || "claudeKey";
+  return $(box).value.trim();
+};
+
 /* ============================================================ *
- *  Settings load / save                                        *
+ *  Settings                                                    *
  * ============================================================ */
 function loadSettings() {
   AI.fillSettings(SETTINGS_IDS);
   $("openaiKey").value = get(K.openai);
   $("ghToken").value   = get(K.ghToken);
   $("ghOwner").value   = get(K.ghOwner) || "szfg2";
-  if (get(K.ghRepo) === "notionwidget") set(K.ghRepo, "patient-data");   // data moved to private repo
-  $("ghRepo").value    = get(K.ghRepo)  || "patient-data";
+  if (get(K.ghRepo) === "notionwidget") set(K.ghRepo, "patient-data");   // data moved to a private repo
+  $("ghRepo").value    = get(K.ghRepo)   || "patient-data";
   $("ghBranch").value  = get(K.ghBranch) || "main";
-  $("ghPath").value    = get(K.ghPath)  || "dictation-note.txt";
-  // Autosave defaults to true unless explicitly set to "0"
-  $("autosaveToggle").checked = get(K.autosave) !== "0";
-  // Open settings automatically if the essential keys are missing.
-  if (!get(K.claude) || !get(K.openai)) $("settingsBox").open = true;
+  $("ghPath").value    = get(K.ghPath)   || "dictation-note.txt";
+  $("autosaveToggle").checked = get(K.autosave) !== "0";   // both default on
+  $("autogenToggle").checked  = get(K.autogen)  !== "0";
+  if (!AI.hasKey() || !get(K.openai)) $("settingsBox").open = true;
+  updateModelTag();
 }
-$("autosaveToggle").addEventListener("change", () => {
-  set(K.autosave, $("autosaveToggle").checked ? "1" : "0");
-});
+function updateModelTag() { $("modelTag").textContent = AI.model(); }
+
+$("provider").addEventListener("change", () => { AI.setProvider($("provider").value); updateModelTag(); });
+$("autosaveToggle").addEventListener("change", () => set(K.autosave, $("autosaveToggle").checked ? "1" : "0"));
+$("autogenToggle").addEventListener("change", () => set(K.autogen, $("autogenToggle").checked ? "1" : "0"));
+
 $("saveSettings").addEventListener("click", () => {
   AI.saveSettings(SETTINGS_IDS);
-  set(K.openai, $("openaiKey").value.trim());
-  set(K.ghToken, $("ghToken").value.trim());
-  set(K.ghOwner, $("ghOwner").value.trim());
-  set(K.ghRepo, $("ghRepo").value.trim());
-  set(K.ghBranch, ($("ghBranch").value.trim() || "main"));
-  set(K.ghPath, ($("ghPath").value.trim() || "dictation-note.txt"));
+  set(K.openai,   $("openaiKey").value.trim());
+  set(K.ghToken,  $("ghToken").value.trim());
+  set(K.ghOwner,  $("ghOwner").value.trim());
+  set(K.ghRepo,   $("ghRepo").value.trim());
+  set(K.ghBranch, $("ghBranch").value.trim() || "main");
+  set(K.ghPath,   $("ghPath").value.trim() || "dictation-note.txt");
+  updateModelTag();
   $("settingsSaved").textContent = "Saved ✓";
-  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1500);
+  setTimeout(() => { $("settingsSaved").textContent = ""; }, 1600);
 });
 
 /* ============================================================ *
- *  Note types (prompt menu)                                    *
+ *  Note types + template viewer                                *
  * ============================================================ */
 let promptIndex = [];
+const tplCache = {};
+let basePrompt = null;
+
 async function loadPromptIndex() {
   try {
     const res = await fetch(CONFIG.PROMPTS_INDEX, { cache: "no-store" });
@@ -251,23 +556,77 @@ async function loadPromptIndex() {
     promptIndex = await res.json();
     const sel = $("docType");
     sel.innerHTML = "";
-    promptIndex.forEach((p, i) => {
+    promptIndex.forEach(p => {
       const o = document.createElement("option");
       o.value = p.id; o.textContent = p.label;
       sel.appendChild(o);
     });
-    if (!promptIndex.length) sel.innerHTML = "<option value=''>No note types found</option>";
+    if (!promptIndex.length) { sel.innerHTML = "<option value=''>No note types found</option>"; return; }
+    const saved = get(K.docType);
+    if (saved && promptIndex.some(p => p.id === saved)) sel.value = saved;
+    onDocTypeChange();
   } catch (e) {
     $("docType").innerHTML = "<option value=''>Could not load note types</option>";
-    showErr("Could not load dictation-prompts/index.json — make sure the page is served over http(s), not opened as a local file. (" + e.message + ")");
+    showError("Could not load dictation-prompts/index.json — the page must be served over http(s), not opened as a local file. (" + e.message + ")");
   }
 }
 
+function currentEntry() { return promptIndex.find(p => p.id === $("docType").value) || null; }
+
+async function getBasePrompt() {
+  if (basePrompt != null) return basePrompt;
+  const res = await fetch(CONFIG.BASE_PROMPT, { cache: "no-store" });
+  if (!res.ok) throw new Error("Couldn't load the shared rules (base.txt)");
+  basePrompt = await res.text();
+  return basePrompt;
+}
+async function getTemplate(entry) {
+  if (tplCache[entry.id]) return tplCache[entry.id];
+  const res = await fetch(CONFIG.PROMPTS_DIR + entry.file, { cache: "no-store" });
+  if (!res.ok) throw new Error("Couldn't load template: " + entry.file);
+  tplCache[entry.id] = await res.text();
+  return tplCache[entry.id];
+}
+
+function onDocTypeChange() {
+  const entry = currentEntry();
+  if (entry) set(K.docType, entry.id);
+  $("tplName").textContent = entry ? entry.label : "—";
+  $("tplFileLabel").textContent = entry ? ("Template — dictation-prompts/" + entry.file) : "Template";
+  if ($("tplBox").open) renderTemplate();
+}
+$("docType").addEventListener("change", onDocTypeChange);
+$("tplBox").addEventListener("toggle", () => { if ($("tplBox").open) renderTemplate(); });
+
+async function renderTemplate() {
+  const entry = currentEntry();
+  if (!entry) { $("tplText").textContent = "Choose a note type first."; return; }
+  try {
+    $("tplText").textContent = await getTemplate(entry);
+  } catch (e) { $("tplText").textContent = "Couldn't load " + entry.file + " — " + (e.message || e); }
+  try {
+    $("baseText").textContent = await getBasePrompt();
+  } catch (e) { $("baseText").textContent = "Couldn't load base.txt — " + (e.message || e); }
+}
+
 /* ============================================================ *
- *  Recording (MediaRecorder) → Whisper                         *
+ *  Pipeline status                                             *
  * ============================================================ */
-let mediaRecorder = null, chunks = [], recTimer = null, recStart = 0;
-let recording = false;
+function stepEl(name) { return document.querySelector('.step[data-step="' + name + '"]'); }
+function setStep(name, state) {
+  const el = stepEl(name);
+  if (!el) return;
+  el.classList.remove("is-active", "is-done", "is-err");
+  if (state) el.classList.add("is-" + state);
+}
+function resetSteps() { ["rec", "txn", "fmt", "save"].forEach(n => setStep(n, null)); }
+function setMsg(m) { $("recMsg").textContent = m; }
+
+/* ============================================================ *
+ *  Recording → Whisper                                         *
+ * ============================================================ */
+let mediaRecorder = null, chunks = [], recTimer = null, recStart = 0, recSeconds = 0;
+let recording = false, busy = false;
 
 function pickMime() {
   const opts = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
@@ -277,16 +636,17 @@ function pickMime() {
 
 $("recBtn").addEventListener("click", async () => {
   if (recording) { stopRecording(); return; }
-  clearErr();
+  if (busy) return;
+  clearError();
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showErr("This browser can't access the microphone. Use Chrome or Edge, served over https.");
+    showError("This browser can't reach the microphone. Use Chrome or Edge, served over https.");
     return;
   }
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
-    showErr("Microphone permission denied or unavailable. (" + e.message + ")");
+    showError("Microphone permission denied or unavailable. (" + e.message + ")");
     return;
   }
   const mime = pickMime();
@@ -300,43 +660,74 @@ $("recBtn").addEventListener("click", async () => {
   mediaRecorder.onstop = async () => {
     stream.getTracks().forEach(t => t.stop());
     const type = (mediaRecorder.mimeType || mime || "audio/webm").split(";")[0];
-    const blob = new Blob(chunks, { type });
-    await transcribe(blob, type);
+    await runPipeline(new Blob(chunks, { type }), type);
   };
-  mediaRecorder.start();
+  // 5-second slices, so a crash mid-dictation doesn't lose everything held in memory
+  mediaRecorder.start(5000);
   recording = true;
   recStart = Date.now();
-  $("recBtn").textContent = "■ Stop";
+  resetSteps();
+  setStep("rec", "active");
+  setMsg("Recording — press Stop when you're done.");
+  $("recBtn").classList.add("is-rec");
+  $("recLabel").textContent = "Stop";
+  $("timer").classList.add("on");
   tickTimer();
   recTimer = setInterval(tickTimer, 1000);
 });
 
 function tickTimer() {
   const s = Math.floor((Date.now() - recStart) / 1000);
-  const mm = String(Math.floor(s / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
-  $("recStatus").innerHTML = '<span class="dot"></span>Recording ' + mm + ":" + ss;
+  $("timerText").textContent =
+    String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 }
 
 function stopRecording() {
+  recSeconds = Math.max(0, Math.round((Date.now() - recStart) / 1000));
   if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
   recording = false;
   clearInterval(recTimer);
-  $("recBtn").textContent = "● Record";
-  $("recStatus").textContent = "";
+  $("recBtn").classList.remove("is-rec");
+  $("recLabel").textContent = "Record";
+  $("timer").classList.remove("on");
+  setStep("rec", "done");
+}
+
+/* Record → transcribe → format → save, with the steps strip tracking it. */
+async function runPipeline(blob, type) {
+  busy = true;
+  $("recBtn").disabled = true;
+  try {
+    const text = await transcribe(blob, type);
+    if (text == null) return;
+    if (!$("autogenToggle").checked) { setMsg("Transcribed ✓ — open the transcription and press Write note."); return; }
+    const note = await generateNote();
+    if (note == null) return;
+    if ($("autosaveToggle").checked) await saveToGitHub(note, true);
+    else setMsg("Note written ✓ — press Save to GitHub when you're happy with it.");
+  } finally {
+    busy = false;
+    $("recBtn").disabled = false;
+  }
 }
 
 async function transcribe(blob, type) {
-  const key = get(K.openai);
-  if (!key) { showErr("Add your OpenAI API key in Settings to transcribe."); $("settingsBox").open = true; return; }
-  setRecMsg('<span class="spinner" style="border-color:#666;border-top-color:transparent"></span>Transcribing…');
+  const key = get(K.openai) || $("openaiKey").value.trim();
+  if (!key) {
+    setStep("txn", "err");
+    showError("Add your OpenAI API key in Settings to transcribe.");
+    $("settingsBox").open = true;
+    return null;
+  }
+  setStep("txn", "active");
+  setMsg("Transcribing…");
   const ext = type.indexOf("mp4") > -1 ? "mp4" : (type.indexOf("ogg") > -1 ? "ogg" : "webm");
   const fd = new FormData();
   fd.append("file", blob, "recording." + ext);
   fd.append("model", CONFIG.WHISPER_MODEL);
-  // Translations endpoint: auto-detects source language (English / Malay / Chinese)
-  // and always outputs English text. Also avoids accented English being mis-detected as Malay.
-  fd.append("prompt", "Clinical dictation."); // biases clinical vocabulary
+  // Translations endpoint: auto-detects the source language (English / Malay / Chinese)
+  // and always returns English. Also stops accented English being read as Malay.
+  fd.append("prompt", "Clinical dictation.");   // biases clinical vocabulary
   fd.append("response_format", "text");
   try {
     const res = await fetch("https://api.openai.com/v1/audio/translations", {
@@ -350,87 +741,89 @@ async function transcribe(blob, type) {
       try { msg = JSON.parse(body).error.message; } catch (e) {}
       throw new Error(msg);
     }
+    if (recSeconds) { try { AI.usage.audio(CONFIG.WHISPER_MODEL, recSeconds); } catch (e) {} }
     const t = body.trim();
     const cur = $("transcript").value.trim();
     $("transcript").value = cur ? (cur + "\n" + t) : t;
-    setRecMsg("Transcribed ✓ — review the text, then Generate.");
+    updateTranscriptMeta();
+    setStep("txn", "done");
+    return $("transcript").value.trim();
   } catch (e) {
-    setRecMsg("");
-    showErr("Transcription failed: " + (e.message || e));
+    setStep("txn", "err");
+    setMsg("");
+    showError("Transcription failed: " + (e.message || e));
+    return null;
   }
 }
 
-/* ============================================================ *
- *  Generate note (Claude)                                      *
- * ============================================================ */
-let basePrompt = null;
-async function getBasePrompt() {
-  if (basePrompt != null) return basePrompt;
-  const res = await fetch(CONFIG.BASE_PROMPT, { cache: "no-store" });
-  if (!res.ok) throw new Error("Couldn't load base prompt");
-  basePrompt = await res.text();
-  return basePrompt;
+function updateTranscriptMeta() {
+  const t = $("transcript").value.trim();
+  $("transcriptMeta").textContent = t ? ("· " + t.split(/\s+/).length + " words") : "";
 }
+$("transcript").addEventListener("input", updateTranscriptMeta);
+$("clearTranscript").addEventListener("click", () => { $("transcript").value = ""; updateTranscriptMeta(); });
 
-$("genBtn").addEventListener("click", async () => {
-  clearErr();
+/* ============================================================ *
+ *  Format the note                                             *
+ * ============================================================ */
+async function generateNote() {
+  clearError();
   const key = AI.key();
-  if (!key) { showErr(AI.missingKeyMsg()); $("settingsBox").open = true; return; }
+  if (!key) { setStep("fmt", "err"); showError(AI.missingKeyMsg()); $("settingsBox").open = true; return null; }
   const transcript = $("transcript").value.trim();
-  if (!transcript) { showErr("Nothing to format — record or type a transcript first."); return; }
-  const id = $("docType").value;
-  const entry = promptIndex.find(p => p.id === id);
-  if (!entry) { showErr("Choose a note type."); return; }
+  if (!transcript) { showError("Nothing to format — record or type a transcript first."); $("transcriptBox").open = true; return null; }
+  const entry = currentEntry();
+  if (!entry) { showError("Choose a note type."); return null; }
 
   const btn = $("genBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Generating…';
-  setGenMsg("");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Writing…';
+  setStep("fmt", "active");
+  setMsg("Writing the " + entry.label + "…");
   try {
-    const base = await getBasePrompt();
-    const tplRes = await fetch(CONFIG.PROMPTS_DIR + entry.file, { cache: "no-store" });
-    if (!tplRes.ok) throw new Error("Couldn't load template: " + entry.file);
-    const template = await tplRes.text();
-    const system = base + "\n\n" + template;
-    const userMsg = "Template: " + entry.label + "\n\nTranscript:\n" + transcript;
-
+    const system = (await getBasePrompt()) + "\n\n" + (await getTemplate(entry));
     const text = await AI.call({
       key,
       systems: [{ text: system, cache: true }],
-      messages: [{ role: "user", content: userMsg }],
-      maxTokens: CONFIG.CLAUDE_MAX_TOKENS
+      messages: [{ role: "user", content: "Template: " + entry.label + "\n\nTranscript:\n" + transcript }],
+      maxTokens: CONFIG.MAX_TOKENS
     });
-    const generated = text.trim() || "(No text returned.)";
-    $("output").value = generated;
-    if ($("autosaveToggle").checked) {
-      await saveToGitHub(generated);
-    } else {
-      setGenMsg("Done ✓");
-    }
+    const note = text.trim() || "(No text returned.)";
+    $("output").value = note;
+    refreshOutput();
+    setSaveState("dirty", "Not saved");
+    setStep("fmt", "done");
+    return note;
   } catch (e) {
-    showErr("Generation failed: " + (e.message || e));
+    setStep("fmt", "err");
+    setMsg("");
+    showError("Generation failed: " + (e.message || e));
+    return null;
   } finally {
-    btn.disabled = false; btn.textContent = "Generate note";
+    btn.disabled = false;
+    btn.textContent = "Write note";
   }
-});
-
-/* ============================================================ *
- *  Copy                                                        *
- * ============================================================ */
-$("copyBtn").addEventListener("click", async () => {
-  const t = $("output").value;
-  if (!t) return;
-  try { await navigator.clipboard.writeText(t); }
-  catch (e) { $("output").select(); document.execCommand("copy"); }
-  const b = $("copyBtn"); b.textContent = "Copied ✓"; b.classList.add("copied");
-  setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1400);
-});
-
-/* ============================================================ *
- *  Save to GitHub                                              *
- * ============================================================ */
-function b64utf8(str) {
-  return btoa(unescape(encodeURIComponent(str)));
 }
+$("genBtn").addEventListener("click", async () => {
+  const note = await generateNote();
+  if (note != null && $("autosaveToggle").checked) await saveToGitHub(note, true);
+});
+
+/* ============================================================ *
+ *  Save state indicator                                        *
+ * ============================================================ */
+function setSaveState(state, text) {
+  const pill = $("savePill");
+  pill.classList.remove("is-saved", "is-busy", "is-dirty", "is-err");
+  if (state) pill.classList.add("is-" + state);
+  $("savePillText").textContent = text;
+}
+function hhmm(d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+
+/* ============================================================ *
+ *  GitHub                                                      *
+ * ============================================================ */
+function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
 function ghCfg() {
   return {
     token: get(K.ghToken), owner: get(K.ghOwner) || "szfg2", repo: get(K.ghRepo) || "patient-data",
@@ -445,7 +838,7 @@ function ghHeaders(c) {
   if (c.token) h["Authorization"] = "Bearer " + c.token;
   return h;
 }
-// Fetch the single saved note's sha + decoded content (sha null if it doesn't exist yet).
+// The saved note's sha + decoded content (sha null if the file doesn't exist yet).
 async function getNoteMeta() {
   const c = ghCfg();
   const res = await fetch(ghContentsUrl(c) + "?ref=" + encodeURIComponent(c.branch), {
@@ -458,13 +851,19 @@ async function getNoteMeta() {
   return { sha: data.sha, content };
 }
 
-async function saveToGitHub(text) {
+async function saveToGitHub(text, auto) {
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
-    showErr("Set your GitHub token, owner and repo in Settings to save."); $("settingsBox").open = true; return false;
+    setStep("save", "err");
+    setSaveState("err", "No GitHub config");
+    showError("Set your GitHub token, owner and repo in Settings to save.");
+    $("settingsBox").open = true;
+    return false;
   }
   const btn = $("saveBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:#666;border-top-color:transparent"></span>Saving…';
+  btn.disabled = true;
+  setStep("save", "active");
+  setSaveState("busy", "Saving…");
   try {
     let sha = null;
     try { sha = (await getNoteMeta()).sha; } catch (e) {}
@@ -472,102 +871,149 @@ async function saveToGitHub(text) {
     if (sha) body.sha = sha;
     const res = await fetch(ghContentsUrl(c), {
       method: "PUT",
-      headers: Object.assign({ "Authorization": "Bearer " + c.token }, ghHeaders(c)),
+      headers: Object.assign({ "content-type": "application/json" }, ghHeaders(c)),
       body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
-    const t = new Date();
-    setGenMsg("Saved ✓ " + String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0") + " — will appear on your other devices.");
-    $("savedMsg").textContent = "Saved ✓";
+    setStep("save", "done");
+    setSaveState("saved", "Saved to GitHub · " + hhmm(new Date()));
+    setMsg(auto ? "Done ✓ — note written and saved; it's on your other devices now." : "Saved ✓");
     return true;
   } catch (e) {
-    showErr("Save failed: " + (e.message || e));
+    setStep("save", "err");
+    setSaveState("err", "Save failed");
+    showError("Save failed: " + (e.message || e));
     return false;
   } finally {
-    btn.disabled = false; btn.textContent = "Save to GitHub";
+    btn.disabled = false;
   }
 }
 
 $("saveBtn").addEventListener("click", async () => {
-  clearErr();
+  clearError();
   const text = $("output").value.trim();
-  if (!text) { showErr("Nothing to save — generate a note first."); return; }
-  await saveToGitHub(text);
+  if (!text) { showError("Nothing to save — write a note first."); return; }
+  await saveToGitHub(text, false);
+});
+
+/* Load latest — replaces whatever is in the Note box. */
+async function loadSaved(auto) {
+  const c = ghCfg();
+  if (!c.token || !c.owner || !c.repo) {
+    if (!auto) { setSaveState("err", "No GitHub config"); showError("Set your GitHub details in Settings first."); $("settingsBox").open = true; }
+    return;
+  }
+  setSaveState("busy", "Loading…");
+  try {
+    const meta = await getNoteMeta();
+    if (meta.content == null) { setSaveState(null, "No saved note yet"); return; }
+    $("output").value = meta.content;
+    refreshOutput();
+    setSaveState("saved", "Loaded from GitHub · " + hhmm(new Date()));
+  } catch (e) {
+    setSaveState("err", "Load failed");
+    if (!auto) showError("Couldn't load the saved note: " + (e.message || e));
+  }
+}
+$("loadSaved").addEventListener("click", () => { clearError(); loadSaved(false); });
+
+/* ============================================================ *
+ *  Copy                                                        *
+ * ============================================================ */
+$("copyBtn").addEventListener("click", async () => {
+  const t = $("output").value;
+  if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { $("output").select(); document.execCommand("copy"); }
+  const b = $("copyBtn");
+  b.textContent = "Copied ✓"; b.classList.add("copied");
+  setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1400);
 });
 
 /* ============================================================ *
- *  Clear all — empties transcript, generated note, synced file *
+ *  Clear all — transcript, note, and the synced file           *
  * ============================================================ */
 $("clearBtn").addEventListener("click", async () => {
-  clearErr();
-  if (!confirm("Clear the transcript, the generated note, and the saved note on GitHub? This can't be undone.")) return;
-  // Local boxes first.
+  clearError();
+  if (!confirm("Clear the transcript, the note, and the saved note on GitHub? This can't be undone.")) return;
   $("transcript").value = "";
   $("output").value = "";
-  setRecMsg("");
-  setGenMsg("");
+  updateTranscriptMeta();
+  refreshOutput();
+  resetSteps();
+  setMsg("Cleared ✓");
 
-  // Then empty the synced file on GitHub, if it's configured and exists.
   const c = ghCfg();
-  if (!c.token || !c.owner || !c.repo) { $("genMsg").textContent = "Cleared ✓ (no GitHub file configured)."; return; }
+  if (!c.token || !c.owner || !c.repo) { setSaveState(null, "Not saved"); return; }
   const btn = $("clearBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-color:#666;border-top-color:transparent"></span>Clearing…';
+  btn.disabled = true;
+  setSaveState("busy", "Clearing…");
   try {
     let sha = null;
     try { sha = (await getNoteMeta()).sha; } catch (e) {}   // current sha needed to overwrite
     if (sha) {
-      const body = { message: "Clear dictation note", content: "", branch: c.branch, sha };
       const res = await fetch(ghContentsUrl(c), {
         method: "PUT",
-        headers: Object.assign({ "Authorization": "Bearer " + c.token }, ghHeaders(c)),
-        body: JSON.stringify(body)
+        headers: Object.assign({ "content-type": "application/json" }, ghHeaders(c)),
+        body: JSON.stringify({ message: "Clear dictation note", content: "", branch: c.branch, sha })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
     }
-    $("savedMsg").textContent = "Cleared ✓";
-    setGenMsg("Cleared ✓ — saved note emptied on your other devices too.");
+    setSaveState(null, "Cleared");
+    setMsg("Cleared ✓ — the saved note is empty on your other devices too.");
   } catch (e) {
-    showErr("Clear failed (local boxes still cleared): " + (e.message || e));
+    setSaveState("err", "Clear failed");
+    showError("Clear failed (the boxes here are still cleared): " + (e.message || e));
   } finally {
-    btn.disabled = false; btn.textContent = "Clear all";
+    btn.disabled = false;
   }
 });
 
 /* ============================================================ *
- *  Load the single synced note                                 *
+ *  Output box housekeeping                                     *
  * ============================================================ */
-async function loadSaved(auto) {
-  const c = ghCfg();
-  if (!c.token || !c.owner || !c.repo) { if (!auto) $("savedMsg").textContent = "Set GitHub details in Settings."; return; }
-  $("savedMsg").textContent = "Loading…";
-  try {
-    const meta = await getNoteMeta();
-    if (meta.content == null) { $("savedMsg").textContent = "No saved note yet."; return; }
-    $("output").value = meta.content;
-    $("savedMsg").textContent = "Loaded ✓";
-  } catch (e) {
-    $("savedMsg").textContent = "";
-    if (!auto) showErr("Couldn't load saved note: " + (e.message || e));
-  }
+function updateLineNums() {
+  const lines = $("output").value.split("\n").length;
+  $("lineNums").textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
 }
-$("loadSaved").addEventListener("click", () => loadSaved(false));
+function updateCount() {
+  const t = $("output").value.trim();
+  $("count").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
+}
+function refreshOutput() { updateLineNums(); updateCount(); }
+$("output").addEventListener("scroll", () => { $("lineNums").scrollTop = $("output").scrollTop; });
+$("output").addEventListener("input", () => {
+  refreshOutput();
+  if ($("output").value.trim()) setSaveState("dirty", "Unsaved edits");
+});
 
 /* ============================================================ *
  *  Helpers                                                     *
  * ============================================================ */
-function showErr(m) { $("err").textContent = m; }
-function clearErr() { $("err").textContent = ""; }
-function setGenMsg(m) { $("genMsg").textContent = m; }
-function setRecMsg(html) { $("recMsg").innerHTML = html; }
+function showError(m) { $("error").textContent = m; $("error").style.display = "block"; }
+function clearError() { $("error").style.display = "none"; $("error").textContent = ""; }
+
+/* Ctrl/⌘+Enter writes the note; Esc stops a recording. */
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    $("genBtn").click();
+  } else if (e.key === "Escape" && recording) {
+    stopRecording();
+  }
+});
 
 /* ============================================================ *
  *  Init                                                        *
  * ============================================================ */
 loadSettings();
 loadPromptIndex();
-if (get(K.ghToken)) loadSaved(true);   // auto-load the shared note on open
+refreshOutput();
+updateTranscriptMeta();
+setSaveState(null, "Not saved");
+if (get(K.ghToken)) loadSaved(true);   // pull the shared note on open
 </script>
 </body>
 </html>

@@ -8,5 +8,10 @@
     "id": "clinic-consult",
     "label": "Clinic Consult Note",
     "file": "clinic-consult.txt"
+  },
+  {
+    "id": "faithful",
+    "label": "Faithful Transcription",
+    "file": "faithful.txt"
   }
 ]
