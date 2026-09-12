@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dictation → Note</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<!-- Installable app (Chrome → Install app / Add to Home screen) -->
+<link rel="manifest" href="dictation-manifest.webmanifest" />
+<meta name="theme-color" content="#191919" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="Dictation" />
+<link rel="apple-touch-icon" href="dictation-icon.svg" />
 <script src="provider.js"></script>
 <style>
   :root {
@@ -41,7 +49,9 @@
 
   .wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 64px; }
 
-  header.app { margin-bottom: 22px; }
+  header.app { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+  header.app .head-text { flex: 1 1 auto; min-width: 0; }
+  #installBtn { flex: none; }
   h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin: 0; }
   .sub a { color: var(--accent-strong); text-decoration: none; }
@@ -328,8 +338,11 @@
 <div class="wrap">
 
   <header class="app">
-    <h1>Dictation → Note</h1>
-    <p class="sub">Record, and the note writes and saves itself: Whisper transcribes, the model formats it to your chosen template, and it syncs to GitHub. <a href="index.html">Go to Document Generator →</a></p>
+    <div class="head-text">
+      <h1>Dictation → Note</h1>
+      <p class="sub">Record, and the note writes and saves itself: Whisper transcribes, the model formats it to your chosen template, and it syncs to GitHub. <a href="index.html">Go to Document Generator →</a></p>
+    </div>
+    <button class="ghost-btn" id="installBtn" type="button" hidden>Install app</button>
   </header>
 
   <!-- CONNECTION + SETTINGS -->
@@ -1004,6 +1017,34 @@ document.addEventListener("keydown", (e) => {
     stopRecording();
   }
 });
+
+/* ============================================================ *
+ *  Installable app (service worker + install button)           *
+ * ============================================================ */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    // A failed registration (file:// , no https, SW disabled) is not worth
+    // reporting — the page works exactly the same without it.
+    navigator.serviceWorker.register("dictation-sw.js").catch(() => {});
+  });
+}
+
+/* Chrome fires this instead of showing its own prompt once the app is
+ * installable; stash it and offer the button until it's used. */
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("installBtn").hidden = false;
+});
+$("installBtn").addEventListener("click", async () => {
+  if (!installPrompt) return;
+  $("installBtn").hidden = true;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch (e) {}
+  installPrompt = null;
+});
+window.addEventListener("appinstalled", () => { installPrompt = null; $("installBtn").hidden = true; });
 
 /* ============================================================ *
  *  Init                                                        *

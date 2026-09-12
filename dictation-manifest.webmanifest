@@ -1,0 +1,21 @@
+{
+  "name": "Dictation → Note",
+  "short_name": "Dictation",
+  "description": "Record a clinical dictation; it transcribes, formats to a template, and syncs to GitHub.",
+  "start_url": "./dictation.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#191919",
+  "theme_color": "#191919",
+  "lang": "en",
+  "categories": ["medical", "productivity"],
+  "icons": [
+    {
+      "src": "dictation-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
