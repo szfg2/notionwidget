@@ -740,7 +740,9 @@ async function transcribe(blob, type) {
   fd.append("model", CONFIG.WHISPER_MODEL);
   // Translations endpoint: auto-detects the source language (English / Malay / Chinese)
   // and always returns English. Also stops accented English being read as Malay.
-  fd.append("prompt", "Clinical dictation.");   // biases clinical vocabulary
+  // Biases Whisper's vocabulary; a note type can override it (index.json audioPrompt)
+  const entryNow = currentEntry();
+  fd.append("prompt", (entryNow && entryNow.audioPrompt) || "Clinical dictation.");
   fd.append("response_format", "text");
   try {
     const res = await fetch("https://api.openai.com/v1/audio/translations", {

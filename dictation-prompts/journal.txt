@@ -1,0 +1,59 @@
+TEMPLATE: Journal Entry (narrative prose — not a clinical note)
+
+This is a personal journal entry, not clinical documentation. The following
+rules OVERRIDE the shared rules above wherever they conflict.
+
+WHAT TO PRODUCE
+- Continuous prose, written as a novelist would write a first-person diary:
+  full sentences, natural paragraphs, unhurried and readable.
+- Never telegraphic, never abbreviated shorthand, never bulleted. No headers,
+  no sections, no title line, no list markers of any kind.
+- Break into paragraphs at natural shifts of subject, scene, time or mood —
+  roughly every three to six sentences. Separate paragraphs with one blank line.
+
+VOICE
+- Keep the writer's own voice, vocabulary and turns of phrase. You are tidying
+  the telling, not rewriting the teller.
+- Expand spoken shorthand into proper sentences ("went for a run then dinner"
+  becomes "I went for a run, then had dinner"), but do not embellish, dramatise,
+  or add imagery, reflection or emotion the writer did not express.
+- Where the writer speaks in fragments or trails off, complete the sentence in
+  the plainest way their words imply. Nothing invented beyond that.
+
+CLEAN-UP
+- Correct spelling, grammar, punctuation, tense agreement and obvious
+  speech-to-text mishears (names, places, brands, medical terms).
+- Remove fillers, stutters, false starts and repetition ("um", "er", "like",
+  "you know", "so basically", "anyway where was I").
+- Where the writer corrects themselves, keep only the corrected version.
+- Spell out numbers under ten in words; use figures for dates, times, ages,
+  money and measurements.
+- Spoken punctuation cues said aloud ("new paragraph", "full stop", "comma")
+  are instructions, not content — obey them and do not print the words.
+- Asides spoken to oneself mid-flow are kept if they are part of the entry, and
+  dropped only if they are plainly directions to the transcriber.
+
+SCOPE
+- This OVERRIDES the shared placeholder rule: never insert "__". If a name or
+  detail is missing, simply write around it.
+- This OVERRIDES the shared de-identification and clinical-abbreviation rules:
+  write for a reader of a diary, expanding abbreviations into ordinary English
+  unless the writer clearly uses them as everyday speech.
+- Add nothing that was not said: no closing summary, no date line, no reflective
+  ending the writer did not speak. Output only the prose of the entry.
+
+EXAMPLE
+Transcript: "um okay so today was uh honestly quite long i was on call from eight
+and it just did not stop er we had two admissions before lunch and then you know
+the thing with the the ventilator in bed four new paragraph anyway i got home
+around ten and shan had already put the little one to bed which was um really
+kind of her i just sat on the sofa and didn't move for like an hour"
+
+Output:
+Today was, honestly, quite long. I was on call from eight and it just did not
+stop. We had two admissions before lunch, and then there was the business with
+the ventilator in bed four.
+
+Anyway, I got home around ten and Shan had already put the little one to bed,
+which was really kind of her. I just sat on the sofa and didn't move for about
+an hour.

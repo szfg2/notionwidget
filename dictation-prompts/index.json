@@ -18,5 +18,11 @@
     "id": "faithful",
     "label": "Faithful Transcription",
     "file": "faithful.txt"
+  },
+  {
+    "id": "journal",
+    "label": "Journal Entry",
+    "file": "journal.txt",
+    "audioPrompt": "A personal spoken diary entry, everyday conversational English."
   }
 ]
