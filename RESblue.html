@@ -1181,7 +1181,7 @@
  *  CONFIG                                                        *
  * ============================================================== */
 const CONFIG = {
-  MODEL: "claude-sonnet-4-6",
+  MODEL: "claude-sonnet-5",
   LETTER_MAX_TOKENS: 8192,
   SUMMARY_MAX_TOKENS: 2048,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
@@ -1193,17 +1193,17 @@ const CONFIG = {
   ASK_MODEL: "claude-opus-5",
   ASK_MAX_TOKENS: 8192,
   // History-taking questions use Sonnet — quick, cheap, called only on demand.
-  HISTORY_MODEL: "claude-sonnet-4-6",
+  HISTORY_MODEL: "claude-sonnet-5",
   HISTORY_MAX_TOKENS: 1024,
   // History-taking mode — the documented history rewritten as bedside clerking
   // lines, drafted on demand and then edited by hand at the bedside.
   HX_LINES_PROMPT: "prompts/respiratory-history-lines.txt",
-  HX_LINES_MODEL: "claude-sonnet-4-6",
+  HX_LINES_MODEL: "claude-sonnet-5",
   HX_LINES_MAX_TOKENS: 1536,
   // Bedside dictation — Whisper transcribes, then Claude folds the transcript
   // into the history box. Same endpoint/model as dictation.html.
   WHISPER_MODEL: "whisper-1",
-  HX_MERGE_MODEL: "claude-sonnet-4-6",
+  HX_MERGE_MODEL: "claude-sonnet-5",
   HX_MERGE_MAX_TOKENS: 2048,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",

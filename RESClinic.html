@@ -927,7 +927,7 @@
  *  CONFIG                                                        *
  * ============================================================== */
 const CONFIG = {
-  MODEL: "claude-sonnet-4-6",
+  MODEL: "claude-sonnet-5",
   // The clinic note itself is the one piece of writing worth the stronger model —
   // it reasons over the previous plan to work out what needs tracing on the day.
   // Opus 5 thinks by default and thinking shares this budget with the answer, so
@@ -936,7 +936,7 @@ const CONFIG = {
   NOTE_MAX_TOKENS: 8192,
   SUMMARY_MAX_TOKENS: 2048,
   // To-dos are a short mechanical rewrite of the note's plan — Sonnet is plenty.
-  TODOS_MODEL: "claude-sonnet-4-6",
+  TODOS_MODEL: "claude-sonnet-5",
   TODOS_MAX_TOKENS: 1024,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
   // case" box in index.html, because clinical reasoning benefits from it.
@@ -950,7 +950,7 @@ const CONFIG = {
   // Consult dictation — Whisper transcribes the recorded consult, then Claude
   // rewrites only the "Currently" section of the stored note from it.
   WHISPER_MODEL: "whisper-1",
-  DICTATE_MODEL: "claude-sonnet-4-6",
+  DICTATE_MODEL: "claude-sonnet-5",
   DICTATE_MAX_TOKENS: 8192,
   // How often an expanded note row checks GitHub for a version saved elsewhere,
   // so a consult dictated on the phone appears on the desktop by itself.

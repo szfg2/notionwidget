@@ -19,7 +19,7 @@
       label: "Claude",
       longLabel: "Claude (Anthropic)",
       url: "https://api.anthropic.com/v1/messages",
-      models: { default: "claude-sonnet-4-6", ask: "claude-opus-5" },
+      models: { default: "claude-sonnet-5", ask: "claude-opus-5" },
       keyPlaceholder: "sk-ant-...",
       keyHint: "Claude (Anthropic) API key"
     },
@@ -67,6 +67,7 @@
    * are added, so a wrong total is never invented. */
   const PRICES = {
     "claude-opus-5":     { in: 5, out: 25, cacheWrite: 6.25, cacheRead: 0.50 },
+    "claude-sonnet-5":   { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.20 },
     "claude-sonnet-4-6": { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 },
     // Whisper is billed per minute of audio, not per token.
     "whisper-1":         { perMinute: 0.006 }
@@ -337,7 +338,9 @@
           }),
           messages: opts.messages || []
         };
-        if (opts.temperature != null) body.temperature = opts.temperature;
+        /* Sonnet 5 and Opus 5 dropped the sampling knobs — a request carrying
+         * temperature/top_p/top_k is rejected, so opts.temperature is
+         * deliberately ignored on this provider. */
       }
 
       const res = await fetch(url, {

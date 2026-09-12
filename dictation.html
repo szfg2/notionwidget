@@ -178,7 +178,7 @@
  *  CONFIG                                                       *
  * ============================================================ */
 const CONFIG = {
-  CLAUDE_MODEL: "claude-sonnet-4-6",   // formatting model (matches index.html)
+  CLAUDE_MODEL: "claude-sonnet-5",   // formatting model (matches index.html)
   CLAUDE_MAX_TOKENS: 4096,
   WHISPER_MODEL: "whisper-1",          // OpenAI transcription model
   PROMPTS_INDEX: "dictation-prompts/index.json",
@@ -397,8 +397,7 @@ $("genBtn").addEventListener("click", async () => {
       key,
       systems: [{ text: system, cache: true }],
       messages: [{ role: "user", content: userMsg }],
-      maxTokens: CONFIG.CLAUDE_MAX_TOKENS,
-      temperature: 0
+      maxTokens: CONFIG.CLAUDE_MAX_TOKENS
     });
     const generated = text.trim() || "(No text returned.)";
     $("output").value = generated;
