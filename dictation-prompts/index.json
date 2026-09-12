@@ -10,6 +10,11 @@
     "file": "clinic-consult.txt"
   },
   {
+    "id": "ctsp",
+    "label": "CTSP Note",
+    "file": "ctsp.txt"
+  },
+  {
     "id": "faithful",
     "label": "Faithful Transcription",
     "file": "faithful.txt"

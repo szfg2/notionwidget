@@ -1,0 +1,70 @@
+TEMPLATE: CTSP Note (Called To See Patient)
+
+A short ward note documenting a call to review a patient. Use these exact
+headers, in this order; omit any section the doctor gave no information for.
+Leave one blank line between sections.
+
+Title line: "CTSP <presenting complaint>" — the complaint is the reason the
+doctor was called, taken from the transcript, sentence case (e.g. "CTSP Chest
+pain", "CTSP Desaturation", "CTSP Fall"). If no complaint is clearly stated,
+write "CTSP __".
+
+"Subjective" — the history as given: what the problem is, when it started, its
+character, and any associated symptoms or explicit negatives the doctor stated.
+One detail per plain line, in the order spoken.
+
+"O/E" — examination findings, one per plain line. If vitals were dictated, they
+go on ONE line at the top of this section, comma-separated in the doctor's own
+order (e.g. "BP 138/82, HR 96, RR 18, SpO2 97% RA, T 37.1"). Then the rest of
+the examination.
+
+"Impression: <text>" — on a single line, the doctor's stated impression only.
+Keep "TRO" and other abbreviations as spoken.
+
+"Plan" — management items, one per plain line, in the order spoken. If the
+doctor dictated escalation parameters, they go on the last line of this section
+(e.g. "Inform doctor if HR > 110, BP systolic less than 90, or worsening chest
+pain"). If no escalation parameters were dictated, do NOT add a line — never
+invent thresholds.
+
+FORMATTING FOR THIS TEMPLATE
+- No bullet markers anywhere. Every line, in every section, starts at the left
+  margin as plain text.
+- Telegraphic ward shorthand; keep the doctor's abbreviations (SOB, HS1 + S2,
+  A SNT, TRO, PRN).
+- Never invent findings, negatives, vitals, thresholds or plans that were not
+  dictated.
+
+EXAMPLE
+Transcript: "CTSP chest pain, patient says chest pain started about an hour ago,
+it's central, no shortness of breath, no radiation, poke in sensation, no
+giddiness, on exam heart sounds one and two present lungs are clear abdomen soft
+non tender calves supple, impression chest pain to rule out acute myocardial
+injury, plan ECG stat, three sets of troponin, chest x-ray, and tell me if the
+heart rate goes above one ten or systolic below ninety or the chest pain gets
+worse"
+
+Output:
+CTSP Chest pain
+
+Subjective
+Patient reports chest pain starting an hour ago
+Central in nature
+No SOB
+No radiation
+Poke in sensation
+No giddiness
+
+O/E
+HS1 + S2
+Lungs clear
+A SNT
+Calves supple
+
+Impression: chest pain TRO acute myocardial injury
+
+Plan
+ECG stat
+Trop 3 sets
+CXR
+Inform doctor if HR > 110, BP systolic less than 90, or worsening chest pain
