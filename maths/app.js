@@ -542,6 +542,18 @@
     }
   }
 
+  function resumeSpeechEngine() {
+    if (!("speechSynthesis" in window)) return;
+    var synthesis = window.speechSynthesis;
+    try { synthesis.resume(); } catch (error) {}
+    refreshPreferredVoice();
+    if (!synthesis.speaking && !synthesis.pending) {
+      clearSpeechTimers();
+      activeUtterance = null;
+      listenButton.classList.remove("speaking");
+    }
+  }
+
   function startSpeech(text, requestId, canRetry, reportProblem) {
     if (requestId !== speechRequestId || !settings.sound) return;
     var synthesis = window.speechSynthesis;
@@ -552,7 +564,8 @@
       utterance.rate = .76;
       utterance.pitch = 1.06;
       utterance.volume = 1;
-      if (preferredVoice || refreshPreferredVoice()) utterance.voice = preferredVoice;
+      var voice = refreshPreferredVoice();
+      if (voice) utterance.voice = voice;
       utterance.onstart = function () {
         if (requestId !== speechRequestId) return;
         started = true;
@@ -560,10 +573,11 @@
         listenButton.classList.add("speaking");
       };
       utterance.onend = function () { finishSpeech(requestId); };
-      utterance.onerror = function () {
+      utterance.onerror = function (event) {
         if (requestId !== speechRequestId) return;
         finishSpeech(requestId);
-        if (reportProblem) setStatus("Voice paused. Tap the speaker to try again.", false);
+        var benign = event && (event.error === "interrupted" || event.error === "canceled");
+        if (reportProblem && !benign) setStatus("Voice stopped. Tap the speaker to try again.", false);
       };
       synthesis.resume();
       synthesis.speak(utterance);
@@ -669,12 +683,12 @@
     if (starCount >= 5) starCount = 0;
     newQuestion();
   });
-  document.addEventListener("visibilitychange", function () { if (document.hidden) stopSpeaking(); });
-  window.addEventListener("pageshow", function () {
-    if (!("speechSynthesis" in window)) return;
-    try { window.speechSynthesis.resume(); } catch (error) {}
-    refreshPreferredVoice();
+  document.addEventListener("visibilitychange", function () {
+    // Never cancel() on hide - cancelling as we background wedges the speech queue.
+    if (document.hidden) clearSpeechTimers();
+    else resumeSpeechEngine();
   });
+  window.addEventListener("pageshow", resumeSpeechEngine);
 
   if ("speechSynthesis" in window) {
     refreshPreferredVoice();

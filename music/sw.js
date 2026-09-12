@@ -1,4 +1,4 @@
-const CACHE_NAME = "sing-and-play-shell-v1";
+const CACHE_NAME = "sing-and-play-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
