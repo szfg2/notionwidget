@@ -1217,15 +1217,25 @@ async function captureScreen() {
   }
   let stream;
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: "window" },
-      audio: false,
-      selfBrowserSurface: "exclude"
-    });
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "window" },
+        audio: false,
+        selfBrowserSurface: "exclude"
+      });
+    } catch (e) {
+      // Some browsers reject the picker hints rather than ignoring them — retry bare.
+      if (e.name !== "NotSupportedError" && e.name !== "TypeError" && e.name !== "OverconstrainedError") throw e;
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    }
   } catch (e) {
-    setFillMsg(e.name === "NotAllowedError"
-      ? "Screen capture was cancelled, or is blocked on this device."
-      : "Screen capture unavailable: " + (e.message || e.name), true);
+    const why = {
+      NotAllowedError: "Screen capture was cancelled, or is blocked on this device.",
+      NotSupportedError: "This browser won't capture the screen here (" + (e.message || e.name) + "). Common causes: a phone/tablet browser, an embedded or virtualised browser, or the page opened inside another app.",
+      NotFoundError: "No screen or window was available to capture."
+    };
+    setFillMsg(why[e.name] || "Screen capture unavailable: " + (e.message || e.name), true);
+    console.warn("getDisplayMedia failed:", e);
     return;
   }
   try {
