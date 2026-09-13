@@ -86,6 +86,17 @@
   .shot img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
   .shot button { position: absolute; top: 3px; right: 3px; padding: 0 6px; font-size: 12px; line-height: 18px; border-radius: 4px; background: rgba(0,0,0,.7); }
   .dropping { border-color: var(--accent) !important; }
+  [hidden] { display: none !important; }
+
+  /* Screen capture → crop overlay */
+  .cap-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .cap-box { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .cap-head strong { display: block; font-size: 14px; }
+  .cap-warn { display: block; color: var(--warn); font-size: 12.5px; margin-top: 2px; }
+  .cap-stage { position: relative; align-self: center; line-height: 0; cursor: crosshair; touch-action: none; user-select: none; }
+  .cap-stage img { display: block; max-width: 100%; max-height: calc(100vh - 180px); }
+  .cap-sel { position: absolute; border: 2px solid var(--accent-strong); background: rgba(95,184,160,.12); box-shadow: 0 0 0 9999px rgba(0,0,0,.5); pointer-events: none; }
+  .cap-box .btnrow { margin-top: 0; }
 
   /* Poor test grade banner above the interpretation */
   .grade-warn { margin: 0 0 10px; padding: 8px 11px; border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); font-size: 13px; font-weight: 600; background: rgba(224,135,106,.08); }
@@ -193,7 +204,7 @@
 
     <div class="card" id="paste_card">
       <span class="eyebrow">Paste report or screenshot (auto-fill with Claude)</span>
-      <p class="hint" style="margin-top:0">Paste the raw PFT report text, or paste (Ctrl+V) / drop a screenshot of it; the model extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends the text/image to the selected provider's API. <strong style="color:var(--warn)">Crop out the patient header (name, NRIC, DOB) before attaching a screenshot.</strong></p>
+      <p class="hint" style="margin-top:0">Paste the raw PFT report text, paste (Ctrl+V) / drop a screenshot, or use Capture screen to grab and crop the report window; the model extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends the text/image to the selected provider's API. <strong style="color:var(--warn)">Crop out the patient header (name, NRIC, DOB) before attaching a screenshot.</strong></p>
       <div class="field" style="margin:10px 0 10px">
         <label class="lbl" for="provider">Model provider</label>
         <select id="provider">
@@ -217,6 +228,7 @@
       <div class="shots" id="shots" hidden></div>
       <div class="btnrow">
         <button id="fillBtn" class="primary">Auto-fill from report</button>
+        <button id="capBtn" title="Grab a window or screen, then crop to the results table">Capture screen</button>
         <button id="shotBtn">Add screenshot</button>
         <input type="file" id="shot_file" accept="image/*" multiple hidden>
         <span class="pill" id="fill_msg"></span>
@@ -511,6 +523,24 @@
         </figcaption>
       </figure>
 
+    </div>
+  </div>
+</div>
+
+<div class="cap-modal" id="cap_modal" hidden>
+  <div class="cap-box" role="dialog" aria-modal="true" aria-labelledby="cap_title">
+    <div class="cap-head">
+      <strong id="cap_title">Drag a box around the results table only</strong>
+      <span class="cap-warn">Leave out the patient header (name, NRIC, DOB). On a work device, use this only if IT policy permits capturing EMR screens.</span>
+    </div>
+    <div class="cap-stage" id="cap_stage">
+      <img id="cap_img" alt="Captured screen" draggable="false">
+      <div class="cap-sel" id="cap_sel" hidden></div>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="cap_use" disabled>Use selection</button>
+      <button id="cap_retake">Recapture</button>
+      <button id="cap_cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -1057,6 +1087,10 @@ async function addShot(file) {
     url = await reencode(url, 2400, 0.92);
     if (url.length > SHOT_MAX_B64) url = await reencode(url, 1800, 0.85);
   }
+  pushShot(url);
+}
+
+function pushShot(url) {
   const m = /^data:([^;]+);base64,(.*)$/.exec(url);
   if (!m) return;
   shots.push({ type: m[1], data: m[2], url: url });
@@ -1124,6 +1158,127 @@ $("paste_card").addEventListener("drop", (e) => {
   e.preventDefault();
   addShots(Array.from(e.dataTransfer.files || []));
 });
+
+/* Capture screen — the browser's screen-share picker grabs one frame of the
+   chosen window, which is then cropped here before it joins the screenshots.
+   Nothing is saved to disk; the stream stops as soon as the frame is taken. */
+let capCanvas = null, capSel = null, capStart = null;
+
+if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) $("capBtn").hidden = true;
+
+async function captureScreen() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: "window" },
+      audio: false,
+      selfBrowserSurface: "exclude"
+    });
+  } catch (e) {
+    setFillMsg(e.name === "NotAllowedError"
+      ? "Screen capture was cancelled, or is blocked on this device."
+      : "Screen capture unavailable: " + (e.message || e.name), true);
+    return;
+  }
+  try {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await video.play();
+    await new Promise(r => video.requestVideoFrameCallback ? video.requestVideoFrameCallback(() => r()) : setTimeout(r, 300));
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext("2d").drawImage(video, 0, 0);
+    capCanvas = c;
+  } catch (e) {
+    setFillMsg("Could not grab the screen: " + (e.message || e), true);
+    return;
+  } finally {
+    stream.getTracks().forEach(t => t.stop());
+  }
+  openCrop();
+}
+
+function openCrop() {
+  $("cap_img").src = capCanvas.toDataURL("image/png");
+  $("cap_sel").hidden = true;
+  capSel = null;
+  $("cap_use").disabled = true;
+  $("cap_modal").hidden = false;
+  window.focus();
+}
+
+function closeCrop() {
+  $("cap_modal").hidden = true;
+  $("cap_img").removeAttribute("src");
+  capCanvas = null;
+  capSel = null;
+  capStart = null;
+}
+
+// Pointer position within the displayed image, clamped to its edges.
+function capPoint(e) {
+  const r = $("cap_img").getBoundingClientRect();
+  return {
+    x: Math.min(Math.max(e.clientX - r.left, 0), r.width),
+    y: Math.min(Math.max(e.clientY - r.top, 0), r.height),
+    w: r.width, h: r.height
+  };
+}
+
+// Draw the box and store it as fractions of the image, so it maps onto the full-resolution frame.
+function drawSel(a, b) {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+  const w = Math.abs(a.x - b.x), h = Math.abs(a.y - b.y);
+  const sel = $("cap_sel");
+  sel.style.left = x + "px";
+  sel.style.top = y + "px";
+  sel.style.width = w + "px";
+  sel.style.height = h + "px";
+  sel.hidden = false;
+  capSel = w > 8 && h > 8 ? { x: x / a.w, y: y / a.h, w: w / a.w, h: h / a.h } : null;
+  $("cap_use").disabled = !capSel;
+}
+
+$("cap_stage").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  $("cap_stage").setPointerCapture(e.pointerId);
+  capStart = capPoint(e);
+  drawSel(capStart, capStart);
+});
+$("cap_stage").addEventListener("pointermove", (e) => { if (capStart) drawSel(capStart, capPoint(e)); });
+["pointerup", "pointercancel"].forEach(t => $("cap_stage").addEventListener(t, (e) => {
+  if (!capStart) return;
+  drawSel(capStart, capPoint(e));
+  capStart = null;
+}));
+
+$("cap_use").addEventListener("click", async () => {
+  if (!capCanvas || !capSel) return;
+  const W = capCanvas.width, H = capCanvas.height;
+  const sx = Math.round(capSel.x * W), sy = Math.round(capSel.y * H);
+  const sw = Math.max(1, Math.round(capSel.w * W)), sh = Math.max(1, Math.round(capSel.h * H));
+  const out = document.createElement("canvas");
+  out.width = sw;
+  out.height = sh;
+  out.getContext("2d").drawImage(capCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  let url = out.toDataURL("image/png");
+  try {
+    if (url.length > SHOT_MAX_B64) url = await reencode(url, 2400, 0.92);
+  } catch (e) {
+    setFillMsg(e.message || String(e), true);
+    return;
+  }
+  pushShot(url);
+  closeCrop();
+  setFillMsg(shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached.", false);
+});
+$("cap_retake").addEventListener("click", () => { closeCrop(); captureScreen(); });
+$("cap_cancel").addEventListener("click", closeCrop);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("cap_modal").hidden) closeCrop(); });
+$("capBtn").addEventListener("click", captureScreen);
 
 /* Clear tick beside "Raw report text" — empties the paste box only, leaving the
    extracted values alone. It is an action rather than a state, so it unticks
