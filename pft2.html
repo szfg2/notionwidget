@@ -684,18 +684,20 @@ function build() {
   const bfcp = fvc, bfco = fvcPost, bfcpr = num("bdr_fvc_pred");
   let bdrChanges = [], bdrDetail = [];
   if (bf1p != null && bf1o != null && bf1pr != null && bf1pr > 0) {
-    const pct = Math.abs(bf1o - bf1p) / bf1pr * 100;
+    const pct = (bf1o - bf1p) / bf1pr * 100;
     bdrChanges.push(pct);
-    bdrDetail.push("FEV1 " + v(bf1p) + " → " + v(bf1o) + " L, a change of " + v(Math.round((bf1o - bf1p) * 1000) / 1000) + " L = " + pct.toFixed(1) + "% of the predicted " + v(bf1pr) + " L");
+    bdrDetail.push("FEV1 " + v(bf1p) + " → " + v(bf1o) + " L, a change of " + v(Math.round((bf1o - bf1p) * 1000) / 1000) + " L = " + (pct > 0 ? "+" : "") + pct.toFixed(1) + "% of the predicted " + v(bf1pr) + " L");
   }
   if (bfcp != null && bfco != null && bfcpr != null && bfcpr > 0) {
-    const pct = Math.abs(bfco - bfcp) / bfcpr * 100;
+    const pct = (bfco - bfcp) / bfcpr * 100;
     bdrChanges.push(pct);
-    bdrDetail.push("FVC " + v(bfcp) + " → " + v(bfco) + " L, a change of " + v(Math.round((bfco - bfcp) * 1000) / 1000) + " L = " + pct.toFixed(1) + "% of the predicted " + v(bfcpr) + " L");
+    bdrDetail.push("FVC " + v(bfcp) + " → " + v(bfco) + " L, a change of " + v(Math.round((bfco - bfcp) * 1000) / 1000) + " L = " + (pct > 0 ? "+" : "") + pct.toFixed(1) + "% of the predicted " + v(bfcpr) + " L");
   }
   if (bdrChanges.length) {
+    // Only a rise counts — a post-BD fall (usually submaximal post-BD effort) is not a response.
     const maxChange = Math.max.apply(null, bdrChanges);
-    const bdrWhy = bdrDetail.join("; ") + ". ERS/ATS 2022 expresses the response as a percentage of predicted and calls it significant when FEV1 or FVC changes by more than 10%; the larger change here is " + maxChange.toFixed(1) + "%";
+    const fell = bdrChanges.some(c => c < 0) ? " A fall after bronchodilator is not a response and is ignored — it usually reflects submaximal effort on the post-bronchodilator manoeuvre." : "";
+    const bdrWhy = bdrDetail.join("; ") + ". ERS/ATS 2022 expresses the response as a percentage of predicted and calls it significant when FEV1 or FVC increases by more than 10%." + fell + " " + (maxChange > 0 ? "The larger increase here is " + maxChange.toFixed(1) + "%" : "Neither value increased");
     if (maxChange > 10) {
       add("There is significant bronchodilator response to 400mcg of inhaled salbutamol.", bdrWhy + " → significant.");
     } else {
@@ -743,6 +745,13 @@ function build() {
       ? "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%"
       : (rvHigh ? "RV " + v(rv) + " is above its ULN of " + v(rvUln) : "");
 
+    // Low TLC with a normal FVC is not restriction — reported simply as reduced
+    // volumes, alongside any airway finding below.
+    if (tlcLow && !restricted) {
+      add("Lung volumes are reduced.",
+          "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", but FVC " + v(fvc) + " L is at or above its LLN of " + v(fvcLln) + " L. A normal FVC excludes restriction, so the low TLC is reported as reduced lung volumes rather than a restrictive defect.");
+    }
+
     if (tlcHigh && rvtlcHigh) {
       const hyperWhy = "TLC " + v(tlc) + " is above its ULN of " + v(tlcUln) + " → hyperinflation, and RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%. ";
       if (ratioLow && trappingSignal) {
@@ -775,13 +784,10 @@ function build() {
     } else if (ratioLow && trappingSignal) {
       add("There is air-trapping.",
           "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% (obstruction) and " + trapWhy + ", while TLC " + v(tlc) + " is not raised — gas is trapped behind narrowed airways without frank hyperinflation.");
-    } else if (tlcLow) {
-      add("TLC is below the lower limit of normal, but as FVC is normal there is no restrictive ventilatory impairment.",
-          "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", but FVC " + v(fvc) + " L is at or above its LLN of " + v(fvcLln) + " L. A normal FVC excludes restriction, so the low TLC is not reported as a restrictive defect.");
     } else if (rvtlcHigh) {
       add("There is an isolated elevation of RV/TLC ratio, which may suggest air-trapping. Please correlate clinically.",
           "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%, but TLC " + v(tlc) + " is not raised and FEV1/FVC is not below its LLN, so there is no hyperinflation or obstruction to anchor it. An isolated rise can reflect early small airways disease, expiratory muscle weakness, or an incomplete ERV manoeuvre overestimating RV — hence “may suggest” and the request for clinical correlation.");
-    } else {
+    } else if (!tlcLow) {
       add("Lung volumes are within normal limits.",
           "TLC " + v(tlc) + " sits between its LLN of " + v(tlcLln) + (tlcUln != null ? " and its ULN of " + v(tlcUln) : "") + (rvHigh ? ". RV " + v(rv) + " is above its ULN of " + v(rvUln) + " but RV/TLC is not raised, so trapping is not reported." : ", with no raised RV or RV/TLC to suggest trapping."));
     }
