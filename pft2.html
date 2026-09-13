@@ -356,8 +356,10 @@
     <div id="bp_mch_fields" style="display:none">
       <div class="grid g2" style="margin-top:10px">
         <div class="field"><label class="lbl">Max FEV1 drop (%)</label><input type="number" step="any" id="mch_drop"></div>
-        <div class="field"><label class="lbl">PD20 (if reached)</label><input type="number" step="any" id="mch_pd20"></div>
+        <div class="field"><label class="lbl">PC20 (mg/mL, if reached)</label><input type="number" step="any" id="mch_pc20"></div>
+        <div class="field"><label class="lbl">PD20 (µg, if reached)</label><input type="number" step="any" id="mch_pd20"></div>
       </div>
+      <p class="hint">Enter whichever the report gives — PC20 (concentration, mg/mL) or PD20 (cumulative dose, µg). They use different bands; PC20 is used if both are entered.</p>
       <div class="checkrow">
         <input type="checkbox" id="mch_diluent">
         <label for="mch_diluent">FEV1 dropped &gt; 20% after diluent (methacholine not given)</label>
@@ -788,13 +790,28 @@ function build() {
   /* ---- 6 · BRONCHOPROVOCATION ---- */
   const bp = $("bp_type").value;
   if (bp === "mch") {
-    const drop = num("mch_drop"), pd20 = num("mch_pd20"), diluent = $("mch_diluent").checked;
+    const drop = num("mch_drop"), pc20 = num("mch_pc20"), pd20 = num("mch_pd20"), diluent = $("mch_diluent").checked;
     if (diluent) {
       add("There was a significant decrease in lung function following inhalation of the diluent and methacholine was not given.",
           "You flagged a >20% FEV1 fall after the diluent alone. The challenge was stopped before any methacholine was administered, so there is no dose to grade — the fall cannot be attributed to methacholine.");
-    } else if (drop != null && drop < 20 && pd20 == null) {
+    } else if (drop != null && drop < 20 && pc20 == null && pd20 == null) {
       add("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.",
-          "The maximum FEV1 fall was " + v(drop) + "%, short of the 20% required to define a PD20, and no PD20 was reached.");
+          "The maximum FEV1 fall was " + v(drop) + "%, short of the 20% required to define a PC20/PD20, and neither was reached.");
+    } else if (pc20 != null) {
+      // PC20 (provocative concentration, mg/mL) — lab categorisation of AHR.
+      let sev;
+      if (pc20 < 0.25) sev = "marked";
+      else if (pc20 < 1) sev = "moderate";
+      else if (pc20 < 4) sev = "mild";
+      else if (pc20 <= 16) sev = "borderline";
+      const bands = "PC20 bands (mg/mL): <0.25 marked, 0.25–<1 moderate, 1–<4 mild, 4–16 borderline, >16 normal.";
+      if (sev) {
+        add("Methacholine Challenge Test shows " + sev + " airway hyperresponsiveness.",
+            "FEV1 fell 20% at a PC20 of " + v(pc20) + " mg/mL — the lower the provoking concentration, the more reactive the airway. " + bands);
+      } else {
+        add("Methacholine Challenge Test shows no evidence of airway hyperresponsiveness.",
+            "The PC20 of " + v(pc20) + " mg/mL is above 16, i.e. the 20% fall needed a concentration beyond the hyperresponsive range. " + bands);
+      }
     } else if (pd20 != null) {
       let sev;
       if (pd20 <= 6) sev = "marked";
@@ -1153,7 +1170,10 @@ Numeric fields (return a number, or omit the key if absent):
 - Diffusion — use the UNCORRECTED-for-Hb DLCO to grade severity; only fall back to the Hb-corrected/adjusted value if the report gives no uncorrected DLCO: dlco_act, dlco_lln, dlco_z
 - Lung volumes TLC: tlc_act, tlc_lln, tlc_uln, tlc_z
 - Lung volumes RV/RV-TLC: rv_act, rv_uln, rvtlc_act (%), rvtlc_uln (%)
-- Methacholine: mch_drop (max FEV1 drop %), mch_pd20 (PD20 if reached)
+- Methacholine: mch_drop (max FEV1 drop %), and the provocative value if reached — as a plain number, never converted between units:
+    mch_pc20: PROVOCATIVE CONCENTRATION in mg/mL — printed as "PC20", "PC = ", "PC(-20)" or any value in mg/mL
+    mch_pd20: PROVOCATIVE DOSE in µg — printed as "PD20", "PD = " with a µg / mcg dose
+    Put the number in the field that matches how it is labelled on the report. Ignore any categorisation/banding table printed on the report — the app grades the value itself.
 - Hypertonic saline: sal_drop (max FEV1 drop %), sal_vol (saline volume at drop, mL)
 - Exercise: ex_drop (max FEV1 drop %)
 - Respiratory muscle: mip_act, mip_lln, mep_act, mep_lln, mvv_act, mvv_lln
