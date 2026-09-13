@@ -66,7 +66,7 @@
   .clearbox input:disabled { cursor: default; opacity: .45; }
   .clearbox input:disabled + label { color: var(--border-strong); cursor: default; }
 
-  input[type="number"], input[type="text"], select {
+  input[type="number"], input[type="text"], input[type="password"], select {
     width: 100%; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--border-strong); border-radius: 8px;
     padding: 8px 10px; font-family: var(--sans); font-size: 14px; outline: none;
@@ -122,7 +122,7 @@
   /* the two output cards carry the accent frame; the paste box stays neutral */
   .ws-right .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.28); }
   .workspace .card > .btnrow { flex: 0 0 auto; }
-  #paste_in, textarea#out { flex: 1 1 auto; min-height: 90px; }
+  #paste_in, #out { flex: 1 1 auto; min-height: 90px; }
   #why_list { flex: 1 1 auto; min-height: 60px; overflow-y: auto; padding-right: 6px; }
 
   @media (min-width: 900px) {
@@ -140,11 +140,24 @@
   }
   /* Narrow: one column, natural heights, scroll the page instead. */
   @media (max-width: 899px) {
-    #paste_in, textarea#out { min-height: 130px; }
+    #paste_in, #out { min-height: 130px; }
     #why_list { max-height: 46vh; }
   }
 
-  textarea#out, textarea#paste_in {
+  /* Interpretation: one row per report line, each with its own copy button */
+  #out {
+    background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 4px 11px; overflow-y: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
+  }
+  .out-line { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
+  .out-line:first-child { border-top: none; }
+  .out-line p { margin: 0; flex: 1 1 auto; min-width: 0; white-space: pre-wrap; }
+  .out-line button { flex: 0 0 auto; padding: 1px 9px; font-size: 12px; font-family: var(--sans); color: var(--muted); }
+  .out-line button:hover { color: var(--text); }
+  .out-line button.copied { color: var(--accent); }
+  .out-empty { margin: 7px 0; color: var(--faint); font-family: var(--sans); font-size: 13px; }
+
+  textarea#paste_in {
     width: 100%; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--border-strong); border-radius: 8px; padding: 11px;
     font-family: var(--mono); font-size: 13.5px; line-height: 1.6; resize: vertical;
@@ -240,9 +253,9 @@
       <div class="card">
         <span class="eyebrow">Interpretation</span>
         <p class="grade-warn" id="grade_warn" hidden></p>
-        <textarea id="out" readonly></textarea>
+        <div id="out" aria-live="polite"></div>
         <div class="btnrow">
-          <button id="copyBtn" class="primary">Copy</button>
+          <button id="copyBtn" class="primary">Copy all</button>
           <button id="clearBtn">Clear all</button>
           <span class="pill" id="msg"></span>
         </div>
@@ -635,27 +648,39 @@ function build() {
   const trappingSignal = rvtlcHigh || rvHigh;
 
   /* ---- 1 · SPIROMETRY ---- */
+  // With a post-bronchodilator study on the report, these sentences are labelled as pre-bronchodilator.
+  const fev1Post = num("fev1_post"), fev1PostZ = num("fev1_post_z");
+  const fvcPost = num("fvc_post"), ratioPost = num("ratio_post");
+  const hasPost = fev1Post != null || fvcPost != null || ratioPost != null;
+  const spiro = hasPost ? "Pre-bronchodilator spirometry" : "Spirometry";
+  // Normal pre and post (all three post indices present and at/above LLN) → one combined line.
+  const postNormal = haveSpiro && fev1Post != null && fvcPost != null && ratioPost != null &&
+    fev1Post >= fev1Lln && fvcPost >= fvcLln && ratioPost >= ratioLln;
+  const bothNormal = haveSpiro && !ratioLow && !fev1Low && !fvcLow && postNormal;
   if (haveSpiro) {
     if (ratioLow) {
       // FEV1/FVC < LLN → obstruction. Severity graded only on the FEV1 z-score.
       const sev = grade(fev1Z) || "mild";
-      add("Spirometry shows " + sev + " airflow obstruction.",
+      add(spiro + " shows " + sev + " airflow obstruction.",
           "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% — the defining criterion for airflow obstruction. " + zWhy(fev1Z, sev, "FEV1"));
     } else if (fev1Low || fvcLow) {
       // Ratio normal but FEV1/FVC reduced.
       if (!haveLV) {
         if (fvcLow) {
-          add("Spirometry suggests a possible underlying restrictive ventilatory impairment. Please evaluate further with DLCO and lung volumes.",
+          add(spiro + " suggests a possible underlying restrictive ventilatory impairment. Please evaluate further with DLCO and lung volumes.",
               "FEV1/FVC " + v(ratio) + "% is at or above its LLN of " + v(ratioLln) + "% so there is no obstruction, but FVC " + v(fvc) + " L is below its LLN of " + v(fvcLln) + " L. A low FVC with a preserved ratio raises restriction, but spirometry cannot confirm it — no TLC was entered.");
         } else {
-          add("Preserved ratio impaired spirometry (PRISm). Please evaluate further with DLCO and lung volumes.",
+          add((hasPost ? "Pre-bronchodilator spirometry shows preserved ratio impaired spirometry (PRISm)." : "Preserved ratio impaired spirometry (PRISm).") + " Please evaluate further with DLCO and lung volumes.",
               "FEV1 " + v(fev1) + " L is below its LLN of " + v(fev1Lln) + " L while FVC " + v(fvc) + " L and the FEV1/FVC ratio " + v(ratio) + "% are both normal — that combination is PRISm by definition. No TLC was entered, so early restriction and a non-specific pattern cannot yet be separated.");
         }
       }
       // If lung volumes ARE provided, the pattern is resolved in the Lung volumes section below.
+    } else if (bothNormal) {
+      add("Pre and post bronchodilator spirometry is normal.",
+          "Pre-BD: FEV1 " + v(fev1) + ", FVC " + v(fvc) + " L, FEV1/FVC " + v(ratio) + "%. Post-BD: FEV1 " + v(fev1Post) + ", FVC " + v(fvcPost) + " L, FEV1/FVC " + v(ratioPost) + "%. All are at or above their LLNs (FEV1 " + v(fev1Lln) + " L, FVC " + v(fvcLln) + " L, FEV1/FVC " + v(ratioLln) + "%), so both studies are reported as one line.");
     } else {
       // Spirometry WNL. FVC is normal here, so a low TLC is not restriction.
-      add("Spirometry is within normal limits.",
+      add(spiro + " is within normal limits.",
           "All three indices are at or above their LLNs: FEV1 " + v(fev1) + " vs " + v(fev1Lln) + " L, FVC " + v(fvc) + " vs " + v(fvcLln) + " L, FEV1/FVC " + v(ratio) + " vs " + v(ratioLln) + "%.");
     }
   }
@@ -663,8 +688,6 @@ function build() {
   /* ---- 1b · PRE vs POST BRONCHODILATOR ---- */
   // Obstruction is re-read on the post-BD ratio against the same LLN, and
   // severity at both time points is graded only on the FEV1 z-score.
-  const fev1Post = num("fev1_post"), fev1PostZ = num("fev1_post_z");
-  const fvcPost = num("fvc_post"), ratioPost = num("ratio_post");
   if (haveSpiro && ratioPost != null) {
     const postLow = ratioPost < ratioLln;
     const preSev = grade(fev1Z) || null, postSev = grade(fev1PostZ) || null;
@@ -690,7 +713,7 @@ function build() {
     } else if (postLow) {
       add("Post-bronchodilator spirometry shows " + (postSev ? postSev + " " : "") + "airflow obstruction, which was not present pre-bronchodilator.",
           ratios + "Only the post-BD ratio is below the LLN. " + zs + " New post-BD obstruction is uncommon — it usually reflects a larger rise in FVC than FEV1 (a volume response) or variable effort.");
-    } else {
+    } else if (!bothNormal) {
       add("There is no airflow obstruction on post-bronchodilator spirometry.",
           ratios + "Neither ratio is below the LLN.");
     }
@@ -975,14 +998,28 @@ function render() {
   const items = build();
   lastItems = items;
   const out = $("out");
+  out.textContent = "";
   if (!items.length) {
-    out.value = "";
-    out.classList.add("placeholder");
-    out.setAttribute("placeholder", "Paste a report on the left, or fill in the values below — the interpretation appears here.");
-  } else {
-    out.classList.remove("placeholder");
-    out.value = items.map(it => it.text).join("\n");
+    const p = document.createElement("p");
+    p.className = "out-empty";
+    p.textContent = "Paste a report on the left, or fill in the values below — the interpretation appears here.";
+    out.appendChild(p);
   }
+  items.forEach(it => {
+    const row = document.createElement("div");
+    row.className = "out-line";
+    const p = document.createElement("p");
+    p.textContent = it.text;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Copy";
+    b.title = "Copy this line";
+    b.addEventListener("click", () => copyText(it.text, b, "Copy"));
+    row.appendChild(p);
+    row.appendChild(b);
+    out.appendChild(row);
+  });
+  $("copyBtn").disabled = !items.length;
   renderWhy(items);
   const poor = poorGrade();
   $("grade_warn").hidden = !poor;
@@ -1003,14 +1040,22 @@ document.querySelectorAll("input, select").forEach(el => {
   el.addEventListener("change", render);
 });
 
-// Copy
-$("copyBtn").addEventListener("click", async () => {
-  const t = $("out").value;
-  if (!t) return;
-  try { await navigator.clipboard.writeText(t); }
-  catch (e) { $("out").select(); document.execCommand("copy"); }
-  const b = $("copyBtn"); b.textContent = "Copied ✓"; b.classList.add("copied");
-  setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1400);
+// Copy text to the clipboard and flash the button that asked for it.
+async function copyText(text, btn, label) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }
+  btn.textContent = "Copied ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = label; btn.classList.remove("copied"); }, 1400);
+}
+
+// Copy all lines
+$("copyBtn").addEventListener("click", () => {
+  if (!lastItems.length) return;
+  copyText(lastItems.map(it => it.text).join("\n"), $("copyBtn"), "Copy all");
 });
 
 // Copy the explanation as numbered line + reasoning pairs
