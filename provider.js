@@ -299,9 +299,14 @@
         if (level) generationConfig.thinkingConfig = { thinkingLevel: level };
         body = {
           // Gemini calls the assistant "model" and takes a parts array per turn.
+          // Anthropic-style content arrays are translated so images carry over.
           contents: (opts.messages || []).map(m => ({
             role: m.role === "assistant" ? "model" : "user",
-            parts: [{ text: m.content }]
+            parts: Array.isArray(m.content)
+              ? m.content.map(b => b.type === "image"
+                  ? { inlineData: { mimeType: b.source.media_type, data: b.source.data } }
+                  : { text: b.text })
+              : [{ text: m.content }]
           })),
           generationConfig
         };

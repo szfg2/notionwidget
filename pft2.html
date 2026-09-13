@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PFT Interpreter</title>
+<title>PFT Interpreter v2</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <style>
   :root {
@@ -77,7 +77,18 @@
   .g3 { grid-template-columns: repeat(3, 1fr); }
   .g4 { grid-template-columns: repeat(4, 1fr); }
   .g2 { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 560px) { .g3, .g4 { grid-template-columns: repeat(2, 1fr); } }
+  .g5 { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 560px) { .g3, .g4, .g5 { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Screenshots attached for extraction */
+  .shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .shot { position: relative; width: 88px; height: 66px; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .shot button { position: absolute; top: 3px; right: 3px; padding: 0 6px; font-size: 12px; line-height: 18px; border-radius: 4px; background: rgba(0,0,0,.7); }
+  .dropping { border-color: var(--accent) !important; }
+
+  /* Poor test grade banner above the interpretation */
+  .grade-warn { margin: 0 0 10px; padding: 8px 11px; border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); font-size: 13px; font-weight: 600; background: rgba(224,135,106,.08); }
 
   .field { min-width: 0; }
   .field.span2 { grid-column: span 2; }
@@ -173,16 +184,16 @@
 <body>
 <div class="wrap">
   <header class="app">
-    <h1>PFT Interpreter</h1>
-    <p class="sub">Paste the raw report on the left to auto-fill, or scroll down and enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score). Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live — that logic runs entirely in your browser. <a href="index.html">Document Generator →</a> · <a href="dictation.html">Dictation →</a></p>
+    <h1>PFT Interpreter v2</h1>
+    <p class="sub">Paste the raw report or a screenshot on the left to auto-fill, or scroll down and enter values off the GLI-2012 printout (Actual / LLN / ULN / Z-score). Interpretation follows the SGH/SKH Pulmonary Reporting Guide and updates live — that logic runs entirely in your browser. <a href="pft.html">Previous version →</a> · <a href="RES.html">Respiratory tools →</a></p>
   </header>
 
   <!-- WORKSPACE · raw report left, interpretation over explanation right -->
   <div class="workspace">
 
-    <div class="card">
-      <span class="eyebrow">Paste report (auto-fill with Claude)</span>
-      <p class="hint" style="margin-top:0">Paste the raw PFT report text; Claude extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends text to the selected provider's API — the fields and interpretation stay in your browser.</p>
+    <div class="card" id="paste_card">
+      <span class="eyebrow">Paste report or screenshot (auto-fill with Claude)</span>
+      <p class="hint" style="margin-top:0">Paste the raw PFT report text, or paste (Ctrl+V) / drop a screenshot of it; the model extracts the values into the fields below, then the interpretation is generated locally by the same reporting logic. Only this step sends the text/image to the selected provider's API. <strong style="color:var(--warn)">Crop out the patient header (name, NRIC, DOB) before attaching a screenshot.</strong></p>
       <div class="field" style="margin:10px 0 10px">
         <label class="lbl" for="provider">Model provider</label>
         <select id="provider">
@@ -202,9 +213,12 @@
           <label for="paste_clear">Clear</label>
         </span>
       </div>
-      <textarea id="paste_in" placeholder="Paste the full PFT report here…"></textarea>
+      <textarea id="paste_in" placeholder="Paste the full PFT report text here, or paste / drop a screenshot…"></textarea>
+      <div class="shots" id="shots" hidden></div>
       <div class="btnrow">
         <button id="fillBtn" class="primary">Auto-fill from report</button>
+        <button id="shotBtn">Add screenshot</button>
+        <input type="file" id="shot_file" accept="image/*" multiple hidden>
         <span class="pill" id="fill_msg"></span>
       </div>
     </div>
@@ -212,6 +226,7 @@
     <div class="ws-right">
       <div class="card">
         <span class="eyebrow">Interpretation</span>
+        <p class="grade-warn" id="grade_warn" hidden></p>
         <textarea id="out" readonly></textarea>
         <div class="btnrow">
           <button id="copyBtn" class="primary">Copy</button>
@@ -238,23 +253,28 @@
     <div class="grid g2">
       <div class="field"><label class="lbl">Grade (FEV1 / FVC quality letters)</label><input type="text" id="test_grade" placeholder="e.g. AA, BC, FF, UU"></div>
     </div>
+    <p class="hint" style="margin-top:0">Pre-bronchodilator values (or the only set, if no bronchodilator study). Post-bronchodilator values are optional — LLN is the same pre and post.</p>
     <div class="paramhead">FEV1</div>
-    <div class="grid g3">
-      <div class="field"><label class="lbl">Actual (L)</label><input type="number" step="any" id="fev1_act"></div>
+    <div class="grid g5">
+      <div class="field"><label class="lbl">Pre (L)</label><input type="number" step="any" id="fev1_act"></div>
       <div class="field"><label class="lbl">LLN (L)</label><input type="number" step="any" id="fev1_lln"></div>
-      <div class="field"><label class="lbl">Z-score</label><input type="number" step="any" id="fev1_z"></div>
+      <div class="field"><label class="lbl">Pre Z</label><input type="number" step="any" id="fev1_z"></div>
+      <div class="field"><label class="lbl">Post (L)</label><input type="number" step="any" id="fev1_post"></div>
+      <div class="field"><label class="lbl">Post Z</label><input type="number" step="any" id="fev1_post_z"></div>
     </div>
     <div class="paramhead">FVC</div>
-    <div class="grid g3">
-      <div class="field"><label class="lbl">Actual (L)</label><input type="number" step="any" id="fvc_act"></div>
+    <div class="grid g5">
+      <div class="field"><label class="lbl">Pre (L)</label><input type="number" step="any" id="fvc_act"></div>
       <div class="field"><label class="lbl">LLN (L)</label><input type="number" step="any" id="fvc_lln"></div>
-      <div class="field"><label class="lbl">Z-score</label><input type="number" step="any" id="fvc_z"></div>
+      <div class="field"><label class="lbl">Pre Z</label><input type="number" step="any" id="fvc_z"></div>
+      <div class="field"><label class="lbl">Post (L)</label><input type="number" step="any" id="fvc_post"></div>
     </div>
     <div class="paramhead">FEV1/FVC</div>
-    <div class="grid g3">
-      <div class="field"><label class="lbl">Actual (%)</label><input type="number" step="any" id="ratio_act"></div>
+    <div class="grid g5">
+      <div class="field"><label class="lbl">Pre (%)</label><input type="number" step="any" id="ratio_act"></div>
       <div class="field"><label class="lbl">LLN (%)</label><input type="number" step="any" id="ratio_lln"></div>
-      <div class="field"><label class="lbl">Z-score</label><input type="number" step="any" id="ratio_z"></div>
+      <div class="field"><label class="lbl">Pre Z</label><input type="number" step="any" id="ratio_z"></div>
+      <div class="field"><label class="lbl">Post (%)</label><input type="number" step="any" id="ratio_post"></div>
     </div>
     <div class="paramhead">Supine FVC (optional — diaphragm)</div>
     <div class="grid g2">
@@ -266,18 +286,10 @@
   <!-- 2 · BRONCHODILATOR -->
   <div class="card">
     <span class="eyebrow">2 · Bronchodilator response</span>
-    <p class="hint" style="margin-top:0">ERS/ATS 2022: change expressed as % of predicted. Significant if FEV1 or FVC change &gt; 10%.</p>
-    <div class="paramhead">FEV1</div>
-    <div class="grid g3">
-      <div class="field"><label class="lbl">Pre (L)</label><input type="number" step="any" id="bdr_fev1_pre"></div>
-      <div class="field"><label class="lbl">Post (L)</label><input type="number" step="any" id="bdr_fev1_post"></div>
-      <div class="field"><label class="lbl">Predicted (L)</label><input type="number" step="any" id="bdr_fev1_pred"></div>
-    </div>
-    <div class="paramhead">FVC</div>
-    <div class="grid g3">
-      <div class="field"><label class="lbl">Pre (L)</label><input type="number" step="any" id="bdr_fvc_pre"></div>
-      <div class="field"><label class="lbl">Post (L)</label><input type="number" step="any" id="bdr_fvc_post"></div>
-      <div class="field"><label class="lbl">Predicted (L)</label><input type="number" step="any" id="bdr_fvc_pred"></div>
+    <p class="hint" style="margin-top:0">ERS/ATS 2022: change expressed as % of predicted. Significant if FEV1 or FVC change &gt; 10%. Pre and post values come from section 1.</p>
+    <div class="grid g2">
+      <div class="field"><label class="lbl">FEV1 predicted (L)</label><input type="number" step="any" id="bdr_fev1_pred"></div>
+      <div class="field"><label class="lbl">FVC predicted (L)</label><input type="number" step="any" id="bdr_fvc_pred"></div>
     </div>
   </div>
 
@@ -529,6 +541,14 @@ function v(n) {
 }
 
 const Z_BANDS = "z-score bands: mild ≥ −2.5, moderate −2.51 to −4, severe < −4";
+const SEV_RANK = { mild: 1, moderate: 2, severe: 3 };
+
+// Poor grade = any E, F or U letter. Returns { label, letters } or null.
+function poorGrade() {
+  const label = $("test_grade").value.replace(/grade\s*:?/i, "").trim();
+  const letters = label.toUpperCase().replace(/[^A-FU]/g, "");
+  return /[EFU]/.test(letters) ? { label: label, letters: letters } : null;
+}
 
 // Severity clause for a z-graded finding, spelling out the fallback when no z was entered.
 function zWhy(z, sev, what) {
@@ -542,17 +562,19 @@ function build() {
   const add = (text, why) => lines.push({ text: text, why: why });
 
   /* ---- 0 · TEST QUALITY ---- */
-  // Grade is read off the report as the FEV1/FVC quality letters (e.g. "AA", "FF").
-  // An F or U grade means the session never met ATS/ERS acceptability/repeatability,
-  // so the caveat leads the report and everything below is read against it.
-  const gradeRaw = $("test_grade").value.trim();
-  const gradeKey = gradeRaw.toUpperCase().replace(/[^A-Z]/g, "");
-  if (gradeKey === "FF" || gradeKey === "F" || gradeKey === "UU" || gradeKey === "U") {
-    const gradeWhy = gradeKey.charAt(0) === "F"
-      ? "Grade F means no acceptable manoeuvre was obtained — neither the acceptability nor the repeatability criteria were met."
-      : "Grade U means the effort is only usable: a single acceptable manoeuvre, so repeatability could not be assessed.";
-    add("Suboptimal test limits interpretation.",
-        "Test grade entered as \"" + gradeRaw + "\". " + gradeWhy + " The values below are still reported, but their reliability is limited by test quality.");
+  // Grade is read off the report as the FEV1/FVC quality letters (e.g. "AA", "EF").
+  // Any E, F or U letter is a poor-quality test, so the caveat leads the report
+  // and everything below is read against it.
+  const poor = poorGrade();
+  if (poor) {
+    const meaning = {
+      E: "E — only one acceptable manoeuvre, or repeatable manoeuvres differ by more than 250 mL",
+      F: "F — no acceptable or usable manoeuvres",
+      U: "U — usable but no acceptable manoeuvres"
+    };
+    const letters = Array.from(new Set(poor.letters.replace(/[^EFU]/g, "").split(""))).map(l => meaning[l]);
+    add("Poor test quality (grade " + poor.label + "): results should be interpreted with caution.",
+        "Test grade entered as \"" + poor.label + "\". Any E, F or U letter marks a poor-quality test (ATS/ERS 2019 grading): " + letters.join("; ") + ". The values below are still reported, but their reliability is limited by test quality.");
   }
 
   /* ---- shared spirometry facts ---- */
@@ -564,7 +586,6 @@ function build() {
   const fev1Low = haveSpiro && fev1 < fev1Lln;
   const fvcLow = haveSpiro && fvc < fvcLln;
   const ratioLow = haveSpiro && ratio < ratioLln;   // obstruction present
-  const spiroNormal = haveSpiro && !ratioLow && !fev1Low && !fvcLow;
 
   /* ---- lung volumes facts (needed by spirometry branch) ---- */
   const tlc = num("tlc_act"), tlcLln = num("tlc_lln"), tlcUln = num("tlc_uln"), tlcZ = num("tlc_z");
@@ -572,6 +593,9 @@ function build() {
   const rvtlc = num("rvtlc_act"), rvtlcUln = num("rvtlc_uln");
   const haveLV = tlc != null && tlcLln != null;
   const tlcLow = haveLV && tlc < tlcLln;
+  // A normal FVC excludes restriction even when TLC is below its LLN.
+  const fvcNormal = fvc != null && fvcLln != null && fvc >= fvcLln;
+  const restricted = tlcLow && !fvcNormal;
   const tlcHigh = haveLV && tlcUln != null && tlc > tlcUln;
   const rvtlcHigh = rvtlc != null && rvtlcUln != null && rvtlc > rvtlcUln;
   const rvHigh = rv != null && rvUln != null && rv > rvUln;
@@ -580,14 +604,10 @@ function build() {
   /* ---- 1 · SPIROMETRY ---- */
   if (haveSpiro) {
     if (ratioLow) {
-      // FEV1/FVC < LLN → obstruction. Severity by FEV1 z; FEV1 >= LLN treated as mild.
-      let sev = fev1Low ? grade(fev1Z) : "mild";
-      if (!sev) sev = "mild";
-      const sevWhy = fev1Low
-        ? zWhy(fev1Z, sev, "FEV1")
-        : "FEV1 " + v(fev1) + " L is at or above its LLN of " + v(fev1Lln) + " L, so severity is taken as mild.";
+      // FEV1/FVC < LLN → obstruction. Severity graded only on the FEV1 z-score.
+      const sev = grade(fev1Z) || "mild";
       add("Spirometry shows " + sev + " airflow obstruction.",
-          "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% — the defining criterion for airflow obstruction. " + sevWhy);
+          "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% — the defining criterion for airflow obstruction. " + zWhy(fev1Z, sev, "FEV1"));
     } else if (fev1Low || fvcLow) {
       // Ratio normal but FEV1/FVC reduced.
       if (!haveLV) {
@@ -601,12 +621,45 @@ function build() {
       }
       // If lung volumes ARE provided, the pattern is resolved in the Lung volumes section below.
     } else {
-      // Spirometry WNL. When lung volumes reveal restriction, the finding is
-      // reported as one combined sentence in the Lung volumes section below.
-      if (!(haveLV && tlcLow)) {
-        add("Spirometry is within normal limits.",
-            "All three indices are at or above their LLNs: FEV1 " + v(fev1) + " vs " + v(fev1Lln) + " L, FVC " + v(fvc) + " vs " + v(fvcLln) + " L, FEV1/FVC " + v(ratio) + " vs " + v(ratioLln) + "%.");
+      // Spirometry WNL. FVC is normal here, so a low TLC is not restriction.
+      add("Spirometry is within normal limits.",
+          "All three indices are at or above their LLNs: FEV1 " + v(fev1) + " vs " + v(fev1Lln) + " L, FVC " + v(fvc) + " vs " + v(fvcLln) + " L, FEV1/FVC " + v(ratio) + " vs " + v(ratioLln) + "%.");
+    }
+  }
+
+  /* ---- 1b · PRE vs POST BRONCHODILATOR ---- */
+  // Obstruction is re-read on the post-BD ratio against the same LLN, and
+  // severity at both time points is graded only on the FEV1 z-score.
+  const fev1Post = num("fev1_post"), fev1PostZ = num("fev1_post_z");
+  const fvcPost = num("fvc_post"), ratioPost = num("ratio_post");
+  if (haveSpiro && ratioPost != null) {
+    const postLow = ratioPost < ratioLln;
+    const preSev = grade(fev1Z) || null, postSev = grade(fev1PostZ) || null;
+    const ratios = "Pre-BD FEV1/FVC " + v(ratio) + "% vs post-BD " + v(ratioPost) + "%, against an LLN of " + v(ratioLln) + "% (the LLN does not change with bronchodilator). ";
+    const zs = "Pre-BD FEV1 z " + v(fev1Z) + " → " + (preSev || "not graded") + "; post-BD FEV1 z " + v(fev1PostZ) + " → " + (postSev || "not graded") + " (" + Z_BANDS + ").";
+    if (ratioLow && postLow) {
+      if (!preSev || !postSev) {
+        add("Post-bronchodilator spirometry shows persistent airflow obstruction.",
+            ratios + "Both are below the LLN, so obstruction persists. " + zs + " Without both FEV1 z-scores the change in severity cannot be graded.");
+      } else if (SEV_RANK[postSev] < SEV_RANK[preSev]) {
+        add("Post-bronchodilator spirometry shows persistent airflow obstruction, which has improved in severity from " + preSev + " to " + postSev + ".",
+            ratios + "Both are below the LLN, so obstruction persists. " + zs);
+      } else if (SEV_RANK[postSev] > SEV_RANK[preSev]) {
+        add("Post-bronchodilator spirometry shows persistent airflow obstruction, which has worsened in severity from " + preSev + " to " + postSev + ".",
+            ratios + "Both are below the LLN, so obstruction persists. " + zs);
+      } else {
+        add("Post-bronchodilator spirometry shows persistent " + postSev + " airflow obstruction, with no change in severity.",
+            ratios + "Both are below the LLN, so obstruction persists. " + zs);
       }
+    } else if (ratioLow) {
+      add("Airflow obstruction is no longer present on post-bronchodilator spirometry.",
+          ratios + "The pre-BD ratio is below the LLN but the post-BD ratio is not, so the obstruction has resolved after bronchodilator.");
+    } else if (postLow) {
+      add("Post-bronchodilator spirometry shows " + (postSev ? postSev + " " : "") + "airflow obstruction, which was not present pre-bronchodilator.",
+          ratios + "Only the post-BD ratio is below the LLN. " + zs + " New post-BD obstruction is uncommon — it usually reflects a larger rise in FVC than FEV1 (a volume response) or variable effort.");
+    } else {
+      add("There is no airflow obstruction on post-bronchodilator spirometry.",
+          ratios + "Neither ratio is below the LLN.");
     }
   }
 
@@ -625,8 +678,8 @@ function build() {
   }
 
   /* ---- 2 · BRONCHODILATOR ---- */
-  const bf1p = num("bdr_fev1_pre"), bf1o = num("bdr_fev1_post"), bf1pr = num("bdr_fev1_pred");
-  const bfcp = num("bdr_fvc_pre"), bfco = num("bdr_fvc_post"), bfcpr = num("bdr_fvc_pred");
+  const bf1p = fev1, bf1o = fev1Post, bf1pr = num("bdr_fev1_pred");
+  const bfcp = fvc, bfco = fvcPost, bfcpr = num("bdr_fvc_pred");
   let bdrChanges = [], bdrDetail = [];
   if (bf1p != null && bf1o != null && bf1pr != null && bf1pr > 0) {
     const pct = Math.abs(bf1o - bf1p) / bf1pr * 100;
@@ -697,31 +750,32 @@ function build() {
         add("Lung volumes show hyperinflation.",
             hyperWhy + "The FEV1/FVC ratio " + v(ratio) + "% is not below its LLN of " + v(ratioLln) + "%, so without obstruction the raised RV/TLC is not called air-trapping.");
       }
-    } else if (ratioLow && tlcLow) {
+    } else if (ratioLow && restricted) {
       const sev = grade(fev1Z) || "mild";
       add("There is " + sev + " mixed obstructive and restrictive ventilatory impairment.",
           "Both criteria are met: FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% (obstruction) and TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + " (restriction). " + zWhy(fev1Z, sev, "FEV1") + " Mixed patterns are graded on FEV1.");
-    } else if (tlcLow) {
+    } else if (restricted) {
       const sev = grade(tlcZ) || "mild";
       const type = rvtlcHigh ? "complex" : "simple";
       const typeWhy = rvtlcHigh
         ? "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%, so the restriction is complex — volume is lost but residual volume is disproportionately preserved."
         : "RV/TLC is not above its ULN, so the restriction is simple — all compartments shrink together.";
-      const base = "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", which is what defines restriction. " + zWhy(tlcZ, sev, "TLC") + " " + typeWhy;
-      if (spiroNormal) {
-        add("Normal spirometry but lung volumes show " + sev + " " + type + " restriction.",
-            base + " Spirometry alone was normal (FEV1, FVC and the ratio all at or above their LLNs), so the two findings are reported as one sentence.");
-      } else {
-        add("There is " + sev + " " + type + " restriction.", base);
-      }
+      add("There is " + sev + " " + type + " restriction.",
+          "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", which is what defines restriction" + (fvc != null && fvcLln != null ? ", and FVC " + v(fvc) + " L is also below its LLN of " + v(fvcLln) + " L" : "") + ". " + zWhy(tlcZ, sev, "TLC") + " " + typeWhy);
     } else if (!ratioLow && (fev1Low || fvcLow)) {
-      // ratio normal, TLC normal/high, reduced FEV1/FVC → non-specific
+      // ratio normal, no restriction, reduced FEV1/FVC → non-specific
       const sev = grade(fev1Z) || "mild";
+      const noRestrictWhy = tlcLow
+        ? "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + " but FVC is normal, which excludes restriction"
+        : "TLC " + v(tlc) + " is not below its LLN of " + v(tlcLln) + " (no restriction)";
       add("There is " + sev + " non-specific ventilatory impairment.",
-          "FEV1/FVC " + v(ratio) + "% is at or above its LLN of " + v(ratioLln) + "% (no obstruction) and TLC " + v(tlc) + " is not below its LLN of " + v(tlcLln) + " (no restriction), yet " + (fev1Low ? "FEV1 " + v(fev1) + " L is below its LLN of " + v(fev1Lln) + " L" : "FVC " + v(fvc) + " L is below its LLN of " + v(fvcLln) + " L") + ". Reduced volumes that fit neither pattern are labelled non-specific. " + zWhy(fev1Z, sev, "FEV1"));
+          "FEV1/FVC " + v(ratio) + "% is at or above its LLN of " + v(ratioLln) + "% (no obstruction) and " + noRestrictWhy + ", yet " + (fev1Low ? "FEV1 " + v(fev1) + " L is below its LLN of " + v(fev1Lln) + " L" : "FVC " + v(fvc) + " L is below its LLN of " + v(fvcLln) + " L") + ". Reduced volumes that fit neither pattern are labelled non-specific. " + zWhy(fev1Z, sev, "FEV1"));
     } else if (ratioLow && trappingSignal) {
       add("There is air-trapping.",
           "FEV1/FVC " + v(ratio) + "% is below its LLN of " + v(ratioLln) + "% (obstruction) and " + trapWhy + ", while TLC " + v(tlc) + " is not raised — gas is trapped behind narrowed airways without frank hyperinflation.");
+    } else if (tlcLow) {
+      add("TLC is below the lower limit of normal, but as FVC is normal there is no restrictive ventilatory impairment.",
+          "TLC " + v(tlc) + " is below its LLN of " + v(tlcLln) + ", but FVC " + v(fvc) + " L is at or above its LLN of " + v(fvcLln) + " L. A normal FVC excludes restriction, so the low TLC is not reported as a restrictive defect.");
     } else if (rvtlcHigh) {
       add("There is an isolated elevation of RV/TLC ratio, which may suggest air-trapping. Please correlate clinically.",
           "RV/TLC " + v(rvtlc) + "% is above its ULN of " + v(rvtlcUln) + "%, but TLC " + v(tlc) + " is not raised and FEV1/FVC is not below its LLN, so there is no hyperinflation or obstruction to anchor it. An isolated rise can reflect early small airways disease, expiratory muscle weakness, or an incomplete ERV manoeuvre overestimating RV — hence “may suggest” and the request for clinical correlation.");
@@ -876,6 +930,9 @@ function render() {
     out.value = items.map(it => it.text).join("\n");
   }
   renderWhy(items);
+  const poor = poorGrade();
+  $("grade_warn").hidden = !poor;
+  $("grade_warn").textContent = poor ? "⚠ Poor test grade (" + poor.label + ") — flagged in the first line of the report." : "";
 }
 
 // Toggle bronchoprovocation sub-fields
@@ -925,6 +982,7 @@ $("clearBtn").addEventListener("click", () => {
   document.querySelectorAll("select").forEach(el => { el.selectedIndex = 0; });
   $("bp_mch_fields").style.display = "none";
   $("bp_sal_fields").style.display = "none";
+  clearShots();
   render();
 });
 
@@ -934,14 +992,125 @@ $("clearBtn").addEventListener("click", () => {
    is still produced locally by build() / render().
    ============================================================ */
 
+/* Screenshots — pasted, dropped or picked images are held here as base64 and
+   sent alongside (or instead of) the pasted text. Formats the APIs don't take,
+   or files over ~3.5 MB, are re-encoded as JPEG so the request isn't rejected. */
+let shots = [];
+const SHOT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const SHOT_MAX_B64 = 4.6e6;
+
+function readAsDataURL(file) {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fail(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+function reencode(dataUrl, maxEdge, quality) {
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      ok(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => fail(new Error("Could not read that image."));
+    img.src = dataUrl;
+  });
+}
+
+async function addShot(file) {
+  if (!file || !/^image\//.test(file.type)) return;
+  let url = await readAsDataURL(file);
+  if (!SHOT_TYPES.includes(file.type) || url.length > SHOT_MAX_B64) {
+    url = await reencode(url, 2400, 0.92);
+    if (url.length > SHOT_MAX_B64) url = await reencode(url, 1800, 0.85);
+  }
+  const m = /^data:([^;]+);base64,(.*)$/.exec(url);
+  if (!m) return;
+  shots.push({ type: m[1], data: m[2], url: url });
+  renderShots();
+}
+
+async function addShots(files) {
+  try {
+    for (const f of files) await addShot(f);
+    setFillMsg(shots.length ? shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached." : "", false);
+  } catch (e) {
+    setFillMsg(e.message || String(e), true);
+  }
+}
+
+function renderShots() {
+  const box = $("shots");
+  box.textContent = "";
+  box.hidden = !shots.length;
+  shots.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "shot";
+    const img = document.createElement("img");
+    img.src = s.url;
+    img.alt = "Screenshot " + (i + 1);
+    img.title = "Open full size";
+    img.addEventListener("click", () => {
+      const w = window.open();
+      if (w) w.document.write('<body style="margin:0;background:#191919"><img src="' + s.url + '" style="max-width:100%">');
+    });
+    const x = document.createElement("button");
+    x.type = "button";
+    x.textContent = "×";
+    x.title = "Remove";
+    x.addEventListener("click", () => { shots.splice(i, 1); renderShots(); });
+    d.appendChild(img);
+    d.appendChild(x);
+    box.appendChild(d);
+  });
+  syncPasteClear();
+}
+
+function clearShots() {
+  shots = [];
+  renderShots();
+}
+
+document.addEventListener("paste", (e) => {
+  const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  e.preventDefault();
+  addShots(files);
+});
+$("shotBtn").addEventListener("click", () => $("shot_file").click());
+$("shot_file").addEventListener("change", () => {
+  addShots(Array.from($("shot_file").files));
+  $("shot_file").value = "";
+});
+["dragenter", "dragover"].forEach(t => $("paste_card").addEventListener(t, (e) => {
+  e.preventDefault();
+  $("paste_in").classList.add("dropping");
+}));
+["dragleave", "drop"].forEach(t => $("paste_card").addEventListener(t, () => $("paste_in").classList.remove("dropping")));
+$("paste_card").addEventListener("drop", (e) => {
+  e.preventDefault();
+  addShots(Array.from(e.dataTransfer.files || []));
+});
+
 /* Clear tick beside "Raw report text" — empties the paste box only, leaving the
    extracted values alone. It is an action rather than a state, so it unticks
    itself, and it stays disabled while there is nothing to clear. */
 function syncPasteClear() {
-  $("paste_clear").disabled = $("paste_in").value === "";
+  $("paste_clear").disabled = $("paste_in").value === "" && !shots.length;
 }
 $("paste_clear").addEventListener("change", () => {
   $("paste_in").value = "";
+  clearShots();
   $("paste_clear").checked = false;
   setFillMsg("", false);
   syncPasteClear();
@@ -971,12 +1140,16 @@ $("api_key").addEventListener("change", () => {
 // The set of fillable field IDs, grouped so the extraction prompt is explicit.
 const FIELD_GUIDE = `
 Numeric fields (return a number, or omit the key if absent):
-- Spirometry FEV1: fev1_act (L), fev1_lln (L), fev1_z (z-score)
-- Spirometry FVC: fvc_act (L), fvc_lln (L), fvc_z (z-score)
-- Spirometry FEV1/FVC ratio: ratio_act (%), ratio_lln (%), ratio_z (z-score)
+- Spirometry, PRE-bronchodilator values (or the only set of values if no bronchodilator study was done):
+    FEV1: fev1_act (L), fev1_lln (L), fev1_z (z-score)
+    FVC: fvc_act (L), fvc_lln (L), fvc_z (z-score)
+    FEV1/FVC ratio: ratio_act (%), ratio_lln (%), ratio_z (z-score)
+- Spirometry, POST-bronchodilator values (only if a post-bronchodilator column/study is reported):
+    fev1_post (L), fev1_post_z (post-bronchodilator FEV1 z-score), fvc_post (L), ratio_post (%)
+    Take these from the Post column itself — never from a %Change / %Chg column.
+- Predicted (reference) values for the bronchodilator response: bdr_fev1_pred (L), bdr_fvc_pred (L) — the Pred/Ref column, not the LLN
 - Supine diaphragm study: fvc_sit (sitting FVC, L), fvc_sup (supine FVC, L)
-- Bronchodilator FEV1: bdr_fev1_pre (L), bdr_fev1_post (L), bdr_fev1_pred (L)
-- Bronchodilator FVC: bdr_fvc_pre (L), bdr_fvc_post (L), bdr_fvc_pred (L)
+- Z-scores keep their sign (negative when below predicted).
 - Diffusion — use the UNCORRECTED-for-Hb DLCO to grade severity; only fall back to the Hb-corrected/adjusted value if the report gives no uncorrected DLCO: dlco_act, dlco_lln, dlco_z
 - Lung volumes TLC: tlc_act, tlc_lln, tlc_uln, tlc_z
 - Lung volumes RV/RV-TLC: rv_act, rv_uln, rvtlc_act (%), rvtlc_uln (%)
@@ -987,7 +1160,7 @@ Numeric fields (return a number, or omit the key if absent):
 - FeNO: feno (ppb)
 
 Text fields (return a string, or omit the key if absent):
-- test_grade: the spirometry quality grade printed on the report — the FEV1 and FVC grade letters (e.g. "A", "AB", "FF", "UU"). Copy the letters exactly as reported; never judge test quality yourself.
+- test_grade: the spirometry quality grade printed on the report — the FEV1 and FVC grade letters (e.g. "A", "AB", "EF", "UU"). If pre- and post-bronchodilator grades are both printed, give both separated by a space (e.g. "AA EF"). Copy the letters exactly as reported; never judge test quality yourself.
 
 Boolean fields (return true only if clearly stated, otherwise omit):
 - dlco_corr: default false (uncorrected). Set true ONLY when the DLCO you extracted is the Hb-corrected/adjusted value (i.e. no uncorrected value was reported)
@@ -1003,7 +1176,8 @@ Selection fields (return one of the listed string values, or omit):
 `.trim();
 
 const EXTRACT_SYSTEM = `You are a data-extraction assistant for a pulmonary function test (PFT) report interpreter.
-Read the pasted PFT report and extract only the numeric and categorical values into the exact field keys below.
+Read the PFT report — pasted text, one or more screenshots of it, or both — and extract only the numeric and categorical values into the exact field keys below.
+For screenshots, read each table row across carefully so every value lands under the correct column (Pre / LLN / Z-score / Post / Pred). If a digit is illegible, omit that key rather than guess.
 
 ${FIELD_GUIDE}
 
@@ -1055,8 +1229,14 @@ $("fillBtn").addEventListener("click", async () => {
   const key = $("api_key").value.trim();
   const report = $("paste_in").value.trim();
   if (!key) { setFillMsg(AI.missingKeyMsg(), true); return; }
-  if (!report) { setFillMsg("Paste a report to extract.", true); return; }
+  if (!report && !shots.length) { setFillMsg("Paste a report or screenshot to extract.", true); return; }
+  if (shots.length && AI.id() === "deepseek") { setFillMsg("DeepSeek can't read images — switch to Claude or Gemini.", true); return; }
   AI.saveKey(AI.id(), key);
+
+  const content = shots.length
+    ? shots.map(s => ({ type: "image", source: { type: "base64", media_type: s.type, data: s.data } }))
+        .concat([{ type: "text", text: report || "Extract the values from the attached PFT report screenshot(s)." }])
+    : report;
 
   const btn = $("fillBtn");
   btn.disabled = true;
@@ -1068,7 +1248,7 @@ $("fillBtn").addEventListener("click", async () => {
       raw = await AI.call({
         key,
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
-        messages: [{ role: "user", content: report }],
+        messages: [{ role: "user", content: content }],
         maxTokens: 2000
       });
     } catch (apiErr) {
