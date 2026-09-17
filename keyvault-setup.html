@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key Vault Setup</title>
+<link rel="icon" href="favicon.svg">
+<script src="keyvault.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #171817; --surface: #1f201f; --surface-2: #252625;
+    --border: #343633; --border-strong: #464944;
+    --text: #eeece8; --muted: #9a9892; --faint: #73716c;
+    --accent: #65c1a7; --danger: #e68a82; --warning: #d8b56d;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  h2 { font-size: 14px; margin: 0 0 10px; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 16px; }
+  .group { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+  .group:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .group label.head { display: flex; gap: 8px; align-items: center; font-weight: 600; cursor: pointer; }
+  .warn { margin: 8px 0 0 24px; font-size: 12.5px; color: var(--warning); }
+  ul { list-style: none; margin: 8px 0 0 24px; padding: 0; font-size: 12.5px; }
+  li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  li code { font-family: var(--mono); color: var(--muted); }
+  li span.have { color: var(--accent); font-family: var(--mono); }
+  li span.none { color: var(--faint); }
+  button { font: 600 13px/1 var(--sans); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #10201b; }
+  button:disabled { opacity: .55; cursor: default; }
+  .code { font: 700 30px/1.2 var(--mono); letter-spacing: .12em; text-align: center; padding: 16px; margin: 8px 0 12px; background: var(--bg); border: 1px dashed var(--border-strong); border-radius: 10px; user-select: all; }
+  input { width: 100%; padding: 10px 12px; font: 600 16px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: var(--accent); }
+  .status.bad { color: var(--danger); }
+  ol { margin: 0; padding-left: 20px; color: var(--muted); }
+  ol li { display: list-item; padding: 2px 0; font-size: 13.5px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Key vault setup</h1>
+  <p>Locks the keys saved in <b>this browser</b> with a random code, so the tools can unlock them on a work computer. Open this page the way you normally open the tools on your laptop (e.g. through RESTools), so it can see your saved keys. Nothing leaves this page except the file you download.</p>
+
+  <section class="card">
+    <h2>1. Choose what to lock</h2>
+    <div id="groups"></div>
+    <p id="empty" class="status bad" hidden style="margin-top:12px">No keys found in this browser. Open this page from the same address you use for the tools.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. Create the code and locked file</h2>
+    <p>Each run makes a new code and replaces the old one.</p>
+    <button id="create" class="primary">Create code</button>
+    <span id="createStatus" class="status"></span>
+
+    <div id="result" hidden>
+      <div id="code" class="code"></div>
+      <p><b style="color:var(--text)">Save this code in your phone's password manager now.</b> It is not stored anywhere else. If you lose it, run this page again.</p>
+      <div class="row">
+        <button id="download" class="primary">Download keyvault.data.js</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="checkCard" hidden>
+    <h2>3. Check the code you saved</h2>
+    <p>Type it in from your phone to make sure it was saved correctly.</p>
+    <input id="check" placeholder="XXXXX-XXXXX" autocomplete="off" spellcheck="false">
+    <div class="row"><button id="checkBtn">Check</button><span id="checkStatus" class="status"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Put it live</h2>
+    <ol>
+      <li>Move <code>keyvault.data.js</code> into the <code>notionwidget</code> repo folder, replacing any old copy.</li>
+      <li>Commit and push. GitHub Pages updates in about a minute, widgets.szfg2.tech within 5.</li>
+      <li>On a work computer, open any tool and enter the code when asked.</li>
+    </ol>
+    <p style="margin-top:12px">Git keeps old versions of the file. If a code is ever seen by someone else, making a new code is not enough: replace the API keys themselves with each provider.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const KV = window.KeyVault;
+  const $ = (id) => document.getElementById(id);
+  let vault = null, blobUrl = null;
+
+  const mask = (name, v) => /_(key|token)$/.test(name) ? "••••" + v.slice(-4) : v;
+
+  function renderGroups() {
+    let found = 0;
+    KV.GROUPS.forEach(g => {
+      const wrap = document.createElement("div");
+      wrap.className = "group";
+      const present = g.names.filter(n => KV.get(n));
+      found += present.length;
+      const head = document.createElement("label");
+      head.className = "head";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.style.width = "auto";
+      box.dataset.group = g.id;
+      box.checked = g.checked && present.length > 0;
+      box.disabled = !present.length;
+      head.append(box, document.createTextNode(g.label));
+      wrap.appendChild(head);
+      if (g.warn) {
+        const w = document.createElement("div");
+        w.className = "warn";
+        w.textContent = g.warn;
+        wrap.appendChild(w);
+      }
+      const ul = document.createElement("ul");
+      g.names.forEach(n => {
+        const li = document.createElement("li");
+        const code = document.createElement("code");
+        code.textContent = n;
+        const v = KV.get(n);
+        const s = document.createElement("span");
+        s.className = v ? "have" : "none";
+        s.textContent = v ? mask(n, v) : "not saved here";
+        li.append(code, s);
+        ul.appendChild(li);
+      });
+      wrap.appendChild(ul);
+      $("groups").appendChild(wrap);
+    });
+    $("empty").hidden = found > 0;
+    $("create").disabled = found === 0;
+  }
+
+  function selectedValues() {
+    const values = {};
+    document.querySelectorAll("input[data-group]").forEach(box => {
+      if (!box.checked) return;
+      KV.GROUPS.find(g => g.id === box.dataset.group).names.forEach(n => {
+        const v = KV.get(n);
+        if (v) values[n] = v;
+      });
+    });
+    return values;
+  }
+
+  $("create").onclick = async () => {
+    const values = selectedValues();
+    if (!Object.keys(values).length) {
+      $("createStatus").className = "status bad";
+      $("createStatus").textContent = " Tick at least one group.";
+      return;
+    }
+    $("create").disabled = true;
+    $("createStatus").className = "status";
+    $("createStatus").textContent = " Locking…";
+    const code = KV.generateCode();
+    vault = await KV.lock(values, code);
+    const file = "/* Locked keys for keyvault.js, made by keyvault-setup.html on " + vault.created + ".\n" +
+                 " * Encrypted: unreadable without the code, which is never stored here. */\n" +
+                 "window.KEY_VAULT = " + JSON.stringify(vault, null, 2) + ";\n";
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(new Blob([file], { type: "text/javascript" }));
+    $("code").textContent = code;
+    $("result").hidden = false;
+    $("checkCard").hidden = false;
+    $("check").value = "";
+    $("checkStatus").textContent = "";
+    $("createStatus").textContent = " Locked " + Object.keys(values).length + " settings.";
+    $("create").disabled = false;
+    $("create").textContent = "Make a different code";
+  };
+
+  $("download").onclick = () => {
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = "keyvault.data.js";
+    a.click();
+  };
+
+  async function check() {
+    if (!vault) return;
+    const s = $("checkStatus");
+    s.className = "status";
+    s.textContent = "Checking…";
+    try {
+      await KV.unlock(vault, $("check").value);
+      s.className = "status ok";
+      s.textContent = "Correct. The code is saved properly.";
+    } catch (e) {
+      s.className = "status bad";
+      s.textContent = "That doesn't match.";
+    }
+  }
+  $("checkBtn").onclick = check;
+  $("check").addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+
+  renderGroups();
+})();
+</script>
+</body>
+</html>
