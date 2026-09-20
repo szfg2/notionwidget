@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@300;400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #191919;
+    --ink: #e8e4dc;
+    --dim: #6f6b64;
+    --line: #2c2c2c;
+    --danger: #c0453c;
+    --ok: #4b8b6f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 16px 0;
+  }
+  .bar {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12.5px;
+    color: var(--dim);
+    letter-spacing: 0.02em;
+  }
+  .count { font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+
+  .fmt {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    border-radius: 5px;
+    width: 26px;
+    height: 24px;
+    cursor: pointer;
+    font-family: Spectral, serif;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .fmt:hover { color: var(--ink); border-color: #3d3d3d; }
+  .fmt.b { font-weight: 600; }
+  .fmt.i { font-style: italic; }
+
+  .death { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .death input { display: none; }
+  .switch {
+    width: 30px; height: 16px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: #222;
+    position: relative;
+    transition: background .15s, border-color .15s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: transform .15s, background .15s;
+  }
+  .death.on .switch { background: rgba(192,69,60,.25); border-color: var(--danger); }
+  .death.on .switch::after { transform: translateX(14px); background: var(--danger); }
+  .death.on .label { color: var(--danger); }
+
+  .save {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    border-radius: 5px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12.5px;
+  }
+  .save:hover { color: var(--ink); border-color: #3d3d3d; }
+  .save:disabled { opacity: .4; cursor: default; }
+
+  .fuse {
+    max-width: 780px;
+    margin: 8px auto 0;
+    height: 1px;
+    background: transparent;
+  }
+  .fuse span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--danger);
+  }
+
+  main { flex: 1; overflow-y: auto; }
+  #editor {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 46px 16px 40vh;
+    min-height: 100%;
+    outline: none;
+    font-family: Spectral, Georgia, serif;
+    font-weight: 300;
+    font-size: 19px;
+    line-height: 1.75;
+    caret-color: var(--ink);
+  }
+  #editor p { margin: 0 0 1.05em; }
+  #editor strong, #editor b { font-weight: 500; color: #fff; }
+  #editor:empty::before {
+    content: attr(data-placeholder);
+    color: #3a3a3a;
+  }
+  body.dying #editor { color: #8e6a66; transition: color .3s; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 8px 16px;
+    min-height: 33px;
+  }
+  .status {
+    max-width: 780px;
+    margin: 0 auto;
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .status.err { color: var(--danger); }
+  .status.ok { color: var(--ok); }
+
+  @media (max-width: 560px) {
+    #editor { font-size: 18px; padding-top: 30px; }
+    .bar { gap: 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <span class="count" id="count">0 words</span>
+    <button class="fmt b" id="bold" title="Bold (Ctrl+B)">B</button>
+    <button class="fmt i" id="italic" title="Italic (Ctrl+I)">I</button>
+    <span class="spacer"></span>
+    <label class="death" id="deathToggle">
+      <input type="checkbox" id="death">
+      <span class="switch"></span>
+      <span class="label">instant death</span>
+    </label>
+    <button class="save" id="save">Save</button>
+  </div>
+  <div class="fuse"><span id="fuse"></span></div>
+</header>
+
+<main>
+  <div id="editor" contenteditable="true" spellcheck="true" data-placeholder="Begin."></div>
+</main>
+
+<footer><div class="status" id="status"></div></footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var ENDPOINT = "https://novel.szfg2.tech/save";
+  var DEATH_MS = 5000;
+  var DRAFT_KEY = "novel.draft";
+  var TOKEN_KEY = "novel.token";
+
+  var editor = document.getElementById("editor");
+  var countEl = document.getElementById("count");
+  var statusEl = document.getElementById("status");
+  var saveBtn = document.getElementById("save");
+  var deathBox = document.getElementById("death");
+  var deathToggle = document.getElementById("deathToggle");
+  var fuse = document.getElementById("fuse");
+
+  try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch (e) {}
+
+  function store(key, value) {
+    try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch (e) {}
+  }
+  function recall(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  function say(text, kind) {
+    statusEl.textContent = text;
+    statusEl.className = "status" + (kind ? " " + kind : "");
+  }
+
+  /* ---------- word count ---------- */
+
+  function words() {
+    var text = editor.innerText.replace(/ /g, " ");
+    var m = text.match(/\S+/g);
+    return m ? m.length : 0;
+  }
+
+  function paintCount() {
+    var n = words();
+    countEl.textContent = n + (n === 1 ? " word" : " words");
+  }
+
+  /* ---------- markdown ---------- */
+
+  function inline(node) {
+    if (node.nodeType === 3) return node.nodeValue.replace(/ /g, " ");
+    if (node.nodeType !== 1) return "";
+
+    var tag = node.tagName;
+    if (tag === "BR") return "\n";
+
+    var inner = "";
+    for (var i = 0; i < node.childNodes.length; i++) inner += inline(node.childNodes[i]);
+    if (!inner.trim()) return inner;
+
+    var style = node.style || {};
+    if (tag === "B" || tag === "STRONG" || /^(bold|[5-9]00)$/.test(style.fontWeight || "")) return "**" + inner + "**";
+    if (tag === "I" || tag === "EM" || style.fontStyle === "italic") return "*" + inner + "*";
+    return inner;
+  }
+
+  function markdown() {
+    var blocks = [];
+    var loose = "";
+
+    function flush() {
+      if (loose.trim()) blocks.push(loose.trim());
+      loose = "";
+    }
+
+    var children = editor.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      var node = children[i];
+      var isBlock = node.nodeType === 1 && /^(P|DIV|H[1-6]|BLOCKQUOTE|LI|UL|OL|PRE)$/.test(node.tagName);
+      if (isBlock) {
+        flush();
+        var text = inline(node).trim();
+        if (text) blocks.push(text);
+      } else {
+        loose += inline(node);
+      }
+    }
+    flush();
+
+    return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  /* ---------- instant death ---------- */
+
+  var armed = false;
+  var lastKeystroke = 0;
+  var frame = null;
+
+  function tick() {
+    if (!armed) return;
+
+    if (words() === 0) {
+      lastKeystroke = Date.now();
+      fuse.style.width = "0";
+      document.body.classList.remove("dying");
+      frame = requestAnimationFrame(tick);
+      return;
+    }
+
+    var left = DEATH_MS - (Date.now() - lastKeystroke);
+    if (left <= 0) { kill(); return; }
+
+    fuse.style.width = (100 - (left / DEATH_MS) * 100).toFixed(1) + "%";
+    document.body.classList.toggle("dying", left < 1500);
+    frame = requestAnimationFrame(tick);
+  }
+
+  function kill() {
+    var lost = words();
+    editor.innerHTML = "";
+    store(DRAFT_KEY, null);
+    fuse.style.width = "0";
+    document.body.classList.remove("dying");
+    paintCount();
+    lastKeystroke = Date.now();
+    say(lost + (lost === 1 ? " word" : " words") + " gone. Keep going.", "err");
+    frame = requestAnimationFrame(tick);
+  }
+
+  function arm(on) {
+    armed = on;
+    deathBox.checked = on;
+    deathToggle.classList.toggle("on", on);
+    if (frame) cancelAnimationFrame(frame);
+    frame = null;
+    fuse.style.width = "0";
+    document.body.classList.remove("dying");
+    if (on) {
+      lastKeystroke = Date.now();
+      frame = requestAnimationFrame(tick);
+      say("Armed. Stop for five seconds and it all goes.");
+    } else {
+      say("");
+    }
+  }
+
+  deathBox.addEventListener("change", function () { arm(deathBox.checked); });
+
+  /* ---------- editing ---------- */
+
+  var draftTimer = null;
+
+  editor.addEventListener("input", function () {
+    lastKeystroke = Date.now();
+    paintCount();
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(function () { store(DRAFT_KEY, editor.innerHTML); }, 700);
+  });
+
+  editor.addEventListener("paste", function (e) {
+    e.preventDefault();
+    var text = (e.clipboardData || window.clipboardData).getData("text/plain");
+    document.execCommand("insertText", false, text);
+  });
+
+  function format(cmd) {
+    editor.focus();
+    document.execCommand(cmd, false, null);
+    lastKeystroke = Date.now();
+  }
+  document.getElementById("bold").addEventListener("mousedown", function (e) { e.preventDefault(); format("bold"); });
+  document.getElementById("italic").addEventListener("mousedown", function (e) { e.preventDefault(); format("italic"); });
+
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      save();
+    }
+  });
+
+  /* ---------- saving ---------- */
+
+  function token() {
+    var t = recall(TOKEN_KEY);
+    if (t) return t;
+    t = window.prompt("Save token (one time on this device):");
+    if (t) {
+      t = t.trim();
+      store(TOKEN_KEY, t);
+    }
+    return t;
+  }
+
+  function save() {
+    var md = markdown();
+    if (!md) { say("Nothing to save.", "err"); return; }
+
+    var t = token();
+    if (!t) { say("No token — not saved.", "err"); return; }
+
+    if (armed) arm(false);
+    saveBtn.disabled = true;
+    say("Saving…");
+
+    fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
+      body: JSON.stringify({ markdown: md })
+    })
+      .then(function (r) {
+        return r.json()
+          .catch(function () { return { error: "server said " + r.status }; })
+          .then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      })
+      .then(function (res) {
+        saveBtn.disabled = false;
+        if (!res.ok) {
+          if (res.status === 401) store(TOKEN_KEY, null);
+          say("Not saved — " + (res.data.error || res.status) + ". Your words are still here.", "err");
+          return;
+        }
+        editor.innerHTML = "";
+        store(DRAFT_KEY, null);
+        paintCount();
+        say("Saved to Novel as " + res.data.note + " · " + res.data.words + " words.", "ok");
+      })
+      .catch(function () {
+        saveBtn.disabled = false;
+        say("Not saved — couldn't reach the server. Your words are still here.", "err");
+      });
+  }
+
+  saveBtn.addEventListener("click", save);
+
+  window.addEventListener("beforeunload", function (e) {
+    if (words() > 0) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  /* ---------- start ---------- */
+
+  var draft = recall(DRAFT_KEY);
+  if (draft) {
+    editor.innerHTML = draft;
+    say("Unsaved draft restored.");
+  }
+  paintCount();
+  editor.focus();
+})();
+</script>
+</body>
+</html>
