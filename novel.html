@@ -100,6 +100,82 @@
   .save:hover { color: var(--ink); border-color: #3d3d3d; }
   .save:disabled { opacity: .4; cursor: default; }
 
+  .chip {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px 2px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ok);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .chip.on { display: inline-flex; }
+  .chip button {
+    background: none;
+    border: 0;
+    color: var(--dim);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    padding: 2px 5px;
+  }
+  .chip button:hover { color: var(--ink); }
+
+  .sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 12vh 16px 16px;
+    background: rgba(12, 12, 12, .72);
+  }
+  .sheet.on { display: flex; }
+  .sheet-card {
+    width: 100%;
+    max-width: 460px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: #1d1d1d;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .sheet-list { overflow-y: auto; }
+  .entry {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid #232323;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .entry:hover { background: #232323; }
+  .entry .when { font-variant-numeric: tabular-nums; }
+  .entry .n { margin-left: auto; color: var(--dim); font-size: 12px; }
+  .entry .edited { color: var(--dim); font-size: 11.5px; }
+  .sheet-empty { padding: 18px 14px; color: var(--dim); font-size: 13px; }
+
   .fuse {
     max-width: 780px;
     margin: 8px auto 0;
@@ -173,7 +249,12 @@
     <span class="count" id="count">0 words</span>
     <button class="fmt b" id="bold" title="Bold (Ctrl+B)">B</button>
     <button class="fmt i" id="italic" title="Italic (Ctrl+I)">I</button>
+    <span class="chip" id="chip">
+      <span id="chipName"></span>
+      <button type="button" id="chipClose" title="Close this entry and start fresh">×</button>
+    </span>
     <span class="spacer"></span>
+    <button class="save" id="entries">Entries</button>
     <label class="death" id="deathToggle">
       <input type="checkbox" id="death">
       <span class="switch"></span>
@@ -183,6 +264,17 @@
   </div>
   <div class="fuse"><span id="fuse"></span></div>
 </header>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <span id="sheetTitle">Previous sessions</span>
+      <span class="spacer"></span>
+      <button class="save" id="sheetClose">Close</button>
+    </div>
+    <div class="sheet-list" id="sheetList"></div>
+  </div>
+</div>
 
 <main>
   <div id="editor" contenteditable="true" spellcheck="true" data-placeholder="Begin."></div>
@@ -194,10 +286,13 @@
 (function () {
   "use strict";
 
-  var ENDPOINT = "https://novel.szfg2.tech/save";
+  var API = "https://novel.szfg2.tech";
   var DEATH_MS = 5000;
   var DRAFT_KEY = "novel.draft";
   var TOKEN_KEY = "novel.token";
+
+  // The entry currently open for editing, or null for a fresh session.
+  var current = null;
 
   var editor = document.getElementById("editor");
   var countEl = document.getElementById("count");
@@ -206,6 +301,10 @@
   var deathBox = document.getElementById("death");
   var deathToggle = document.getElementById("deathToggle");
   var fuse = document.getElementById("fuse");
+  var chip = document.getElementById("chip");
+  var chipName = document.getElementById("chipName");
+  var sheet = document.getElementById("sheet");
+  var sheetList = document.getElementById("sheetList");
 
   try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch (e) {}
   // Emit <b>/<i>/<h2> tags rather than inline styles, so the Markdown
@@ -286,6 +385,32 @@
     return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
   }
 
+  /* ---------- markdown back into the editor ---------- */
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function inlineHtml(s) {
+    return esc(s)
+      .replace(/\*\*\*([^*]+)\*\*\*/g, "<b><i>$1</i></b>")
+      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+      .replace(/\*([^*]+)\*/g, "<i>$1</i>");
+  }
+
+  function toHtml(md) {
+    return md.replace(/\r\n/g, "\n").split(/\n{2,}/).map(function (block) {
+      block = block.trim();
+      if (!block) return "";
+      var h = /^(#{1,6})\s+([\s\S]*)$/.exec(block);
+      if (h) {
+        var level = Math.min(h[1].length, 3);
+        return "<h" + level + ">" + inlineHtml(h[2].trim()) + "</h" + level + ">";
+      }
+      return "<p>" + inlineHtml(block).replace(/\n/g, "<br>") + "</p>";
+    }).join("");
+  }
+
   /* ---------- instant death ---------- */
 
   var armed = false;
@@ -350,7 +475,9 @@
     lastKeystroke = Date.now();
     paintCount();
     clearTimeout(draftTimer);
-    draftTimer = setTimeout(function () { store(DRAFT_KEY, editor.innerHTML); }, 700);
+    draftTimer = setTimeout(function () {
+      store(DRAFT_KEY, JSON.stringify({ h: editor.innerHTML, n: current }));
+    }, 700);
   });
 
   /* ---------- headings: "# ", "## ", "### " at the start of a line ---------- */
@@ -455,46 +582,155 @@
     return t;
   }
 
+  // One shape for every call: resolves to {ok, status, data}, never rejects.
+  function api(path, options) {
+    var t = token();
+    if (!t) return Promise.resolve({ ok: false, status: 0, data: { error: "no token" } });
+
+    options = options || {};
+    options.headers = { "Content-Type": "application/json", "Authorization": "Bearer " + t };
+
+    return fetch(API + path, options)
+      .then(function (r) {
+        return r.json()
+          .catch(function () { return { error: "server said " + r.status }; })
+          .then(function (data) {
+            if (r.status === 401) store(TOKEN_KEY, null);
+            return { ok: r.ok, status: r.status, data: data };
+          });
+      })
+      .catch(function () {
+        return { ok: false, status: 0, data: { error: "couldn't reach the server" } };
+      });
+  }
+
   function save() {
     var md = markdown();
     if (!md) { say("Nothing to save.", "err"); return; }
 
-    var t = token();
-    if (!t) { say("No token — not saved.", "err"); return; }
-
+    var target = current;
     if (armed) arm(false);
     saveBtn.disabled = true;
-    say("Saving…");
+    say(target ? "Updating…" : "Saving…");
 
-    fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + t },
-      body: JSON.stringify({ markdown: md })
-    })
-      .then(function (r) {
-        return r.json()
-          .catch(function () { return { error: "server said " + r.status }; })
-          .then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
-      })
-      .then(function (res) {
-        saveBtn.disabled = false;
-        if (!res.ok) {
-          if (res.status === 401) store(TOKEN_KEY, null);
-          say("Not saved — " + (res.data.error || res.status) + ". Your words are still here.", "err");
-          return;
-        }
-        editor.innerHTML = "";
-        store(DRAFT_KEY, null);
-        paintCount();
-        say("Saved to Novel as " + res.data.note + " · " + res.data.words + " words.", "ok");
-      })
-      .catch(function () {
-        saveBtn.disabled = false;
-        say("Not saved — couldn't reach the server. Your words are still here.", "err");
-      });
+    var payload = target ? { markdown: md, note: target } : { markdown: md };
+
+    api("/save", { method: "POST", body: JSON.stringify(payload) }).then(function (res) {
+      saveBtn.disabled = false;
+      if (!res.ok) {
+        say("Not saved — " + (res.data.error || res.status) + ". Your words are still here.", "err");
+        return;
+      }
+      store(DRAFT_KEY, null);
+      if (res.data.updated) {
+        // Stay in the entry: editing usually comes in passes.
+        say("Updated " + res.data.note + " · " + res.data.words + " words.", "ok");
+        return;
+      }
+      editor.innerHTML = "";
+      paintCount();
+      say("Saved to Novel as " + res.data.note + " · " + res.data.words + " words.", "ok");
+    });
   }
 
   saveBtn.addEventListener("click", save);
+
+  /* ---------- previous entries ---------- */
+
+  function paintChip() {
+    chip.classList.toggle("on", !!current);
+    chipName.textContent = current ? "editing " + current : "";
+  }
+
+  function leaveEntry() {
+    current = null;
+    editor.innerHTML = "";
+    store(DRAFT_KEY, null);
+    paintChip();
+    paintCount();
+    say("");
+    editor.focus();
+  }
+
+  function openSheet(on) {
+    sheet.classList.toggle("on", !!on);
+    if (!on) editor.focus();
+  }
+
+  function row(entry) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "entry";
+
+    var when = document.createElement("span");
+    when.className = "when";
+    when.textContent = (entry.date || entry.note) + (entry.time ? " · " + entry.time : "");
+    b.appendChild(when);
+
+    if (entry.edited) {
+      var ed = document.createElement("span");
+      ed.className = "edited";
+      ed.textContent = "edited " + entry.edited;
+      b.appendChild(ed);
+    }
+
+    var n = document.createElement("span");
+    n.className = "n";
+    n.textContent = entry.words + (entry.words === 1 ? " word" : " words");
+    b.appendChild(n);
+
+    b.addEventListener("click", function () { load(entry.note); });
+    return b;
+  }
+
+  function listEntries() {
+    sheetList.innerHTML = "";
+    var loading = document.createElement("div");
+    loading.className = "sheet-empty";
+    loading.textContent = "Loading…";
+    sheetList.appendChild(loading);
+    openSheet(true);
+
+    api("/entries").then(function (res) {
+      sheetList.innerHTML = "";
+      if (!res.ok) {
+        loading.textContent = "Couldn't load: " + (res.data.error || res.status);
+        sheetList.appendChild(loading);
+        return;
+      }
+      if (!res.data.entries.length) {
+        loading.textContent = "Nothing saved yet.";
+        sheetList.appendChild(loading);
+        return;
+      }
+      res.data.entries.forEach(function (e) { sheetList.appendChild(row(e)); });
+    });
+  }
+
+  function load(note) {
+    if (!current && words() > 0 &&
+        !window.confirm("Replace what's in the box? It hasn't been saved.")) return;
+
+    api("/entry?note=" + encodeURIComponent(note)).then(function (res) {
+      if (!res.ok) { say("Couldn't open " + note + " — " + (res.data.error || res.status), "err"); return; }
+      if (armed) arm(false);
+      current = res.data.note;
+      editor.innerHTML = toHtml(res.data.markdown);
+      store(DRAFT_KEY, null);
+      paintChip();
+      paintCount();
+      openSheet(false);
+      say("Editing " + res.data.note + ". Save writes back to it.");
+    });
+  }
+
+  document.getElementById("entries").addEventListener("click", listEntries);
+  document.getElementById("sheetClose").addEventListener("click", function () { openSheet(false); });
+  document.getElementById("chipClose").addEventListener("click", leaveEntry);
+  sheet.addEventListener("click", function (e) { if (e.target === sheet) openSheet(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && sheet.classList.contains("on")) openSheet(false);
+  });
 
   window.addEventListener("beforeunload", function (e) {
     if (words() > 0) { e.preventDefault(); e.returnValue = ""; }
@@ -504,9 +740,15 @@
 
   var draft = recall(DRAFT_KEY);
   if (draft) {
-    editor.innerHTML = draft;
-    say("Unsaved draft restored.");
+    var saved = null;
+    try { saved = JSON.parse(draft); } catch (e) { saved = { h: draft, n: null }; }
+    if (saved && saved.h) {
+      editor.innerHTML = saved.h;
+      current = saved.n || null;
+      say(current ? "Unsaved changes to " + current + " restored." : "Unsaved draft restored.");
+    }
   }
+  paintChip();
   paintCount();
   editor.focus();
 })();
