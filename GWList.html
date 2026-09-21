@@ -710,12 +710,14 @@
  *  CONFIG                                                        *
  * ============================================================== */
 const CONFIG = {
-  SUMMARY_MAX_TOKENS: 2048,
+  // Sonnet 5 / Gemini think by default and the hidden reasoning shares this
+  // budget with the visible summary — too low and the summary gets cut off.
+  SUMMARY_MAX_TOKENS: 16000,
   // Ask uses the stronger/reasoning model of whichever provider is selected,
   // same as the "Ask about this case" box in index.html, because clinical
   // reasoning benefits from it. Reasoning tokens share this budget with the
   // answer, so leave headroom — you are only billed for tokens generated.
-  ASK_MAX_TOKENS: 8192,
+  ASK_MAX_TOKENS: 16000,
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt"
 };
 

@@ -533,11 +533,11 @@
  * ============================================================== */
 const CONFIG = {
   DEFAULT_MODEL: "claude-sonnet-5",
-  MAX_TOKENS: 8192,
+  MAX_TOKENS: 16000,
   ASK_MODEL: "claude-opus-5",
   // Opus 5 thinks by default and thinking shares this budget with the answer,
   // so leave headroom — you are only billed for tokens actually generated.
-  ASK_MAX_TOKENS: 8192,
+  ASK_MAX_TOKENS: 16000,
   PROMPTS_INDEX: "prompts/index.json",
   PROMPTS_DIR: "prompts/",
   // "Update existing" mode uses this single fixed template (not shown in the

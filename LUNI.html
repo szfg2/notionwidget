@@ -689,7 +689,7 @@ JSON SCHEMA (all keys required; use null or [] when unknown):
         kind: "ask",
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
         messages: [{ role: "user", content: buildUserMessage() }],
-        maxTokens: 3200,
+        maxTokens: 16000,
         signal: state.controller.signal
       });
       let data = applyExplicitValues(normalize(parseJSON(text)));

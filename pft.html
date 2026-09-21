@@ -1093,7 +1093,7 @@ $("fillBtn").addEventListener("click", async () => {
         key,
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
         messages: [{ role: "user", content: report }],
-        maxTokens: 2000
+        maxTokens: 16000
       });
     } catch (apiErr) {
       setFillMsg("API error: " + (apiErr.message || apiErr), true);

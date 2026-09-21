@@ -283,7 +283,7 @@
 
       const model = opts.model || AI.model(opts.kind);
       const systems = opts.systems || [];
-      const maxTokens = opts.maxTokens || 4096;
+      const maxTokens = opts.maxTokens || 16000;
 
       let url = p.url, headers, body;
       if (id === "gemini") {
@@ -378,6 +378,14 @@
       } else {
         text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
       }
+      // A reply that hit the token ceiling is cut off mid-sentence — fail
+      // loudly rather than hand the page half an answer to save.
+      const cut = id === "gemini"
+        ? (((data.candidates || [])[0] || {}).finishReason === "MAX_TOKENS")
+        : id === "deepseek"
+          ? (data.choices && data.choices[0] && data.choices[0].finish_reason === "length")
+          : data.stop_reason === "max_tokens";
+      if (cut) throw new Error(p.label + ": reply was cut off (token limit reached) — try again.");
       return String(text).trim();
     }
   };

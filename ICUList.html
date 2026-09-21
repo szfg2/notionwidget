@@ -844,19 +844,19 @@ const CONFIG = {
   // Opus 5 thinks by default and the thinking shares this budget with the note,
   // so the ceiling is well clear of the note's own length.
   NOTE_MAX_TOKENS: 16000,
-  SUMMARY_MAX_TOKENS: 2048,
-  OBJECTIVE_MAX_TOKENS: 1024,
+  SUMMARY_MAX_TOKENS: 16000,
+  OBJECTIVE_MAX_TOKENS: 16000,
   // Ask uses the stronger model, same as the "Ask about this case" box in
   // index.html, because clinical reasoning benefits from it.
   ASK_MODEL: "claude-opus-5",
   // Opus 5 thinks by default and thinking shares this budget with the answer,
   // so leave headroom — you are only billed for tokens actually generated.
-  ASK_MAX_TOKENS: 8192,
+  ASK_MAX_TOKENS: 16000,
   TRIAGE_PROMPT: "prompts/icu-triage-note.txt",
   SUMMARY_PROMPT: "prompts/icu-ward-round-summary.txt",
   OBJECTIVE_PROMPT: "prompts/icu-objective-status.txt",
   REVIEW_PROMPT: "prompts/icu-review-note.txt",
-  REVIEW_MAX_TOKENS: 2048
+  REVIEW_MAX_TOKENS: 16000
 };
 
 /* Instruction that shapes the "Ask about this patient" answers (matches index.html). */
