@@ -57,7 +57,7 @@
   .zone img { max-width: 100%; height: auto; }
   .zone.flash { border-color: var(--accent); background: var(--accent-soft); }
 
-  .zone-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 20px; }
+  .zone-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 20px; }
   .hint { color: var(--faint); font-size: 12px; }
 
   .btn { padding: 7px 13px; font-size: 12.5px; font-weight: 600; line-height: 1; color: var(--text); background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; white-space: nowrap; }
@@ -128,7 +128,11 @@
            data-placeholder="Click here and paste (Ctrl+V) and it's saved straight away. Or type a note and press Save."></div>
       <div class="zone-bar">
         <span class="hint">Ctrl+V anywhere on the page saves instantly · Ctrl+Enter saves what you've typed</span>
-        <button id="saveBtn" class="btn primary">Save</button>
+        <div class="actions">
+          <button id="uploadBtn" class="btn">Add picture</button>
+          <button id="saveBtn" class="btn primary">Save</button>
+        </div>
+        <input id="fileInput" type="file" accept="image/*" multiple hidden />
       </div>
 
       <section id="viewer" hidden>
@@ -380,17 +384,54 @@
     }
   }
 
-  function cleanInto(src, dst) {
+  /* ---------- colour fixing ---------- */
+  // Text copied from dark-mode apps arrives as white-on-black highlights; the paper is light, so undo that.
+  const PAPER = [251, 250, 247];
+  const colorCtx = document.createElement("canvas").getContext("2d");
+  function rgbOf(v) {
+    if (!v || /^(transparent|inherit|initial|unset|currentcolor|windowtext|window)$/i.test(v.trim())) return null;
+    colorCtx.fillStyle = "#010203";
+    colorCtx.fillStyle = v;
+    const s = colorCtx.fillStyle;
+    if (s === "#010203") return null;
+    let m = /^#(..)(..)(..)$/.exec(s);
+    if (m) return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+    m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(s);
+    if (m && (m[4] == null || +m[4] > 0.4)) return [+m[1], +m[2], +m[3]];
+    return null;
+  }
+  function lum(c) {
+    const f = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  }
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+  // Returns the background the element's children sit on.
+  function fixColors(el, tag, bg) {
+    const fill = rgbOf(el.style.backgroundColor);
+    if (fill) {
+      // Dark fills are kept only on table cells (e.g. Excel header rows); dark highlights on text are dropped.
+      if (lum(fill) < 0.18 && !/^(TD|TH|TR|THEAD|TABLE)$/.test(tag)) el.style.removeProperty("background-color");
+      else bg = fill;
+    }
+    const ink = rgbOf(el.style.color);
+    if (ink && contrast(ink, bg) < 3) el.style.removeProperty("color");
+    if (!el.style.color && fill && bg === fill && lum(bg) < 0.18) el.style.color = "#fff";
+    return bg;
+  }
+
+  function cleanInto(src, dst, bg) {
+    bg = bg || PAPER;
     for (const n of Array.from(src.childNodes)) {
       if (n.nodeType === 3) { dst.appendChild(document.createTextNode(n.nodeValue)); continue; }
       if (n.nodeType !== 1) continue;
       const tag = n.tagName.toUpperCase();
       if (SKIP_TAGS.has(tag) || tag.indexOf(":") >= 0) continue;   // o:p, v:shape and other Office tags
-      if (!KEEP_TAGS.has(tag)) { cleanInto(n, dst); continue; }
+      if (!KEEP_TAGS.has(tag)) { cleanInto(n, dst, bg); continue; }
       const el = document.createElement(tag === "FONT" ? "span" : tag === "CENTER" ? "div" : tag.toLowerCase());
       copyAttrs(n, el, tag);
       if (tag === "CENTER") el.style.textAlign = "center";
-      cleanInto(n, el);
+      cleanInto(n, el, fixColors(el, tag, bg));
       dst.appendChild(el);
     }
   }
@@ -407,16 +448,47 @@
 
   /* ---------- clipboard → html ---------- */
   // Clipboard data vanishes once the paste event ends, so grab it synchronously.
+  const IMG_EXT = /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif|tiff?)$/i;
+  const isImageFile = f => /^image\//.test(f.type) || IMG_EXT.test(f.name || "");
+  // Copying a picture file (Explorer, Snipping Tool, phone gallery) also puts its filename on the clipboard as text.
+  const isFileNames = t => t.split(/[\r\n]+/).every(l => { l = l.trim(); return !l || (IMG_EXT.test(l) && l.length < 260); });
+
   function snapshot(dt) {
     const files = [];
     Array.from(dt.items || []).forEach(it => {
-      if (it.kind === "file" && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) files.push(f); }
+      if (it.kind === "file") { const f = it.getAsFile(); if (f && isImageFile(f)) files.push(f); }
     });
-    if (!files.length) Array.from(dt.files || []).forEach(f => { if (/^image\//.test(f.type)) files.push(f); });
+    if (!files.length) Array.from(dt.files || []).forEach(f => { if (isImageFile(f)) files.push(f); });
     return { html: dt.getData("text/html"), text: dt.getData("text/plain"), files };
   }
 
+  // Browsers can't show HEIC/TIFF etc., so redraw those as JPEG.
+  async function displayable(f) {
+    if (/^image\/(png|jpeg|gif|webp|bmp)$/.test(f.type)) return f;
+    try {
+      const bmp = await createImageBitmap(f);
+      const cv = document.createElement("canvas");
+      cv.width = bmp.width;
+      cv.height = bmp.height;
+      cv.getContext("2d").drawImage(bmp, 0, 0);
+      return (await new Promise(r => cv.toBlob(r, "image/jpeg", 0.9))) || f;
+    } catch (e) { return f; }
+  }
+
+  async function filesToHtml(files) {
+    const box = document.createElement("div");
+    for (const f of files) {
+      const img = document.createElement("img");
+      img.src = await blobToDataUrl(await displayable(f));
+      box.appendChild(img);
+    }
+    return sanitize(box.innerHTML).innerHTML;
+  }
+
   async function clipboardToHtml(snap) {
+    if (snap.files.length && (isFileNames(snap.text || "") || (!snap.text && !/<img/i.test(snap.html || "")))) {
+      return filesToHtml(snap.files);
+    }
     const files = snap.files.slice();
     let box = document.createElement("div");
     if (snap.html) box = sanitize(snap.html);
@@ -433,14 +505,14 @@
     for (const img of Array.from(box.querySelectorAll("img"))) {
       if (/^data:/.test(img.getAttribute("src") || "")) continue;
       const f = files.shift();
-      if (f) { img.setAttribute("src", await blobToDataUrl(f)); img.removeAttribute("data-missing"); }
+      if (f) { img.setAttribute("src", await blobToDataUrl(await displayable(f))); img.removeAttribute("data-missing"); }
       else if (img.hasAttribute("data-missing")) img.remove();
     }
     // Excel also puts a picture of the cells on the clipboard; only use leftover pictures when there's no text.
     if (files.length && !box.textContent.trim()) {
       for (const f of files) {
         const img = document.createElement("img");
-        img.src = await blobToDataUrl(f);
+        img.src = await blobToDataUrl(await displayable(f));
         box.appendChild(img);
       }
     }
@@ -735,9 +807,17 @@
   }
 
   async function handlePaste(dt, intoZone) {
-    const snap = snapshot(dt);
-    const html = await clipboardToHtml(snap);
-    if (!html) { toast("Nothing to save on the clipboard"); return; }
+    await place(await clipboardToHtml(snapshot(dt)), intoZone, "Nothing to save on the clipboard");
+  }
+
+  async function addFiles(list) {
+    const files = Array.from(list || []).filter(isImageFile);
+    if (!files.length) { toast("No pictures chosen"); return; }
+    await place(await filesToHtml(files), true, "Couldn't read that picture");
+  }
+
+  async function place(html, intoZone, emptyMsg) {
+    if (!html) { toast(emptyMsg); return; }
     if (intoZone && !zoneEmpty()) {
       // Adding to a note being typed: insert, and save when they press Save.
       zone.focus();
@@ -770,6 +850,14 @@
     handlePaste(e.clipboardData, false);
   });
   $("saveBtn").addEventListener("click", saveZone);
+  $("uploadBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", e => { const f = e.target.files; addFiles(f).finally(() => { e.target.value = ""; }); });
+  document.addEventListener("dragover", e => { if (Array.from(e.dataTransfer.types).indexOf("Files") >= 0) e.preventDefault(); });
+  document.addEventListener("drop", e => {
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    addFiles(e.dataTransfer.files);
+  });
 
   /* ---------- log & viewer events ---------- */
   $("list").addEventListener("click", e => {
