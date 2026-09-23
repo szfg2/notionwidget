@@ -8,6 +8,7 @@
 <script src="marked.min.js"></script>
 <script src="keyvault.data.js"></script>
 <script src="keyvault.js"></script>
+<script src="reshome.js"></script>
 <script src="provider.js"></script>
 <style>
   :root {
@@ -840,16 +841,16 @@ const CONFIG = {
   // The triage note is the one generated document read at the bedside and acted
   // on, so it runs on the stronger model. provider.js picks the actual model
   // from the tier this string implies, so this also upgrades DeepSeek to v4-pro.
-  TRIAGE_MODEL: "claude-opus-5",
-  // Opus 5 thinks by default and the thinking shares this budget with the note,
+  TRIAGE_MODEL: "claude-opus-5-5",
+  // Opus 5.5 thinks by default and the thinking shares this budget with the note,
   // so the ceiling is well clear of the note's own length.
   NOTE_MAX_TOKENS: 16000,
   SUMMARY_MAX_TOKENS: 16000,
   OBJECTIVE_MAX_TOKENS: 16000,
   // Ask uses the stronger model, same as the "Ask about this case" box in
   // index.html, because clinical reasoning benefits from it.
-  ASK_MODEL: "claude-opus-5",
-  // Opus 5 thinks by default and thinking shares this budget with the answer,
+  ASK_MODEL: "claude-opus-5-5",
+  // Opus 5.5 thinks by default and thinking shares this budget with the answer,
   // so leave headroom — you are only billed for tokens actually generated.
   ASK_MAX_TOKENS: 16000,
   TRIAGE_PROMPT: "prompts/icu-triage-note.txt",

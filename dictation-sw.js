@@ -20,6 +20,7 @@ const CACHE_NAME = "dictation-shell-v1";
 const APP_SHELL = [
   "./dictation.html",
   "./provider.js",
+  "./reshome.js",
   "./favicon.svg",
   "./dictation-icon.svg",
   "./dictation-manifest.webmanifest",
