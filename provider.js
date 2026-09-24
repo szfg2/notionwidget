@@ -279,6 +279,7 @@
      *   systems  [{ text, cache }]  cache=true marks the reusable prefix
      *   messages [{ role, content }]
      *   kind     "ask" | undefined   (ignored when `model` is given)
+     *   effort   "low" | "medium" | "high" | undefined   (Claude only)
      */
     async call(opts) {
       const p = AI.current();
@@ -348,7 +349,9 @@
           }),
           messages: opts.messages || []
         };
-        if (p.effort[model]) body.output_config = { effort: p.effort[model] };
+        // opts.effort lets a single call override the per-model default above.
+        const effort = opts.effort || p.effort[model];
+        if (effort) body.output_config = { effort };
         /* Sonnet 5 and Opus 5.5 dropped the sampling knobs — a request carrying
          * temperature/top_p/top_k is rejected, so opts.temperature is
          * deliberately ignored on this provider. */

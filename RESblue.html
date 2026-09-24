@@ -1184,7 +1184,10 @@
  *  CONFIG                                                        *
  * ============================================================== */
 const CONFIG = {
-  MODEL: "claude-sonnet-5",
+  MODEL: "claude-opus-5-5",
+  // Calls that used to run on Sonnet now use Opus at low effort, which keeps
+  // them quick. Topics and Ask keep provider.js's default of "high".
+  LOW_EFFORT: "low",
   LETTER_MAX_TOKENS: 16000,
   SUMMARY_MAX_TOKENS: 16000,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
@@ -1195,18 +1198,18 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 16000,
   ASK_MODEL: "claude-opus-5-5",
   ASK_MAX_TOKENS: 16000,
-  // History-taking questions use Sonnet — quick, cheap, called only on demand.
-  HISTORY_MODEL: "claude-sonnet-5",
+  // History-taking questions use Opus too, called only on demand.
+  HISTORY_MODEL: "claude-opus-5-5",
   HISTORY_MAX_TOKENS: 16000,
   // History-taking mode — the documented history rewritten as bedside clerking
   // lines, drafted on demand and then edited by hand at the bedside.
   HX_LINES_PROMPT: "prompts/respiratory-history-lines.txt",
-  HX_LINES_MODEL: "claude-sonnet-5",
+  HX_LINES_MODEL: "claude-opus-5-5",
   HX_LINES_MAX_TOKENS: 16000,
   // Bedside dictation — Whisper transcribes, then Claude folds the transcript
   // into the history box. Same endpoint/model as dictation.html.
   WHISPER_MODEL: "whisper-1",
-  HX_MERGE_MODEL: "claude-sonnet-5",
+  HX_MERGE_MODEL: "claude-opus-5-5",
   HX_MERGE_MAX_TOKENS: 16000,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
   SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
@@ -1841,14 +1844,15 @@ function stripEmDashes(text) {
  * tier hint: pages pass Opus for the reasoning-heavy calls and Sonnet for the
  * rest, which maps onto whichever pair the selected provider uses. The em-dash
  * ban and the post-hoc strip are applied whichever provider answers. */
-async function callClaude(key, model, system, userMessage, maxTokens, signal) {
+async function callClaude(key, model, system, userMessage, maxTokens, signal, effort) {
   const text = await AI.call({
     key,
     kind: /opus|v4-pro/.test(model) ? "ask" : "default",
     systems: [{ text: system + NO_EMDASH, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens,
-    signal
+    signal,
+    effort
   });
   return stripEmDashes(text);
 }
@@ -2361,8 +2365,8 @@ $("generateBtn").addEventListener("click", async () => {
     ]);
 
     const [letter, summary] = await Promise.all([
-      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal),
-      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal)
+      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT),
+      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT)
     ]);
 
     $("output").value = letter || "(No text returned.)";
@@ -2847,7 +2851,7 @@ function noteControl(p, label, promptUrl, colSpan) {
       const userMessage = caseContextOf(p) +
         "\n\nLATEST RESULTS & VITALS (entered at this review):\n" + (results.box.value.trim() || "(none entered)") +
         "\n\nSUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || "(none entered)");
-      const text = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.REVIEW_MAX_TOKENS, controller.signal);
+      const text = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.REVIEW_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT);
       noteText = text || "";
       out.textContent = noteText || "(No text returned.)";
       out.style.display = "";
@@ -3185,7 +3189,7 @@ function renderFullRow(body, p) {
       histRegen.disabled = true;
       histBody.innerHTML = '<span class="status"><span class="spinner grey" style="display:inline-block;vertical-align:-2px"></span> Generating questions…</span>';
       try {
-        const text = await callClaude(key, CONFIG.HISTORY_MODEL, HISTORY_SYSTEM, caseContextOf(p), CONFIG.HISTORY_MAX_TOKENS, histController.signal);
+        const text = await callClaude(key, CONFIG.HISTORY_MODEL, HISTORY_SYSTEM, caseContextOf(p), CONFIG.HISTORY_MAX_TOKENS, histController.signal, CONFIG.LOW_EFFORT);
         histText = text || "";
         histBody.innerHTML = window.marked ? marked.parse(histText, { breaks: true }) : "";
         if (!window.marked) histBody.textContent = histText;
@@ -3495,7 +3499,7 @@ function historyCell(td, p) {
     stat.classList.remove("ok");
     try {
       const sys = await loadPrompt(CONFIG.HX_LINES_PROMPT, controller.signal);
-      const text = await callClaude(key, CONFIG.HX_LINES_MODEL, sys, caseContextOf(p), CONFIG.HX_LINES_MAX_TOKENS, controller.signal);
+      const text = await callClaude(key, CONFIG.HX_LINES_MODEL, sys, caseContextOf(p), CONFIG.HX_LINES_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT);
       if (text) {
         box.value = text;
         queueHistorySave(p.id, text, stat);
@@ -3703,7 +3707,7 @@ async function mergeDictation(p, current, transcript, signal) {
     "\n\nNEW DICTATION (just spoken at the bedside, transcribed automatically):\n" + transcript +
     "\n\nBACKGROUND CASE INFORMATION (context for interpreting the dictation — never draw new lines from it):\n" +
     caseContextOf(p);
-  return callClaude(key, CONFIG.HX_MERGE_MODEL, sys, userMessage, CONFIG.HX_MERGE_MAX_TOKENS, signal);
+  return callClaude(key, CONFIG.HX_MERGE_MODEL, sys, userMessage, CONFIG.HX_MERGE_MAX_TOKENS, signal, CONFIG.LOW_EFFORT);
 }
 
 // Draft every patient who has no history yet, one at a time so the API isn't
