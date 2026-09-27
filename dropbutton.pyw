@@ -622,6 +622,7 @@ class DropButton:
         self.found = []
         self.sel = 0
         self.search_job = None
+        self.panel_size = (0, 0)
 
         self.btn = tk.Canvas(r, width=self.size, height=self.size, bg=KEY, highlightthickness=0, bd=0)
         self.btn_img = self.btn.create_image(0, 0, anchor="nw")
@@ -889,7 +890,12 @@ class DropButton:
         if not self.expanded or self.dragging:
             return
         self.root.update_idletasks()
-        pw, ph = self.panel.winfo_reqwidth(), self.panel.winfo_reqheight()
+        # Size the panel for the biggest tab, and never shrink it, so switching tabs doesn't resize the window.
+        views = self.views.values()
+        shown = self.views[self.tab].winfo_reqheight()
+        pw = max(self.panel.winfo_reqwidth(), max(v.winfo_reqwidth() for v in views) + 2)
+        ph = self.panel.winfo_reqheight() - shown + max(v.winfo_reqheight() for v in views)
+        self.panel_size = pw, ph = max(pw, self.panel_size[0]), max(ph, self.panel_size[1])
         x, y = self.panel_origin(pw, ph)
         self.root.geometry(f"{pw}x{ph}+{x}+{y}")
 
