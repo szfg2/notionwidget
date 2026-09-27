@@ -495,6 +495,66 @@ def collect_todos(today):
     return out + recurring_due(lines, today)
 
 
+# ---------- vault search ----------
+# Reads every note from the local Vault folder, so searching is instant and works offline.
+
+def load_notes():
+    notes = []
+    for folder, dirs, files in os.walk(VAULT):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for f in files:
+            if not f.lower().endswith(".md"):
+                continue
+            path = os.path.join(folder, f)
+            try:
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    body = fh.read()
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            rel = os.path.relpath(path, VAULT)[:-3].replace("\\", "/")
+            notes.append({"name": f[:-3], "lname": f[:-3].lower(), "rel": rel, "folder": os.path.dirname(rel),
+                          "body": body, "low": body.lower(), "mtime": mtime})
+    return notes
+
+
+def search_notes(notes, query, limit=40):
+    """Every word must appear in the title or the text; title matches rank first. No query: most recently edited."""
+    q = " ".join(query.lower().split())
+    words = q.split()
+    if not words:
+        return sorted(notes, key=lambda n: -n["mtime"])[:limit]
+    starts = [re.compile(r"\b" + re.escape(w)) for w in words]
+    hits = []
+    for n in notes:
+        name, low = n["lname"], n["low"]
+        if not all(w in name or w in low for w in words):
+            continue
+        score = 100 if name == q else 60 if name.startswith(q) else 40 if q in name else 0
+        score += sum(20 if s.search(name) else 10 if w in name else 0 for w, s in zip(words, starts))
+        score += min(10, sum(low.count(w) for w in words))
+        hits.append((-score, name, n))
+    hits.sort(key=lambda h: h[:2])
+    return [h[2] for h in hits[:limit]]
+
+
+def snippet(note, words, width=90):
+    # A line of text around the first word that isn't in the title, so you can see why the note matched.
+    missing = [w for w in words if w not in note["lname"]]
+    found = [i for i in (note["low"].find(w) for w in missing) if i >= 0]
+    if not found:
+        return ""
+    start = max(0, min(found) - 30)
+    text = re.sub(r"(^|\n)\s*[#>\-*|]+|\[![\w-]+\][+-]?", " ", note["body"][start:start + width + 40])
+    text = plain(text)
+    return ("…" if start else "") + text[:width] + "…"
+
+
+def open_in_obsidian(rel):
+    os.startfile("obsidian://open?vault=" + urllib.parse.quote(os.path.basename(VAULT))
+                 + "&file=" + urllib.parse.quote(rel))
+
+
 # ---------- config ----------
 
 def load_cfg():
@@ -556,6 +616,12 @@ class DropButton:
         self.thumbs = []
         self.todos = []
         self.undo = None
+        self.notes = []
+        self.notes_at = 0
+        self.indexing = False
+        self.found = []
+        self.sel = 0
+        self.search_job = None
 
         self.btn = tk.Canvas(r, width=self.size, height=self.size, bg=KEY, highlightthickness=0, bd=0)
         self.btn_img = self.btn.create_image(0, 0, anchor="nw")
@@ -571,6 +637,7 @@ class DropButton:
 
         self.collapse()
         r.deiconify()
+        self.index_notes()
         self.poll()
 
     def quit(self):
@@ -583,7 +650,7 @@ class DropButton:
         self.head = head = tk.Frame(p, bg=SURFACE, cursor="fleur")
         head.pack(fill="x", padx=10, pady=(8, 6))
         self.tabs = {}
-        for name, label in (("drop", "Drop"), ("chat", "Chat"), ("todos", "To-Dos")):
+        for name, label in (("drop", "Drop"), ("chat", "Chat"), ("todos", "To-Dos"), ("search", "Search")):
             t = self.tabs[name] = tk.Label(head, text=label, bg=SURFACE, font=("Segoe UI Semibold", 10), cursor="hand2")
             t.tab = name
             t.pack(side="left", padx=(0, 10))
@@ -626,7 +693,9 @@ class DropButton:
 
         self.build_chat(p)
         self.build_todos(p)
-        self.views = {"drop": self.drop_view, "chat": self.chat_view, "todos": self.todo_view}
+        self.build_search(p)
+        self.views = {"drop": self.drop_view, "chat": self.chat_view, "todos": self.todo_view,
+                      "search": self.search_view}
         self.show_tab(self.tab if self.tab in self.views else "drop", focus=False)
 
     def build_chat(self, p):
@@ -684,6 +753,42 @@ class DropButton:
         self.readonly(t)
         self.status.bind("<Button-1>", lambda e: self.undo_todo())
 
+    def build_search(self, p):
+        v = self.search_view = tk.Frame(p, bg=SURFACE)
+        box = tk.Frame(v, bg=SURFACE2, highlightthickness=1, highlightbackground=BORDER, highlightcolor=ACCENT)
+        box.pack(fill="x", padx=10)
+        self.query_var = tk.StringVar()
+        self.query_var.trace_add("write", lambda *a: self.queue_search())
+        q = self.query = tk.Entry(box, textvariable=self.query_var, bg=SURFACE2, fg=TEXT, insertbackground=TEXT,
+                                  relief="flat", bd=0, font=FONT)
+        q.pack(fill="x", padx=8, pady=6)
+        q.bind("<FocusIn>", lambda e: box.configure(highlightbackground=ACCENT))
+        q.bind("<FocusOut>", lambda e: box.configure(highlightbackground=BORDER))
+        q.bind("<Button-1>", lambda e: self.root.focus_force())
+        q.bind("<Escape>", lambda e: self.collapse(manual=True))
+        q.bind("<Down>", lambda e: self.move_sel(1))
+        q.bind("<Up>", lambda e: self.move_sel(-1))
+        q.bind("<Return>", lambda e: self.open_found(self.sel))
+        q.bind("<Shift-Return>", lambda e: self.open_found(self.sel, obsidian=True))
+
+        top = tk.Frame(v, bg=SURFACE)
+        top.pack(fill="x", padx=10, pady=(6, 0))
+        self.search_summary = tk.Label(top, text="", bg=SURFACE, fg=MUTED, font=("Segoe UI", 8))
+        self.search_summary.pack(side="left")
+        tk.Label(top, text="Enter opens · Shift: in Obsidian", bg=SURFACE, fg=FAINT,
+                 font=("Segoe UI", 8)).pack(side="right")
+
+        t = self.found_list = tk.Text(v, width=46, height=18, wrap="word", bg=SURFACE, fg=TEXT, relief="flat",
+                                      font=("Segoe UI", 9), padx=2, pady=4, highlightthickness=0, cursor="arrow",
+                                      spacing1=3, spacing3=3)
+        t.pack(fill="both", expand=True, padx=10, pady=(2, 10))
+        t.tag_configure("title", font=("Segoe UI Semibold", 10), lmargin1=6, lmargin2=6)
+        t.tag_configure("where", foreground=FAINT, font=("Segoe UI", 8))
+        t.tag_configure("snip", foreground=MUTED, font=("Segoe UI", 8), lmargin1=6, lmargin2=6)
+        t.tag_configure("hit", foreground=ACCENT_STRONG)
+        t.tag_configure("cur", background=SURFACE2)
+        self.readonly(t)
+
     def input(self, parent, height):
         box = tk.Text(parent, width=46, height=height, wrap="word", bg=SURFACE2, fg=TEXT, insertbackground=TEXT,
                       relief="flat", font=FONT, padx=8, pady=6, undo=True,
@@ -717,6 +822,13 @@ class DropButton:
                 self.ask.focus_set()
         elif name == "todos" and self.expanded:
             self.load_todos()
+        elif name == "search" and self.expanded:
+            self.index_notes()
+            self.run_search()
+            if focus:
+                self.root.focus_force()
+                self.query.focus_set()
+                self.query.select_range(0, "end")
         self.cfg["tab"] = name
         save_cfg(self.cfg)
         self.fit()
@@ -845,7 +957,8 @@ class DropButton:
                 if now - self.inside_since > 0.15:
                     self.expand()
         elif (inside or self.dragging or self.busy or self.chat_proc or not self.draft_empty()
-              or self.ask.get("1.0", "end").strip()):
+              or self.ask.get("1.0", "end").strip()
+              or (self.root.focus_get() is self.query and self.query_var.get().strip())):
             self.outside_since = None
         else:
             self.outside_since = self.outside_since or now
@@ -1264,6 +1377,98 @@ class DropButton:
         except (OSError, RuntimeError) as e:
             self.set_status("Couldn't undo: " + str(e)[:40], DANGER)
         self.load_todos()
+
+    # ----- search -----
+
+    def index_notes(self):
+        # Re-read the vault at most every 20 seconds, in the background; the old index keeps working meanwhile.
+        if self.indexing or time.monotonic() - self.notes_at < 20:
+            return
+        self.indexing = True
+
+        def work():
+            try:
+                notes = load_notes()
+            except OSError:
+                notes = None
+            self.results.put(lambda: self.indexed(notes))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def indexed(self, notes):
+        self.indexing = False
+        if notes is not None:
+            self.notes, self.notes_at = notes, time.monotonic()
+        if self.expanded and self.tab == "search":
+            self.run_search(keep_sel=True)
+
+    def queue_search(self):
+        if self.search_job:
+            self.root.after_cancel(self.search_job)
+        self.search_job = self.root.after(120, self.run_search)
+
+    def run_search(self, keep_sel=False):
+        self.search_job = None
+        query = self.query_var.get()
+        words = query.lower().split()
+        self.found = search_notes(self.notes, query)
+        self.sel = min(self.sel, max(0, len(self.found) - 1)) if keep_sel else 0
+        t = self.found_list
+        for tag in t.tag_names():
+            if tag.startswith("#"):
+                t.tag_delete(tag)
+        t.delete("1.0", "end")
+        for n, note in enumerate(self.found):
+            row = f"#r{n}"
+            t.insert("end", plain(note["name"]) or note["name"], ("title", row))
+            if note["folder"]:
+                t.insert("end", "  " + note["folder"], ("where", row))
+            snip = snippet(note, words) if words else ""
+            if snip:
+                t.insert("end", "\n" + snip, ("snip", row))
+            t.insert("end", "\n", row)
+            t.tag_bind(row, "<Button-1>", lambda e, n=n: self.open_found(n, obsidian=bool(e.state & 1)))
+            t.tag_bind(row, "<Enter>", lambda e: t.configure(cursor="hand2"))
+            t.tag_bind(row, "<Leave>", lambda e: t.configure(cursor="arrow"))
+        for w in words:
+            i = "1.0"
+            while True:
+                i = t.search(w, i, stopindex="end", nocase=True)
+                if not i:
+                    break
+                t.tag_add("hit", i, f"{i}+{len(w)}c")
+                i = f"{i}+{len(w)}c"
+        if not self.notes:
+            t.insert("end", "Reading the vault…" if self.indexing else "No notes found in " + VAULT, "snip")
+        elif not self.found:
+            t.insert("end", "No matches.", "snip")
+        self.search_summary.configure(
+            text=f"{len(self.found)}{'+' if len(self.found) == 40 else ''} match{'es' if len(self.found) != 1 else ''}"
+            if words else f"Recently edited · {len(self.notes)} notes")
+        self.show_sel()
+        self.fit()
+
+    def show_sel(self):
+        t = self.found_list
+        t.tag_remove("cur", "1.0", "end")
+        if self.found:
+            t.tag_add("cur", f"#r{self.sel}.first", f"#r{self.sel}.last")
+            t.see(f"#r{self.sel}.first")
+
+    def move_sel(self, step):
+        if self.found:
+            self.sel = (self.sel + step) % len(self.found)
+            self.show_sel()
+        return "break"
+
+    def open_found(self, n, obsidian=False):
+        if n < len(self.found):
+            rel = self.found[n]["rel"]
+            if obsidian:
+                open_in_obsidian(rel)
+            else:
+                webbrowser.open(VIEW_URL + urllib.parse.quote(rel))
+        return "break"
 
 
 def main():
