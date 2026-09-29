@@ -10,6 +10,7 @@
 <script src="keyvault.js"></script>
 <script src="reshome.js"></script>
 <script src="provider.js"></script>
+<script src="shots.js"></script>
 <style>
   :root {
     --bg: #191919;
@@ -949,7 +950,7 @@
       <textarea class="input-box" id="clinical" placeholder="Vitals, oxygen requirements, bloods, micro, imaging this admission…"></textarea>
     </div>
 
-    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere.</span></p>
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere. Screenshots can be pasted (Ctrl/⌘ + V) or dropped into any box — crop out the patient header first. They are sent to the model but never saved.</span></p>
 
     <div class="card">
       <div class="gen-row">
@@ -1188,7 +1189,9 @@ const CONFIG = {
   // Calls that used to run on Sonnet now use Opus at low effort, which keeps
   // them quick. Topics and Ask keep provider.js's default of "high".
   LOW_EFFORT: "low",
-  LETTER_MAX_TOKENS: 16000,
+  // The blue letter reply itself is the clinical output that matters most.
+  LETTER_EFFORT: "high",
+  LETTER_MAX_TOKENS: 32000,
   SUMMARY_MAX_TOKENS: 16000,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
   // case" box in index.html, because clinical reasoning benefits from it.
@@ -2347,13 +2350,24 @@ $("generateBtn").addEventListener("click", async () => {
   const referral = $("referralLetter").value.trim();
   const past = $("pastMedical").value.trim();
   const clinical = $("clinical").value.trim();
+  const refShots = shotsOf($("referralLetter"));
+  const pastShots = shotsOf($("pastMedical"));
+  const clinShots = shotsOf($("clinical"));
+  const allShots = refShots.concat(pastShots, clinShots);
   if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
-  if (!referral && !past && !clinical) return showError("Add a referral letter, past medical details or clinical data.");
+  if (!referral && !past && !clinical && !allShots.length) return showError("Add a referral letter, past medical details or clinical data.");
+  const blocked = shotsBlocked(allShots);
+  if (blocked) return showError(blocked);
 
   // Only the de-identified medical content is sent to Claude — never name/location.
-  const userMessage =
-    (referral ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + referral + "\n\n" : "") +
-    "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
+  const seeShots = (text, shots) => text || (shots.length ? "(see attached screenshots)" : "");
+  const userMessage = withShots([
+    ...(referral || refShots.length
+      ? [{ text: "REFERRAL LETTER FROM PRIMARY TEAM:\n" + seeShots(referral, refShots), shots: refShots }]
+      : []),
+    { text: "PATIENT DETAILS:\n" + seeShots(past, pastShots), shots: pastShots },
+    { text: "LATEST CLINICAL DATA:\n" + seeShots(clinical, clinShots), shots: clinShots }
+  ]);
 
   genController = new AbortController();
   setLoading(true);
@@ -2365,7 +2379,7 @@ $("generateBtn").addEventListener("click", async () => {
     ]);
 
     const [letter, summary] = await Promise.all([
-      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT),
+      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal, CONFIG.LETTER_EFFORT),
       callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT)
     ]);
 
@@ -2531,7 +2545,12 @@ let currentCase = null;
 
 function clearCaseInputs() {
   ["ptLocation", "ptName", "referralLetter", "pastMedical", "clinical"].forEach(id => { $(id).value = ""; });
+  ["referralLetter", "pastMedical", "clinical"].forEach(id => clearShots($(id)));
 }
+
+/* Screenshots in the case boxes — see shots.js. They are sent with the letter
+ * and summary request but never saved; the GitHub record keeps the text alone. */
+["referralLetter", "pastMedical", "clinical"].forEach(id => enableShots($(id)));
 
 // What Ask / reading topics should treat as the case: whatever is in the boxes,
 // falling back per box to the case the on-screen letter was generated from.
