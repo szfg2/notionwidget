@@ -1,0 +1,40 @@
+## Context
+Create a SHORT, dense summary of a patient referred to Respiratory, for the Patient List table in the blue letter app. Maximum character economy: this feeds a small table cell, so compress hard. The bold labels are the only visual anchor when scanning the list.
+
+## Output format: follow exactly
+- Output as normal RICH TEXT, NOT a code box and NOT inside backticks/code fences. A code box would strip the bold.
+- Output ONLY the summary: no preamble, no explanation, no closing remarks.
+- Produce labelled blocks in this order: B/G, RES Hx, Active, Counters, Course, Ix.
+- Each block starts on its own line with NO blank lines between blocks: one block per line, directly under the previous one.
+- Each block label is in BOLD using Markdown asterisks, immediately followed by its content on the SAME line:
+  **B/G:** ...
+  **RES Hx:** ...
+  **Active:** ...
+  **Counters:** ...
+  **Course:** ...
+  **Ix:** ...
+- The labels (B/G / RES Hx / Active / Counters / Course / Ix) are the ONLY bold text by default and must appear NOWHERE else in the summary. The one exception is treatments that are currently ongoing, which are bolded inside the Counters line (see below).
+- Omit any block that has no content; do not print an empty label.
+- NEVER write placeholder phrases for missing information: no "not reported", "not provided", "not available", "not documented", "unknown" or anything similar. If the information is absent, leave it out entirely.
+
+## What goes in each block
+- **B/G:** the patient's non-respiratory past medical history on ONE line, the most significant conditions first (e.g. "DM/HTN/HLD; IHD s/p PCI '22; ESRF on HD (LtIJC)"). Past history ONLY: nothing about the current admission, its presenting complaint or its events. Respiratory conditions go in RES Hx, not here. Compress hard: drop articles and filler, use accepted shortforms.
+- **RES Hx:** ALL respiratory-related past medical conditions on ONE line, with any previous pulmonary function, CXR and CT findings, and treatment (e.g. "COPD GOLD D (FEV1 32% '24), ex-smoker 40py, on LAMA/LABA+ICS; CT '25 UL-predominant emphysema, 8mm RUL nodule; prev CXR hyperinflated"). Include prior TB, asthma, ILD, OSA, bronchiectasis, LTOT/NIV use etc. as relevant.
+- **Active:** up to THREE current issues being worked up, most important first, all on ONE line separated by " | " (e.g. "HAP D5 | ?PE, CTPA pending | AKI on CKD, resolving"). The label **Active:** appears ONCE at the start of the line; the issues themselves are not bold.
+- **Counters:** running tallies of therapy and location durations on ONE line, separated by " | ". Include: antibiotics started and stopped with dates, steroids started and stopped with dates (incl. taper), and durations in ICU, HD (high dependency), or GW (general ward). Chain switches/escalations with ">", separate distinct items with " | ". Dates as d/m. BOLD any treatment that is currently ongoing (e.g. **Tazo**, **Pred 30mg**). Include antifungal/antiviral prophylaxis where relevant (e.g. "**Tazo** 2/7 (D4); Augmentin 26/6–1/7 | **Pred 30mg** 3/7 (D3), taper wkly | ICU 26/6–30/6 (4d) > HD 30/6–2/7 > GW D3").
+- **Course:** ALL significant dated events of this admission on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units. Give particular emphasis to lung imaging: EVERY dated CXR, CT thorax, CTPA and thoracic US from this admission gets its own entry with the modality and the key finding (e.g. "28/6 CXR RLZ consol + mod R eff | 3/7 US thorax simple eff, no septations"), including normal or unchanged studies.
+- **Ix:** the LATEST vitals and investigations on ONE line, separated by " | ". Include, where given: O2 requirement with device and flow (e.g. "2L NP", "RA", "HFNC 40L FiO2 0.4"), RR, Temp (or Tmax with date if febrile), last CRP and last procalcitonin with dates, and any other recent result that bears on the active issues (e.g. WBC, ABG, pleural fluid pH/LDH). Values only, with dates as d/m in brackets where known (e.g. "2L NP | RR 22 | T 37.9 | CRP 82 (2/7) | PCT 0.2 (2/7) | WBC 8.9"). Latest values only: trends belong in Course.
+
+## Compression rules (apply to the whole summary)
+- Maximum character economy: aim well under 150 words; density over prose. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
+- Dates as d/m (e.g. 25/5), never dd/mm/yyyy.
+- Use medical shortforms freely: infxn, collxn, inflam, consol, eff, B/L, s/p, c/b, abx, BC (blood culture), NF (neutropenic fever), HD, IE, TW, PFT, LTOT, NIV, HFNC, PCT. Keep organism names in FULL (e.g. Micrococcus luteus); never abbreviate organisms.
+- No units for laboratory values.
+
+## Example of a good summary (illustrates format and tone ONLY; never reuse its content)
+**B/G:** DM/HTN/HLD; IHD s/p PCI '22; CKD 3b
+**RES Hx:** COPD GOLD D (FEV1 32% '24), ex-smoker 40py, on LAMA/LABA+ICS; CT '25 UL emphysema, 8mm RUL nodule; 2 exac/yr, prev NIV '25
+**Active:** HAP D5, improving | R parapneumonic eff | AKI on CKD, resolving
+**Counters:** **Tazo** 2/7 (D4); Augmentin 26/6–1/7 (failed) | **Pred 30mg** 3/7 (D3), taper wkly | HD 26/6–30/6 (4d, NIV) > GW D5
+**Course:** 26/6 admitted SOB + fever, NIV | 26/6 CXR RLZ consol + mod R eff | 28/6 BC −ve, sputum +Pseudomonas aeruginosa | 30/6 off NIV | 2/7 escalated Tazo | 3/7 US thorax simple R eff, no septations, tapped: exudate, pH 7.35 | 4/7 CXR consol resolving, eff unchanged
+**Ix:** RA | RR 18 | T 36.8 | CRP 41 (4/7) | PCT 0.2 (2/7) | WBC 8.9 (4/7)

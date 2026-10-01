@@ -9,7 +9,7 @@ Output rules — follow exactly:
 - Do not end lines with a full stop
 - No inline citations anywhere in the body of the note — guideline references belong ONLY in the final References section
 - Do not include laboratory units, and no (H)/(L) flags
-- Do not write L/min for oxygen requirement; just wire L (such as 2L NP)
+- Do not write L/min for oxygen requirement; just write L (such as 2L NP)
 - Use ONLY information explicitly stated. Never infer or add clinical findings. Suggested plans and guideline references are the only content you may add yourself.
 - Multiple results for one investigation go on one line, oldest → newest, separated by " > ", with dates in brackets
 
@@ -53,7 +53,7 @@ On Review
 Nil complaints
 
 O/E
-BP: ___ HR: ___ Temp: ___ Sats: ___ #the Sats value MUST state the oxygen device and flow, e.g. 96% on 1 L/min NP, or on RA#
+BP: ___ HR: ___ Temp: ___ Sats: ___ #the Sats value MUST state the oxygen device and flow, e.g. 96% on 1L NP, or on RA#
 Max temperature: ___
 HS1 + S2
 #chest findings — write "Lungs clear" only if documented as clear; otherwise copy the stated findings, e.g. reduced breath sounds right base#
@@ -126,8 +126,8 @@ Antibiotic History
 
 Progress so far
 - afebrile since 30/06/2026
-- oxygen weaned from 2L/min NP to room air
-- diagnostic pleural tap 03/07/2026: straw-coloured, pH 7.35, protein 38, LDH 890, glucose 4.2 — exudate by Light's criteria
+- oxygen weaned from 2L NP to room air
+- diagnostic pleural tap 03/07/2026: straw-coloured, pH 7.35, protein 38, LDH 890, glucose 4.2, exudate by Light's criteria
 - pleural fluid gram stain negative, ADA 18, culture and cytology pending
 
 On Review

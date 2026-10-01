@@ -44,6 +44,8 @@
   }
 
   .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
+  /* Patient List on desktop — the table gets the whole width of the window */
+  @media (min-width: 761px) { body.list-wide .wrap { max-width: none; padding-left: 28px; padding-right: 28px; } }
 
   header.app { margin-bottom: 22px; }
   .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -1216,7 +1218,8 @@ const CONFIG = {
   HX_MERGE_MODEL: "claude-opus-5-5",
   HX_MERGE_MAX_TOKENS: 16000,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
-  SUMMARY_PROMPT: "prompts/ward-round-short-summary.txt",
+  // RESblue's own summary format; ward-round-short-summary.txt stays with GWList.
+  SUMMARY_PROMPT: "prompts/resblue-summary.txt",
   // Review notes — clinician fills results/vitals + suggestions, Claude writes
   // the note against the template. Sonnet, same as the letter.
   REVIEW_PROMPT: "prompts/respiratory-review-note.txt",
@@ -1438,6 +1441,7 @@ function setTab(t) {
     $(TABS[k][0]).classList.toggle("active", k === t);
     $(TABS[k][1]).style.display = k === t ? "" : "none";
   }
+  document.body.classList.toggle("list-wide", t === "prev");
   if (t === "pleural") renderPleural();                         // paint from cache first
   if (t === "texts") sizeAllTexts();
   saved.then(() => {
