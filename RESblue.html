@@ -1201,9 +1201,10 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 16000,
   ASK_MODEL: "claude-opus-5-5",
   ASK_MAX_TOKENS: 16000,
-  // History-taking questions use Opus too, called only on demand.
-  HISTORY_MODEL: "claude-opus-5-5",
-  HISTORY_MAX_TOKENS: 16000,
+  // Starter job list written alongside the letter: what to find out about the case.
+  JOBS_MAX_TOKENS: 8000,
+  // Update — folds new information into an existing letter + summary.
+  UPDATE_MAX_TOKENS: 32000,
   // History-taking mode — the documented history rewritten as bedside clerking
   // lines, drafted on demand and then edited by hand at the bedside.
   HX_LINES_PROMPT: "prompts/respiratory-history-lines.txt",
@@ -1259,16 +1260,31 @@ const TOPICS_SYSTEM =
   "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
   "- Output ONLY the bullets — no preamble, no closing remarks.";
 
-/* Instruction that shapes the per-patient "History" question list. */
-const HISTORY_SYSTEM =
-  "You are a respiratory and critical care consultant helping a registrar prepare to clerk a referred patient. " +
-  "From the case provided, list the questions the registrar should ask when taking the history — prioritising " +
-  "those that discriminate between the likely differentials, pick up severity and red flags, and answer the " +
-  "referring team's question. Reason only from the information given, and skip anything the notes already answer.\n\n" +
-  "FORMAT (Markdown): a succinct point-by-point checklist.\n" +
-  "- Group under 3-5 short bold headings (e.g. **Presenting complaint**, **Red flags**, **Exposures & risk factors**).\n" +
-  "- One question per bullet, phrased as you would ask it, kept to one short line.\n" +
-  "- 15-25 questions total. Output ONLY the checklist — no preamble, no closing remarks.";
+/* Instruction that shapes the starter job list saved with each new patient. */
+const JOBS_SYSTEM =
+  "You are a respiratory registrar who has just read a referral and is about to see the patient. " +
+  "From the case provided, list the 4-5 most useful things to FIND OUT about this case before or at the review: " +
+  "missing history, results to chase, imaging to look at, collateral to get, or questions for the primary team. " +
+  "Prioritise what would change the diagnosis or management. Skip anything the notes already answer.\n\n" +
+  "FORMAT: 4-5 lines, each starting with \"- \", each one short imperative job (e.g. \"- Chase pleural fluid cytology\"). " +
+  "Plain text only, no headings, no bold, no preamble, no closing remarks.";
+
+/* Appended to the letter / summary prompts when Update folds new information
+   into an existing record. The prompt files are shared with GWList.html, so the
+   update behaviour lives here rather than in them. */
+const UPDATE_INSTRUCTIONS =
+  "\n\n## UPDATE MODE — applies to this run only\n" +
+  "You are NOT writing from scratch. You are given the original case information, the CURRENT version of the " +
+  "output, and NEW INFORMATION the clinician has just added.\n" +
+  "- Output the COMPLETE updated version, ready to replace the current one wholesale, in exactly the same format " +
+  "and template as above. No commentary, no diff markers, no preamble, no explanation of what you changed.\n" +
+  "- Keep everything in the current version that the new information does not change, in its existing order and " +
+  "wording. The clinician may have edited it by hand, so do not tidy or re-order it.\n" +
+  "- Fold each new point into the section where it belongs. Where the new information supersedes an existing line " +
+  "(a new result, a changed plan, a resolved issue), replace that line rather than keeping both; add new results to " +
+  "the end of any trend line.\n" +
+  "- Revise the impression and plans only as far as the new information warrants.\n" +
+  "- Add nothing that is not in the current version, the original case information or the new information.";
 
 /* Appended to the history-lines prompt when a dictation is folded into an
    existing history box. The style rules live in the prompt file, so only the
@@ -2378,9 +2394,12 @@ $("generateBtn").addEventListener("click", async () => {
       fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
     ]);
 
-    const [letter, summary] = await Promise.all([
+    const [letter, summary, jobs] = await Promise.all([
       callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal, CONFIG.LETTER_EFFORT),
-      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT)
+      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT),
+      // a starter job list is a nice-to-have — never let it sink the letter
+      callClaude(key, CONFIG.MODEL, JOBS_SYSTEM, userMessage, CONFIG.JOBS_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT)
+        .catch(e => { if (e.name === "AbortError") throw e; return ""; })
     ]);
 
     $("output").value = letter || "(No text returned.)";
@@ -2396,7 +2415,7 @@ $("generateBtn").addEventListener("click", async () => {
       clinical,
       letter: letter || "",
       summary: summary || "",
-      jobs: ""
+      jobs: (jobs || "").trim()
     };
 
     setGenStatus("Saving patient to GitHub…");
@@ -2508,30 +2527,33 @@ function refreshLetterViews(id, value) {
   });
 }
 
-// Write the edited letter back to whichever file holds the record: the active
-// list normally, or its archive day if the page has been left open past
-// midnight and the patient has since been filed.
-async function saveLetter(id, value) {
+// Write fields back to whichever file holds the record: the active list
+// normally, or its archive day if the page has been left open past midnight
+// and the patient has since been filed.
+async function saveRecordFields(id, fields, message) {
   const local = patients.find(p => p.id === id);
   if (local) {
-    local.letter = value;
+    Object.assign(local, fields);
     await mutateRemote(list => {
       const rec = list.find(p => p.id === id);
-      if (rec) rec.letter = value;
+      if (rec) Object.assign(rec, fields);
       return list;
-    }, "Update blue letter reply");
-    refreshLetterViews(id, value);
+    }, message);
     return;
   }
   const day = archiveDayOf(id);
-  if (!day) throw new Error("That patient is no longer on this device — refresh the Patient List, then regenerate to save.");
+  if (!day) throw new Error("That patient is no longer on this device — refresh the Patient List, then try again.");
   const cached = (archiveCache.get(day) || []).find(p => p.id === id);
-  if (cached) cached.letter = value;
+  if (cached) Object.assign(cached, fields);
   await mutateArchiveRemote(day, list => {
     const rec = list.find(p => p.id === id);
-    if (rec) rec.letter = value;
+    if (rec) Object.assign(rec, fields);
     return list;
-  }, "Update blue letter reply: " + day);
+  }, message + ": " + day);
+}
+
+async function saveLetter(id, value) {
+  await saveRecordFields(id, { letter: value }, "Update blue letter reply");
   refreshLetterViews(id, value);
 }
 
@@ -2899,7 +2921,159 @@ function noteControl(p, label, promptUrl, colSpan) {
 }
 
 /* ============================================================== *
- *  Previous patients — table                                     *
+ *  Update — fold new information into the letter + summary        *
+ * ============================================================== */
+// Builds the expandable Update row for a patient. New information typed here is
+// merged into the stored letter and summary (both rewritten in full, in their
+// usual templates), then appended to the record's clinical data so Ask and the
+// review notes see it too. tdSum is repainted in place on success.
+function updateControl(p, btn, tdSum, colSpan) {
+  const row = document.createElement("tr");
+  row.className = "letter-row";
+  row.style.display = "none";
+  const td = document.createElement("td");
+  td.colSpan = colSpan;
+  td.className = "note-editor";
+
+  const head = document.createElement("div");
+  head.className = "letter-head";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.style.margin = "0";
+  eyebrow.textContent = "Update letter & summary";
+  head.appendChild(eyebrow);
+
+  const note = document.createElement("p");
+  note.className = "ask-note";
+  note.textContent = "Add new results, events or plans; Claude folds them into the current blue letter reply and summarised history, keeping everything else as it is. Nothing identifying is sent.";
+
+  const field = document.createElement("div");
+  field.className = "field";
+  const lbl = document.createElement("label");
+  lbl.className = "lbl";
+  lbl.textContent = "New information";
+  const box = document.createElement("textarea");
+  box.placeholder = "e.g. CT thorax 2/10: loculated R effusion. Pleural fluid pH 7.1, LDH 1200. Plan for chest drain…";
+  field.appendChild(lbl);
+  field.appendChild(box);
+  td.appendChild(head);
+  td.appendChild(note);
+  td.appendChild(field);
+  enableShots(box);   // needs the box in the DOM — the thumbnail strip goes after it
+
+  const goBtn = document.createElement("button");
+  goBtn.className = "generate";
+  goBtn.type = "button";
+  goBtn.textContent = "Update";
+
+  const status = document.createElement("div");
+  status.className = "kbd-hint";
+  const hint = 'Press <span class="kbd">Ctrl/⌘ + Enter</span> to update.';
+  status.innerHTML = hint;
+
+  const err = document.createElement("div");
+  err.className = "ask-error";
+
+  td.appendChild(goBtn);
+  td.appendChild(status);
+  td.appendChild(err);
+  row.appendChild(td);
+
+  let controller = null;
+  const setLoading = (on) => {
+    if (on) {
+      goBtn.classList.add("is-cancel");
+      goBtn.innerHTML = '<span class="spinner"></span>Cancel';
+    } else {
+      goBtn.classList.remove("is-cancel");
+      goBtn.textContent = "Update";
+    }
+  };
+  const showErr = (m) => { err.textContent = m; err.style.display = "block"; };
+
+  goBtn.addEventListener("click", async () => {
+    if (controller) { controller.abort(); return; }
+    err.style.display = "none";
+    const key = AI.key();
+    if (!key) { $("settingsBox").open = true; return showErr(AI.missingKeyMsg()); }
+    const added = box.value.trim();
+    const shots = shotsOf(box);
+    if (!added && !shots.length) return showErr("Type the new information first.");
+    const blocked = shotsBlocked(shots);
+    if (blocked) return showErr(blocked);
+
+    // land any half-typed edit from the Create tab's output box first, so it is
+    // part of what gets updated rather than saved over the update afterwards
+    if (pendingLetter && pendingLetter.id === p.id) await flushLetterSave();
+    const rec = recordById(p.id) || p;
+    const stamp = fmtDate(new Date().toISOString());
+    // De-identified stored content only — name/location are never sent.
+    const base =
+      ((rec.referral || "").trim() ? "REFERRAL LETTER FROM PRIMARY TEAM:\n" + rec.referral.trim() + "\n\n" : "") +
+      "PATIENT DETAILS:\n" + ((rec.pastMedical || "").trim() || "(none provided)") +
+      "\n\nLATEST CLINICAL DATA:\n" + ((rec.clinical || "").trim() || "(none provided)");
+    const newInfo = { text: "NEW INFORMATION (added " + stamp + "):\n" + (added || "(see attached screenshots)"), shots };
+    const msgFor = (label, current) => withShots([
+      { text: base + "\n\n" + label + ":\n" + ((current || "").trim() || "(none)"), shots: [] },
+      newInfo
+    ]);
+
+    controller = new AbortController();
+    setLoading(true);
+    status.textContent = "Updating letter + summary…";
+    try {
+      const [letterSys, summarySys] = await Promise.all([
+        loadPrompt(CONFIG.LETTER_PROMPT, controller.signal),
+        loadPrompt(CONFIG.SUMMARY_PROMPT, controller.signal)
+      ]);
+      const [letter, summary] = await Promise.all([
+        callClaude(key, CONFIG.MODEL, letterSys + UPDATE_INSTRUCTIONS, msgFor("CURRENT BLUE LETTER REPLY", rec.letter), CONFIG.UPDATE_MAX_TOKENS, controller.signal, CONFIG.LETTER_EFFORT),
+        callClaude(key, CONFIG.MODEL, summarySys + UPDATE_INSTRUCTIONS, msgFor("CURRENT SUMMARY", rec.summary), CONFIG.UPDATE_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT)
+      ]);
+      const fields = {
+        letter: letter || rec.letter || "",
+        summary: summary || rec.summary || "",
+        clinical: ((rec.clinical || "").trim() + "\n\nUPDATE " + stamp + ":\n" + (added || "(screenshots only)")).trim()
+      };
+      status.textContent = "Saving…";
+      await saveRecordFields(p.id, fields, "Update blue letter patient: " + (p.name || p.location || p.id));
+      Object.assign(p, fields);
+
+      const ref = referralOf(p);
+      tdSum.innerHTML =
+        (ref ? '<div class="refline"><strong>Referral:</strong> ' + escapeHtml(ref) + "</div>" : "") +
+        summaryHtml(p.summary);
+      refreshLetterViews(p.id, fields.letter);
+      if (currentLetterId === p.id) { $("output").value = fields.letter; updateCount(); }
+
+      box.value = "";
+      clearShots(box);
+      status.textContent = "Updated ✓ " + timeNow();
+    } catch (e) {
+      status.innerHTML = hint;
+      if (e.name !== "AbortError") showErr(e.message || String(e));
+    } finally {
+      controller = null;
+      setLoading(false);
+    }
+  });
+
+  box.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); goBtn.click(); }
+  });
+
+  btn.addEventListener("click", () => {
+    const open = row.style.display !== "none";
+    row.style.display = open ? "none" : "";
+    btn.textContent = open ? "Update" : "Hide";
+    if (!open) box.focus();
+  });
+
+  return row;
+}
+
+/* ============================================================== *
+ *  Previous patients — table                                    *
  * ============================================================== */
 async function loadPatients(auto) {
   const c = ghCfg();
@@ -3084,10 +3258,10 @@ function renderFullRow(body, p) {
     askBtn.className = "ghost-btn";
     askBtn.type = "button";
     askBtn.textContent = "Ask";
-    const histBtn = document.createElement("button");
-    histBtn.className = "ghost-btn";
-    histBtn.type = "button";
-    histBtn.textContent = "History";
+    const updBtn = document.createElement("button");
+    updBtn.className = "ghost-btn";
+    updBtn.type = "button";
+    updBtn.textContent = "Update";
     const letterBtn = document.createElement("button");
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
@@ -3099,8 +3273,8 @@ function renderFullRow(body, p) {
     delBtn.type = "button";
     delBtn.textContent = "Delete";
     tdAct.appendChild(askBtn);
-    tdAct.appendChild(histBtn);
     tdAct.appendChild(letterBtn);
+    tdAct.appendChild(updBtn);
     tdAct.appendChild(review.btn);
     tdAct.appendChild(pleural.btn);
     tdAct.appendChild(delBtn);
@@ -3149,93 +3323,8 @@ function renderFullRow(body, p) {
       letterBtn.textContent = open ? "Letter" : "Hide";
     });
 
-    // expandable "History-taking questions" row — Sonnet is only called when
-    // the History button is pressed, and the result is kept for the session
-    const trHist = document.createElement("tr");
-    trHist.className = "letter-row";
-    trHist.style.display = "none";
-    const tdHist = document.createElement("td");
-    tdHist.colSpan = 5;
-    const histHead = document.createElement("div");
-    histHead.className = "letter-head";
-    const histEyebrow = document.createElement("span");
-    histEyebrow.className = "eyebrow";
-    histEyebrow.style.margin = "0";
-    histEyebrow.textContent = "History-taking questions";
-    const histActions = document.createElement("div");
-    const histRegen = document.createElement("button");
-    histRegen.className = "ghost-btn";
-    histRegen.type = "button";
-    histRegen.textContent = "Regenerate";
-    histRegen.style.display = "none";
-    const histCopy = document.createElement("button");
-    histCopy.className = "ghost-btn";
-    histCopy.type = "button";
-    histCopy.textContent = "Copy";
-    histCopy.style.display = "none";
-    histCopy.style.marginLeft = "6px";
-    histActions.appendChild(histRegen);
-    histActions.appendChild(histCopy);
-    histHead.appendChild(histEyebrow);
-    histHead.appendChild(histActions);
-    const histNote = document.createElement("p");
-    histNote.className = "ask-note";
-    histNote.textContent = "What to ask when clerking this patient — generated from the stored case details. Nothing identifying is sent.";
-    const histErr = document.createElement("div");
-    histErr.className = "ask-error";
-    const histBody = document.createElement("div");
-    histBody.className = "md";
-    tdHist.appendChild(histHead);
-    tdHist.appendChild(histNote);
-    tdHist.appendChild(histErr);
-    tdHist.appendChild(histBody);
-    trHist.appendChild(tdHist);
-    body.appendChild(trHist);
-
-    let histText = "";
-    let histController = null;
-    async function generateHistory() {
-      if (histController) return;
-      histErr.style.display = "none";
-      const key = AI.key();
-      if (!key) {
-        $("settingsBox").open = true;
-        histErr.textContent = AI.missingKeyMsg();
-        histErr.style.display = "block";
-        return;
-      }
-      histController = new AbortController();
-      histRegen.disabled = true;
-      histBody.innerHTML = '<span class="status"><span class="spinner grey" style="display:inline-block;vertical-align:-2px"></span> Generating questions…</span>';
-      try {
-        const text = await callClaude(key, CONFIG.HISTORY_MODEL, HISTORY_SYSTEM, caseContextOf(p), CONFIG.HISTORY_MAX_TOKENS, histController.signal, CONFIG.LOW_EFFORT);
-        histText = text || "";
-        histBody.innerHTML = window.marked ? marked.parse(histText, { breaks: true }) : "";
-        if (!window.marked) histBody.textContent = histText;
-        histRegen.style.display = "";
-        histCopy.style.display = "";
-      } catch (e) {
-        histBody.innerHTML = "";
-        if (e.name !== "AbortError") {
-          histErr.textContent = e.message || String(e);
-          histErr.style.display = "block";
-        }
-      } finally {
-        histController = null;
-        histRegen.disabled = false;
-      }
-    }
-    histRegen.addEventListener("click", generateHistory);
-    histCopy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(histText); } catch (e) {}
-      flashCopied(histCopy);
-    });
-    histBtn.addEventListener("click", () => {
-      const open = trHist.style.display !== "none";
-      trHist.style.display = open ? "none" : "";
-      histBtn.textContent = open ? "History" : "Hide hx";
-      if (!open && !histText && !histController) generateHistory();
-    });
+    const upd = updateControl(p, updBtn, tdSum, 5);
+    body.appendChild(upd);
 
     // expandable "Ask about this case" row
     const trAsk = document.createElement("tr");
