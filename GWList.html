@@ -668,6 +668,7 @@
         <button class="ghost-btn" id="inRefreshBtn" type="button" title="Refresh from GitHub (Ctrl/⌘ + R)">↻ Refresh</button>
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
+        <button class="ghost-btn" id="inSortBtn" type="button" title="Toggle sort order"></button>
         <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
         <span class="status" id="inStatus"></span>
       </div>
@@ -1285,14 +1286,37 @@ function matchesSearch(p, q) {
 }
 
 // Render sorted by location (natural sort, so W4 Bed 2 < W4 Bed 10);
-// patients without a location go last.
+// patients without a location go last. "ward" mode groups first by the
+// first two digits of the location (19x → 29x → 39x → 49x), then natural.
+let sortMode = get("gwSortMode") === "ward" ? "ward" : "location";
+
+function wardPrefix(loc) {
+  const m = (loc || "").match(/\d+/);
+  return m ? parseInt(m[0].slice(0, 2), 10) : Infinity;
+}
+
 function sortedList(listKey) {
   return [...data[listKey]].sort((a, b) => {
     if (!a.location && b.location) return 1;
     if (a.location && !b.location) return -1;
+    if (sortMode === "ward") {
+      const d = wardPrefix(a.location) - wardPrefix(b.location);
+      if (d) return d;
+    }
     return (a.location || "").localeCompare(b.location || "", undefined, { numeric: true, sensitivity: "base" });
   });
 }
+
+function updateSortBtn() {
+  $("inSortBtn").textContent = sortMode === "ward" ? "⇅ Sort: Ward (19x→49x)" : "⇅ Sort: Location";
+}
+updateSortBtn();
+$("inSortBtn").addEventListener("click", () => {
+  sortMode = sortMode === "ward" ? "location" : "ward";
+  set("gwSortMode", sortMode);
+  updateSortBtn();
+  renderList("inpatients");
+});
 
 function renderList(listKey) {
   const body = $(LISTS[listKey].body);
