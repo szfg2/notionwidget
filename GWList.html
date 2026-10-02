@@ -1280,7 +1280,10 @@ function renderUpcoming(listKey) {
   }
 }
 
+// A bed-style query ("19", "19/1", "19/12a") matches the start of the
+// location only — numbers in the clinical text would otherwise match everyone.
 function matchesSearch(p, q) {
+  if (/^\d[\d\/\s-]*[a-z]?$/.test(q)) return (p.location || "").toLowerCase().startsWith(q);
   return ["location", "name", "summary", "objective", "jobs", "pastMedical", "clinical"]
     .some(f => (p[f] || "").toLowerCase().includes(q));
 }

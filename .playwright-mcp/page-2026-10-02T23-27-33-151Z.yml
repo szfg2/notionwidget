@@ -1,0 +1,95 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - link "Drop" [ref=e4] [cursor=pointer]:
+        - /url: drop.html
+      - link "RES tools" [ref=e8] [cursor=pointer]:
+        - /url: RES.html
+    - banner [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - heading "General Ward Round List" [level=1] [ref=e17]
+          - paragraph [ref=e18]:
+            - text: Keep a synced general ward rounding list.
+            - link "ICU List →" [ref=e19] [cursor=pointer]:
+              - /url: ICUList.html
+            - link "Blue Letters →" [ref=e20] [cursor=pointer]:
+              - /url: RESblue.html
+            - link "Clinic Notes →" [ref=e21] [cursor=pointer]:
+              - /url: RESClinic.html
+        - group [ref=e22]:
+          - generic "⚙ Settings & keys" [ref=e23] [cursor=pointer]
+          - generic [ref=e24]:
+            - generic [ref=e25]: Model provider
+            - combobox [ref=e26] [cursor=pointer]:
+              - option "Claude (Anthropic)" [selected]
+              - option "DeepSeek"
+              - option "Gemini (Google)"
+            - generic [ref=e27]: "Applies to every page (index, ICU, Blue Letters, Clinic, dictation, PFT). ⚠ DeepSeek is a separate company: the de-identified medical text is processed on their servers under their retention terms, not Anthropic's."
+            - generic [ref=e28]: Anthropic (Claude) API key
+            - textbox "sk-ant-..." [ref=e29]
+            - generic [ref=e30]:
+              - text: Shared with index.html, RESblue.html, RESClinic.html and ICUList.html (stored as
+              - code [ref=e31]: cdg_api_key
+              - text: ) — if you've used those pages, it's already filled.
+            - generic [ref=e32]: DeepSeek API key
+            - textbox "sk-..." [ref=e33]
+            - generic [ref=e34]: Only used when the provider above is set to DeepSeek.
+            - generic [ref=e35]: Gemini (Google AI Studio) API key
+            - textbox "AIza..." [ref=e36]
+            - generic [ref=e37]:
+              - text: Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as
+              - code [ref=e38]: cdg_gemini_key
+              - text: ). ⚠ Google is a separate company with its own retention terms. All three keys can be stored at once, so you can switch between them freely.
+            - generic [ref=e39]: "GitHub token — to save the patient list (fine-grained, Contents: Read & Write)"
+            - textbox "github_pat_..." [ref=e40]
+            - generic [ref=e41]: Shared with dictation.html, RESblue.html, RESClinic.html and ICUList.html, along with owner / repo / branch below.
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e44]: GitHub owner
+                - textbox "szfg2" [ref=e45]
+              - generic [ref=e46]:
+                - generic [ref=e47]: Repo to save into
+                - textbox "patient-data" [ref=e48]
+            - generic [ref=e49]:
+              - generic [ref=e50]:
+                - generic [ref=e51]: Branch
+                - textbox "main" [ref=e52]
+              - generic [ref=e53]:
+                - generic [ref=e54]: Patient list file
+                - textbox "gwlist-patients.json" [ref=e55]
+            - generic [ref=e56]: Keys live only in this browser (localStorage). The list is saved to the repo above as one JSON file shared across your devices. ⚠ In a public repo that file is publicly readable — use bed numbers / initials only, never real identifiers.
+            - button "Save settings" [ref=e58] [cursor=pointer]
+    - generic [ref=e59]:
+      - button "Create New Patient" [ref=e60] [cursor=pointer]
+      - button "Inpatient List" [ref=e61] [cursor=pointer]
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]: Location
+            - textbox "Location" [ref=e67]:
+              - /placeholder: e.g. W46 Bed 12
+          - generic [ref=e68]:
+            - generic [ref=e69]: Name (bed / initials only)
+            - textbox "Name (bed / initials only)" [ref=e70]:
+              - /placeholder: e.g. TSH or 12A-34
+        - generic [ref=e71]: Location and name are only stored in your GitHub patient list — they are never sent to the model provider.
+      - generic [ref=e72]:
+        - generic [ref=e73]: Past medical details
+        - textbox "Background, significant PMH, baseline function, reason for admission…" [ref=e74]
+      - generic [ref=e75]:
+        - generic [ref=e76]: Latest clinical data — vitals & labs
+        - textbox "Vitals, oxygen requirements, bloods, micro, antibiotics, imaging this admission…" [ref=e77]
+      - paragraph [ref=e78]:
+        - generic [ref=e80]: De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere. Screenshots can be pasted (Ctrl/⌘ + V) or dropped into any box — crop out the patient header first. They are sent to the model but never saved.
+      - generic [ref=e81]:
+        - button "Save to Inpatient List" [ref=e83] [cursor=pointer]
+        - generic [ref=e84]: Generates the ward-round summary and saves the patient to the Inpatient List, then clears the form for the next patient. Press Ctrl/⌘ + Enter from any box.
+  - dialog [ref=e86]:
+    - heading "Unlock your keys" [level=2] [ref=e87]
+    - paragraph [ref=e88]: This browser has no saved keys. Enter your code to use them here for 12 hours. The page will reload.
+    - textbox "XXXXX-XXXXX" [active] [ref=e89]
+    - generic [ref=e90]:
+      - button "Not now" [ref=e91] [cursor=pointer]
+      - button "Unlock" [ref=e92] [cursor=pointer]
