@@ -491,7 +491,7 @@ const $ = (id) => document.getElementById(id);
 const TABLES = {
   t_spiro: {
     cols: [["pred", "Pred"], ["lln", "LLN"], ["pre", "Pre"], ["prez", "Pre Z"], ["prepp", "Pre %Pred"],
-           ["post", "Post"], ["postz", "Post Z"], ["postpp", "Post %Pred"]],
+           ["post", "Post"], ["postz", "Post Z"], ["postpp", "Post %Pred"], ["chg", "%Chg"]],
     sepBefore: "post",
     rows: [["fev1", "FEV1 (L)"], ["fvc", "FVC (L)"], ["ratio", "FEV1/FVC (%)"]]
   },
@@ -849,23 +849,37 @@ function build() {
   }
 
   /* ---- BRONCHODILATOR RESPONSE ---- */
-  // CGH 2022: >10% rise in %predicted FEV1 (or FVC), post minus pre.
+  // Spirometry r57: >10 rise in %predicted FEV1 (or FVC), post minus pre.
+  // The printed %Pred columns are rounded, so a true +10.05 can show as 99.8 − 89.8
+  // = 10.0. The report's %CHG column, when it is this same difference, is computed
+  // before rounding and is preferred; failing that, litres ÷ predicted.
   if (!baseline && !spiroF) {
-    const pp = (r, phase) => {
-      const p = num(r + "_" + phase + "pp");
-      if (p != null) return p;
-      const a = num(r + "_" + phase), pr = num(r + "_pred");
-      return a != null && pr ? a / pr * 100 : null;
-    };
     const parts = [];
     let sig = false, any = false;
     [["fev1", "FEV1"], ["fvc", "FVC"]].forEach(([r, label]) => {
-      const p0 = pp(r, "pre"), p1 = pp(r, "post");
-      if (p0 == null || p1 == null) return;
+      const p0 = num(r + "_prepp"), p1 = num(r + "_postpp"), chg = num(r + "_chg");
+      const a0 = num(r + "_pre"), a1 = num(r + "_post"), pr = num(r + "_pred");
+      const fromL = a0 != null && a1 != null && pr ? (a1 - a0) / pr * 100 : null;
+      const fromPP = p0 != null && p1 != null ? p1 - p0 : null;
+      let d = null, how = "";
+      if (chg != null) {
+        // Accept %CHG only if it equals the %pred difference within rounding;
+        // some labs print a relative change ((post − pre) ÷ pre) instead.
+        const ok = fromPP != null ? Math.abs(chg - fromPP) <= 0.15
+                 : fromL != null ? Math.abs(chg - fromL) <= 1 / pr + 0.05
+                 : false;
+        if (ok) { d = chg; how = "the report's %CHG column (unrounded post − pre %pred)"; }
+        else if (fromPP != null || fromL != null) warn(label + " %CHG " + f(chg) + " is not post − pre %predicted on this report (probably a relative change) — ignored for the bronchodilator response.");
+        else warn(label + " %CHG " + f(chg) + " could not be checked against %pred or litres — not used.");
+      }
+      if (d == null && fromL != null) { d = fromL; how = "(post − pre litres) ÷ predicted"; }
+      if (d == null && fromPP != null) { d = fromPP; how = "post − pre printed %pred"; }
+      if (d == null) return;
       any = true;
-      const d = p1 - p0;
       if (d > 10) sig = true;
-      parts.push(label + " " + f(p0) + " → " + f(p1) + " %pred (" + (d >= 0 ? "+" : "") + f(d) + ")");
+      const fine = how.startsWith("the report") ? d === 10 : Math.abs(d - 10) < 0.1;
+      if (fine) warn(label + " change " + f(d) + " is within rounding of the > 10 threshold — confirm the bronchodilator response by eye.");
+      parts.push(label + " " + (p0 != null && p1 != null ? f(p0) + " → " + f(p1) + " %pred, " : "") + "change " + (d >= 0 ? "+" : "") + f(d) + " from " + how);
     });
     if (any) {
       add(sig ? "There is significant bronchodilator response to 400mcg of inhaled Salbutamol."
@@ -874,6 +888,7 @@ function build() {
           "Spirometry r57–58");
     }
   }
+
 
   /* ---- FLOW-VOLUME LOOP ---- */
   const FVL = {
@@ -1464,7 +1479,8 @@ For each row r in {fev1 (FEV1, L), fvc (FVC, L), ratio (FEV1/FVC, %)}:
   r_post   post-bronchodilator measured value
   r_postz  post-bronchodilator Z-score
   r_postpp post-bronchodilator %predicted
-  Take post values from the Post columns only — never from %Chg / Change columns.
+  r_chg    the %CHG / %Chg / Change column for that row, exactly as printed (keep the sign)
+  Take post values from the Post columns only — the %CHG column goes only in r_chg.
   For a methacholine or exercise challenge report, put the BASELINE spirometry in the pre fields and leave all post fields out.
   For FEV1/FVC use the FEV1/FVC (or FEV1/FVC%) row; if only FEV1/VC is printed, leave ratio out.
 fvc_sit, fvc_sup  sitting and supine FVC (L) if a positional study is shown
