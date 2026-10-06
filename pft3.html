@@ -180,8 +180,8 @@
   button.primary:hover { background: var(--accent-strong); }
   button.copied { border-color: var(--accent); color: var(--accent); }
   .pill { font-size: 12px; color: var(--muted); }
-  .autobox { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-left: auto; }
-  .autobox input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+  .keys { margin-left: auto; font-size: 11.5px; color: var(--faint); }
+  .keys kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 4px; color: var(--muted); }
 
   /* Explanation */
   .why-item { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); }
@@ -242,13 +242,13 @@
         <div class="shots" id="shots" hidden></div>
       </div>
       <div class="btnrow">
-        <button id="fillBtn" class="primary">Read screenshots</button>
+        <button id="fillBtn" class="primary" title="Alt+R">Read screenshots</button>
         <button id="capBtn" title="Grab a window, then crop to the results">📷 Capture screen</button>
         <button id="addBtn" title="Add another page to the current report">+ Add page</button>
         <input type="file" id="shot_file" accept="image/*" multiple hidden>
-        <label class="autobox"><input type="checkbox" id="auto_run" checked> Read on paste</label>
+        <span class="keys"><kbd>Alt</kbd>+<kbd>R</kbd> read</span>
       </div>
-      <p class="hint">A screenshot pasted, dropped or captured after a report has been read starts a <strong>new report</strong> (the old screenshots and values are cleared). Use <strong>+ Add page</strong> to add another page to the same report. <span class="pill" id="fill_msg"></span></p>
+      <p class="hint">Paste or drop as many screenshots as the report needs, then click <strong>Read screenshots</strong> — nothing is sent until you do. A screenshot pasted, dropped or captured after a report has been read starts a <strong>new report</strong> (the old screenshots and values are cleared). Use <strong>+ Add page</strong> to add another page to the same report. <span class="pill" id="fill_msg"></span></p>
     </div>
 
     <div class="ws-right">
@@ -262,9 +262,9 @@
         <ul class="warns" id="warns" hidden></ul>
         <div id="out" aria-live="polite"></div>
         <div class="btnrow">
-          <button id="copyBtn" class="primary">Copy all</button>
-          <button id="clearBtn">New report</button>
-          <span class="pill" id="msg"></span>
+          <button id="copyBtn" class="primary" title="Alt+C">Copy all</button>
+          <button id="clearBtn" title="Alt+N">New report</button>
+          <span class="keys"><kbd>Alt</kbd>+<kbd>C</kbd> copy all · <kbd>Alt</kbd>+<kbd>N</kbd> new report</span>
         </div>
       </div>
 
@@ -1145,7 +1145,7 @@ function render() {
 }
 
 document.querySelectorAll("input, select").forEach(el => {
-  if (el.id === "api_key" || el.id === "provider" || el.id === "auto_run" || el.id === "shot_file") return;
+  if (el.id === "api_key" || el.id === "provider" || el.id === "shot_file") return;
   el.addEventListener("input", render);
   el.addEventListener("change", render);
 });
@@ -1173,7 +1173,7 @@ $("cpetBtn").addEventListener("click", () => copyText($("cpet_tpl").textContent,
 
 function clearFields() {
   document.querySelectorAll("input").forEach(el => {
-    if (["api_key", "auto_run", "shot_file"].includes(el.id)) return;
+    if (["api_key", "shot_file"].includes(el.id)) return;
     if (el.type === "checkbox") el.checked = false;
     else el.value = "";
   });
@@ -1197,7 +1197,6 @@ $("clearBtn").addEventListener("click", newReport);
 let shots = [];
 let reportDone = false;     // true once the current screenshots have been read
 let reportGen = 0;          // bumped by newReport so a late model reply is discarded
-let autoTimer = null;
 const SHOT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const SHOT_MAX_B64 = 4.6e6;
 
@@ -1260,11 +1259,7 @@ async function addShots(files, fresh) {
 }
 
 function afterAdd() {
-  setFillMsg(shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached.", false);
-  if ($("auto_run").checked) {
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(extract, 1200);   // batch screenshots pasted in quick succession
-  }
+  setFillMsg(shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached — paste more, or click Read screenshots.", false);
 }
 
 function renderShots() {
@@ -1299,7 +1294,6 @@ function renderShots() {
 }
 
 function clearShots() {
-  clearTimeout(autoTimer);
   shots = [];
   renderShots();
 }
@@ -1325,10 +1319,6 @@ $("shot_card").addEventListener("drop", (e) => {
   addShots(Array.from(e.dataTransfer.files || []), true);
 });
 
-try { const a = localStorage.getItem("pft3_auto_run"); if (a !== null) $("auto_run").checked = a === "1"; } catch (e) {}
-$("auto_run").addEventListener("change", () => {
-  try { localStorage.setItem("pft3_auto_run", $("auto_run").checked ? "1" : "0"); } catch (e) {}
-});
 
 /* Capture screen — one frame from the browser's screen-share picker, cropped
    here. Nothing is saved; the stream stops as soon as the frame is taken. */
@@ -1527,7 +1517,7 @@ function applyExtracted(obj) {
   let filled = 0;
   for (const [id, val] of Object.entries(obj)) {
     const el = $(id);
-    if (!el || ["api_key", "provider", "auto_run", "shot_file"].includes(id)) continue;
+    if (!el || ["api_key", "provider", "shot_file"].includes(id)) continue;
     if (val === null || val === undefined || val === "") continue;
     if (el.type === "checkbox") el.checked = val === true || val === "true";
     else el.value = String(val);
@@ -1545,8 +1535,7 @@ function setFillMsg(text, isError) {
 
 let extracting = false;
 async function extract() {
-  clearTimeout(autoTimer);
-  if (extracting) { autoTimer = setTimeout(extract, 800); return; }
+  if (extracting) return;
   const key = $("api_key").value.trim();
   if (!key) { setFillMsg(AI.missingKeyMsg(), true); return; }
   if (!shots.length) { setFillMsg("Paste a screenshot first.", true); return; }
@@ -1591,6 +1580,17 @@ async function extract() {
   }
 }
 $("fillBtn").addEventListener("click", extract);
+
+/* Hotkeys — Alt+letter. Edge's own Alt shortcuts are Alt+D, Alt+E, Alt+F,
+   Alt+Home, Alt+arrows and Alt+Shift+I, so C, N and R are free; e.code keeps
+   them working whatever the keyboard layout. Disabled buttons ignore click(). */
+document.addEventListener("keydown", (e) => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat || !$("cap_modal").hidden) return;
+  const btn = { KeyC: "copyBtn", KeyN: "clearBtn", KeyR: "fillBtn" }[e.code];
+  if (!btn) return;
+  e.preventDefault();
+  $(btn).click();
+});
 
 render();
 </script>
