@@ -916,9 +916,10 @@ function build() {
       else add("Total lung capacity is " + adv + " increased suggesting hyperinflation.", base + sw, "Lung volumes r11–13");
     } else if (tlc.low) {
       const [adv, sw] = sevOf(false);
-      if (!trap && !(rvtlc && rvtlc.z != null && rvtlc.z <= -ZN)) gap("The template's “Lung volumes are reduced” row is written as “TLC Z < −1.64, RV/TLC Z ≤ −1.64” (likely a typo for ≤ +1.64) — applied here to any reduced TLC without raised RV/TLC.");
       if (trap) add("Total lung capacity is " + adv + " reduced although RV/TLC ratio is increased suggesting airtrapping.", base + sw, "Lung volumes r28–30");
-      else add("Lung volumes are " + adv + " reduced.", base + sw, "Lung volumes r23–25");
+      // Sheet r21 prints "RV/TLC Z ≤ −1.64", a sign typo: master list r115 gives this
+      // sentence for "RV/TLC < ULN", i.e. RV/TLC not raised (Z ≤ +1.64).
+      else add("Lung volumes are " + adv + " reduced.", base + "TLC Z < −1.64 with RV/TLC not raised (Z ≤ +1.64). " + sw, "Lung volumes r23–25 · master list r115");
     } else {
       if (trap) add("Total lung capacity is within normal limits but RV/TLC ratio is increased suggesting airtrapping.", base + "TLC normal with RV/TLC Z > +1.64.", "Lung volumes r19");
       else add("Lung volumes are within normal limits.", base + "TLC within ±1.64 and RV/TLC Z ≤ +1.64.", "Lung volumes r7");
