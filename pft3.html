@@ -1,0 +1,1598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PFT Reporter</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 96px; }
+
+  header.app { margin-bottom: 20px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .sub a { color: var(--accent); text-decoration: none; }
+  .sub a:hover { text-decoration: underline; }
+
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 12px;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 14px;
+  }
+
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+
+  input[type="number"], input[type="text"], input[type="password"], select {
+    width: 100%; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 8px 10px; font-family: var(--sans); font-size: 14px; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--faint); }
+
+  .grid { display: grid; gap: 10px 12px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 560px) { .g3, .g4 { grid-template-columns: repeat(2, 1fr); } }
+  .field { min-width: 0; }
+  .field.span2 { grid-column: span 2; }
+
+  .paramhead { font-size: 12px; color: var(--faint); margin: 14px 0 6px; font-weight: 600; }
+  .paramhead:first-child { margin-top: 0; }
+  .hint { font-size: 12px; color: var(--faint); margin: 8px 0 0; }
+
+  .checkrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .checkrow input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .checkrow label { font-size: 13px; color: var(--text); cursor: pointer; user-select: none; }
+
+  /* Value tables — one row per measurement, one column per report column */
+  .tscroll { overflow-x: auto; }
+  .vtable { width: 100%; border-collapse: collapse; min-width: 600px; }
+  .vtable th { font-size: 11px; color: var(--faint); font-weight: 600; text-align: left; padding: 0 4px 5px; white-space: nowrap; }
+  .vtable td { padding: 3px 4px; }
+  .vtable td.rl { font-size: 12.5px; color: var(--muted); white-space: nowrap; padding-right: 10px; }
+  .vtable input { padding: 6px 7px; font-size: 13px; border-radius: 6px; }
+  .vtable .sep { border-left: 1px solid var(--border); }
+
+  /* Workspace — screenshots left, interpretation over explanation right */
+  .workspace { display: grid; gap: 14px; margin-bottom: 26px; }
+  .ws-right { display: grid; gap: 14px; min-height: 0; }
+  .workspace .card { display: flex; flex-direction: column; min-height: 0; margin-bottom: 0; }
+  .ws-right .card { border-color: var(--accent); box-shadow: 0 6px 30px rgba(0,0,0,.28); }
+  .workspace .card > .btnrow { flex: 0 0 auto; }
+  #out { flex: 1 1 auto; min-height: 90px; }
+  #why_list { flex: 1 1 auto; min-height: 60px; overflow-y: auto; padding-right: 6px; }
+
+  @media (min-width: 900px) {
+    .workspace {
+      width: min(1320px, calc(100vw - 40px));
+      margin-left: calc(50% - min(1320px, 100vw - 40px) / 2);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      height: calc(100vh - 152px);
+      min-height: 520px;
+      max-height: 880px;
+    }
+    .ws-right { grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); }
+  }
+  @media (max-width: 899px) {
+    #out { min-height: 130px; }
+    #why_list { max-height: 46vh; }
+  }
+
+  /* Drop zone — the whole input: paste, drop or capture screenshots */
+  .dropzone {
+    flex: 1 1 auto; min-height: 160px; overflow-y: auto;
+    border: 1.5px dashed var(--border-strong); border-radius: 8px; background: var(--surface-2);
+    padding: 12px; display: flex; flex-direction: column;
+  }
+  .dropzone.dropping { border-color: var(--accent); background: rgba(95,184,160,.06); }
+  .dz-empty { margin: auto; text-align: center; color: var(--faint); font-size: 13px; line-height: 1.7; }
+  .dz-empty kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .shot { position: relative; aspect-ratio: 4 / 3; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: #fff; }
+  .shot img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; }
+  .shot button { position: absolute; top: 4px; right: 4px; padding: 0 7px; font-size: 13px; line-height: 20px; border-radius: 4px; background: rgba(0,0,0,.72); color: #fff; }
+  .shot .pg { position: absolute; left: 4px; bottom: 4px; font-size: 10.5px; font-family: var(--mono); background: rgba(0,0,0,.72); color: #fff; border-radius: 3px; padding: 0 5px; }
+  [hidden] { display: none !important; }
+
+  .keyrow { display: grid; grid-template-columns: 170px 1fr; gap: 10px; margin-bottom: 10px; }
+  @media (max-width: 560px) { .keyrow { grid-template-columns: 1fr; } }
+
+  /* Screen capture → crop overlay */
+  .cap-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .cap-box { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .cap-head strong { display: block; font-size: 14px; }
+  .cap-warn { display: block; color: var(--warn); font-size: 12.5px; margin-top: 2px; }
+  .cap-stage { position: relative; align-self: center; line-height: 0; cursor: crosshair; touch-action: none; user-select: none; }
+  .cap-stage img { display: block; max-width: 100%; max-height: calc(100vh - 180px); }
+  .cap-sel { position: absolute; border: 2px solid var(--accent-strong); background: rgba(95,184,160,.12); box-shadow: 0 0 0 9999px rgba(0,0,0,.5); pointer-events: none; }
+  .cap-box .btnrow { margin-top: 0; }
+
+  /* Warnings above the interpretation */
+  .warns { margin: 0 0 10px; padding: 8px 11px 8px 26px; border: 1px solid var(--warn); border-radius: 8px; color: var(--warn); font-size: 12.5px; background: rgba(201,162,75,.07); }
+  .warns li { margin: 2px 0; }
+  .gaps { flex: 0 0 auto; max-height: 190px; overflow-y: auto; margin: 0 0 10px; padding: 9px 11px; border: 1px solid var(--danger); border-radius: 8px; background: rgba(224,135,106,.08); font-size: 12.5px; color: var(--text); }
+  .gaps strong { display: block; color: var(--danger); font-size: 12px; letter-spacing: .02em; margin-bottom: 4px; }
+  .gaps ol { margin: 0; padding-left: 20px; }
+  .gaps li { margin: 3px 0; }
+  .gaps p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+  .gap-tag { display: block; margin-top: 3px; font-family: var(--sans); font-size: 11.5px; color: var(--danger); }
+  .why-gap { margin: 5px 0 0; font-size: 12px; color: var(--danger); }
+
+  /* Interpretation: one row per report line, each with its own copy button */
+  #out {
+    background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 4px 11px; overflow-y: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
+  }
+  .out-line { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
+  .out-line:first-child { border-top: none; }
+  .out-line p { margin: 0; flex: 1 1 auto; min-width: 0; white-space: pre-wrap; }
+  .out-line button { flex: 0 0 auto; padding: 1px 9px; font-size: 12px; font-family: var(--sans); color: var(--muted); }
+  .out-line button:hover { color: var(--text); }
+  .out-line button.copied { color: var(--accent); }
+  .out-empty { margin: 7px 0; color: var(--faint); font-family: var(--sans); font-size: 13px; }
+  .why-empty { margin: 0; font-size: 12.5px; color: var(--faint); }
+
+  .btnrow { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 14px; border: 1px solid var(--border-strong); background: var(--surface-2);
+    color: var(--text); border-radius: 8px; padding: 9px 15px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:disabled:hover { border-color: var(--border-strong); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-strong); }
+  button.copied { border-color: var(--accent); color: var(--accent); }
+  .pill { font-size: 12px; color: var(--muted); }
+  .autobox { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-left: auto; }
+  .autobox input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+
+  /* Explanation */
+  .why-item { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); }
+  .why-item:first-child { border-top: none; padding-top: 2px; }
+  .why-n { font-family: var(--mono); font-size: 11px; color: var(--accent); line-height: 1.75; text-align: right; }
+  .why-line { margin: 0 0 4px; font-size: 13.5px; color: var(--text); }
+  .why-because { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+  .why-src { display: inline-block; margin-top: 5px; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+
+  /* Flow-volume loop reference */
+  .fvl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 12px; }
+  @media (max-width: 760px) { .fvl-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .fvl-grid { grid-template-columns: 1fr; } }
+  .fvl { margin: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .fvl svg { width: 100%; height: auto; display: block; }
+  .fvl svg .loop { fill: rgba(95,184,160,.12); stroke: var(--accent-strong); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .fvl svg .axis { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 3; }
+  .fvl svg .lbl { fill: var(--faint); font-size: 9px; font-family: var(--sans); }
+  .fvl figcaption { margin-top: 8px; }
+  .fvl figcaption strong { display: block; font-size: 13px; color: var(--text); margin-bottom: 3px; }
+  .fvl figcaption span { display: block; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+  details.ref summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  details.ref pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 11px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>PFT Reporter</h1>
+    <p class="sub">Paste screenshots of the report. The model only reads the numbers off them; the report sentences are produced in your browser, word for word from the Pulmonary Function Reporting Template (XN, 28/10/2024), using its 2022 Z-score sheets. <a href="pft2.html">PFT v2 →</a> · <a href="RES.html">Respiratory tools →</a></p>
+  </header>
+
+  <div class="workspace">
+
+    <div class="card" id="shot_card">
+      <span class="eyebrow">Report screenshots</span>
+      <div class="keyrow">
+        <div class="field">
+          <label class="lbl" for="provider">Model</label>
+          <select id="provider">
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="gemini">Gemini (Google)</option>
+            <option value="deepseek">DeepSeek (no images)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl" id="api_key_label" for="api_key">API key</label>
+          <input type="password" id="api_key" autocomplete="off">
+        </div>
+      </div>
+      <div class="dropzone" id="dropzone" tabindex="0" aria-label="Screenshot drop zone">
+        <div class="dz-empty" id="dz_empty">
+          Press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere on this page to paste a screenshot,<br>
+          drop image files here, or use <strong>Capture screen</strong>.<br>
+          <span style="color:var(--warn)">Crop out the patient header (name, NRIC, DOB) first.</span>
+        </div>
+        <div class="shots" id="shots" hidden></div>
+      </div>
+      <div class="btnrow">
+        <button id="fillBtn" class="primary">Read screenshots</button>
+        <button id="capBtn" title="Grab a window, then crop to the results">📷 Capture screen</button>
+        <button id="addBtn" title="Add another page to the current report">+ Add page</button>
+        <input type="file" id="shot_file" accept="image/*" multiple hidden>
+        <label class="autobox"><input type="checkbox" id="auto_run" checked> Read on paste</label>
+      </div>
+      <p class="hint">A screenshot pasted, dropped or captured after a report has been read starts a <strong>new report</strong> (the old screenshots and values are cleared). Use <strong>+ Add page</strong> to add another page to the same report. <span class="pill" id="fill_msg"></span></p>
+    </div>
+
+    <div class="ws-right">
+      <div class="card">
+        <span class="eyebrow">Report</span>
+        <div class="gaps" id="gaps" hidden>
+          <strong>⚠ Not covered by the reporting template</strong>
+          <ol id="gaps_list"></ol>
+          <p>The flagged lines below use a suggested interpretation for these gaps — check them before copying.</p>
+        </div>
+        <ul class="warns" id="warns" hidden></ul>
+        <div id="out" aria-live="polite"></div>
+        <div class="btnrow">
+          <button id="copyBtn" class="primary">Copy all</button>
+          <button id="clearBtn">New report</button>
+          <span class="pill" id="msg"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="eyebrow">Why · values, criteria and template row behind each line</span>
+        <div id="why_list"></div>
+        <div class="btnrow">
+          <button id="copyWhyBtn">Copy explanation</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="hint" style="margin:0 0 14px">Below: the values read from the screenshots. Check them against the report — the report text updates live as you edit.</p>
+
+  <!-- 1 · SPIROMETRY -->
+  <div class="card">
+    <span class="eyebrow">1 · Spirometry</span>
+    <div class="tscroll"><table class="vtable" id="t_spiro"></table></div>
+    <div class="grid g4" style="margin-top:12px">
+      <div class="field"><label class="lbl">QC grade</label><input type="text" id="spiro_grade" placeholder="e.g. AA, AB EF"></div>
+      <div class="field"><label class="lbl">BMI (kg/m²)</label><input type="number" step="any" id="bmi"></div>
+      <div class="field"><label class="lbl">Height (cm)</label><input type="number" step="any" id="height_cm"></div>
+      <div class="field"><label class="lbl">Weight (kg)</label><input type="number" step="any" id="weight_kg"></div>
+    </div>
+    <p class="hint">Post-bronchodilator columns drive the Pre-/Post-/Both prefix and the bronchodilator response (change in %predicted FEV1 or FVC &gt; 10%). For a methacholine or exercise challenge the pre column is reported as baseline spirometry and post columns are ignored.</p>
+    <div class="grid g3" style="margin-top:12px">
+      <div class="field span2">
+        <label class="lbl" for="fvloop">Flow-volume loop</label>
+        <select id="fvloop">
+          <option value="">— not commented —</option>
+          <option value="insp">Truncated inspiratory limb</option>
+          <option value="exp">Truncated expiratory limb</option>
+          <option value="both">Truncated inspiratory &amp; expiratory limbs</option>
+          <option value="biphasic">Biphasic loop</option>
+          <option value="sawtooth">Sawtooth pattern</option>
+        </select>
+      </div>
+    </div>
+    <div class="paramhead">Sitting → supine FVC (diaphragm)</div>
+    <div class="grid g2">
+      <div class="field"><label class="lbl">Sitting FVC (L)</label><input type="number" step="any" id="fvc_sit"></div>
+      <div class="field"><label class="lbl">Supine FVC (L)</label><input type="number" step="any" id="fvc_sup"></div>
+    </div>
+  </div>
+
+  <!-- 2 · LUNG VOLUMES -->
+  <div class="card">
+    <span class="eyebrow">2 · Lung volumes</span>
+    <div class="tscroll"><table class="vtable" id="t_lv"></table></div>
+    <div class="grid g4" style="margin-top:12px">
+      <div class="field"><label class="lbl">QC grade</label><input type="text" id="lv_grade"></div>
+    </div>
+  </div>
+
+  <!-- 3 · DIFFUSION -->
+  <div class="card">
+    <span class="eyebrow">3 · Diffusion capacity</span>
+    <div class="tscroll"><table class="vtable" id="t_dlco"></table></div>
+    <div class="grid g4" style="margin-top:12px">
+      <div class="field"><label class="lbl">QC grade</label><input type="text" id="dlco_grade"></div>
+      <div class="field"><label class="lbl">Hb (g/dL)</label><input type="number" step="any" id="hb"></div>
+      <div class="field span2">
+        <label class="lbl" for="dlco_word">Report DLCO as</label>
+        <select id="dlco_word">
+          <option value="">Auto — corrected if a Hb-corrected row is present</option>
+          <option value="corrected">Corrected for haemoglobin</option>
+          <option value="uncorrected">Uncorrected (Hb absent or &gt; 3 days old)</option>
+        </select>
+      </div>
+    </div>
+    <p class="hint">Template: Hb must be taken within 3 days of the DLCO test to report the corrected value. The chosen row (corrected or uncorrected) is the one graded.</p>
+  </div>
+
+  <!-- 4 · MUSCLE / MVV / FeNO -->
+  <div class="card">
+    <span class="eyebrow">4 · Respiratory muscle, MVV &amp; FeNO</span>
+    <div class="tscroll"><table class="vtable" id="t_mus"></table></div>
+    <div class="grid g4" style="margin-top:12px">
+      <div class="field"><label class="lbl">FeNO (ppb)</label><input type="number" step="any" id="feno"></div>
+    </div>
+    <p class="hint">Reduced = below LLN, or below 80% predicted when no LLN is printed. MIP/MEP compare absolute values.</p>
+  </div>
+
+  <!-- 5 · CHALLENGE TESTS -->
+  <div class="card">
+    <span class="eyebrow">5 · Challenge tests</span>
+    <div class="paramhead">Methacholine challenge</div>
+    <div class="grid g3">
+      <div class="field"><label class="lbl">PD20 (µg)</label><input type="number" step="any" id="mch_pd20"></div>
+      <div class="field"><label class="lbl">PC20 (mg/mL)</label><input type="number" step="any" id="mch_pc20"></div>
+      <div class="field"><label class="lbl">Max FEV1 fall (%)</label><input type="number" step="any" id="mch_drop"></div>
+    </div>
+    <div class="checkrow">
+      <input type="checkbox" id="mch_negative">
+      <label for="mch_negative">20% fall not reached at the final dose</label>
+    </div>
+    <div class="paramhead">Exercise challenge</div>
+    <div class="grid g3">
+      <div class="field"><label class="lbl">Max fall in FEV1 %pred (%)</label><input type="number" step="any" id="ex_drop"></div>
+    </div>
+  </div>
+
+  <!-- 6 · 6MWT -->
+  <div class="card">
+    <span class="eyebrow">6 · Six-minute walk test</span>
+    <div class="grid g4">
+      <div class="field"><label class="lbl">Max distance (m)</label><input type="number" step="any" id="smwt_dist"></div>
+      <div class="field"><label class="lbl">Walks</label>
+        <select id="smwt_walks"><option value="2">Two walks</option><option value="1">One walk</option></select></div>
+      <div class="field"><label class="lbl">Supplemental O₂</label>
+        <select id="smwt_o2"><option value="without">Without</option><option value="with">With</option></select></div>
+      <div class="field"><label class="lbl">Nadir SpO₂ (%)</label><input type="number" step="any" id="smwt_nadir"></div>
+      <div class="field"><label class="lbl">Borg dyspnoea — start</label><input type="number" step="any" id="smwt_borg_start"></div>
+      <div class="field"><label class="lbl">Borg dyspnoea — end</label><input type="number" step="any" id="smwt_borg_end"></div>
+      <div class="field span2"><label class="lbl">Early termination / rests / events</label><input type="text" id="smwt_notes" placeholder="Written into the report as typed"></div>
+    </div>
+  </div>
+
+  <!-- REFERENCE -->
+  <div class="card" style="margin-top:24px">
+    <span class="eyebrow">Reference · Flow-volume loop patterns</span>
+    <p class="hint" style="margin-top:0">Expiration above the zero-flow line, inspiration below; volume runs TLC (left) → RV (right). The model leaves the loop selector alone unless the report states a pattern in words — look at the loop and set it yourself.</p>
+    <div class="fvl-grid">
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Normal flow-volume loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,24 Q120,55 180,80 Q100,138 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Normal</strong><span>Sharp peak, near-linear descent; rounded inspiratory limb.</span></figcaption>
+      </figure>
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Truncated inspiratory limb">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,24 Q120,55 180,80 L168,116 L40,116 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Truncated inspiratory limb</strong><span>Variable extrathoracic upper airway obstruction.</span></figcaption>
+      </figure>
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Truncated expiratory limb">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,40 L166,40 L180,80 Q100,134 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Truncated expiratory limb</strong><span>Variable intrathoracic upper airway obstruction.</span></figcaption>
+      </figure>
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Truncated both limbs">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,40 L166,40 L180,80 L168,116 L40,116 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Truncated both limbs</strong><span>Fixed upper airway obstruction.</span></figcaption>
+      </figure>
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Biphasic loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L42,30 L68,58 L95,34 Q140,60 180,80 L150,120 L112,94 L78,122 Q46,104 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Biphasic loop</strong><span>Unilateral mainstem bronchus obstruction.</span></figcaption>
+      </figure>
+      <figure class="fvl">
+        <svg viewBox="0 0 200 150" role="img" aria-label="Sawtooth loop">
+          <line class="axis" x1="18" y1="80" x2="188" y2="80"/>
+          <path class="loop" d="M25,80 L46,24 L56,34 L66,28 L78,40 L90,36 L104,48 L118,46 L134,58 L150,62 L180,80 Q100,138 25,80 Z"/>
+          <text class="lbl" x="20" y="94">TLC</text><text class="lbl" x="172" y="94">RV</text>
+        </svg>
+        <figcaption><strong>Sawtooth</strong><span>Regular oscillations — OSA, parkinsonism etc.</span></figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow">Reference · CPET blank template</span>
+    <details class="ref">
+      <summary>Show the template's CPET reporting text</summary>
+      <pre id="cpet_tpl">1. Exercise testing was performed on a cycle ergometer using a symptom-limited incremental protocol at ___ w/min after 3 minutes of unloaded pedalling.
+2. The subject stopped cycling because of ________. Borg dyspnea score on termination was ___ out of 10. This was a maximal test as the heart rate was _____ predicted.
+3. The maximum VO2 was _____ ml/min (___% predicted). The anaerobic threshold was ______ mls/min (___%) predicted.
+4. The heart rate reserve was ______ bpm at the end of exercise. Maximum oxygen pulse was ____% predicted. There were ____ ischemic changes in the ECG during exercise or recovery.
+Blood pressure responses to exercise were _______.
+5. There _______ ventilatory reserve at peak exercise. The VE Max was ____ L/min (___% predicted)
+6. There was ____ significant oxygen desaturation (via pulse oximetry) at peak exercise.
+Impression:
+1. Limitation to exercise possibly secondary to &lt;to be reported&gt;</pre>
+      <div class="btnrow"><button id="cpetBtn">Copy CPET template</button></div>
+    </details>
+  </div>
+</div>
+
+<div class="cap-modal" id="cap_modal" hidden>
+  <div class="cap-box" role="dialog" aria-modal="true" aria-labelledby="cap_title">
+    <div class="cap-head">
+      <strong id="cap_title">Drag a box around the results only</strong>
+      <span class="cap-warn">Leave out the patient header (name, NRIC, DOB). On a work device, use this only if IT policy permits capturing EMR screens.</span>
+    </div>
+    <div class="cap-stage" id="cap_stage">
+      <img id="cap_img" alt="Captured screen" draggable="false">
+      <div class="cap-sel" id="cap_sel" hidden></div>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="cap_use" disabled>Use selection</button>
+      <button id="cap_retake">Recapture</button>
+      <button id="cap_cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="keyvault.data.js"></script>
+<script src="keyvault.js"></script>
+<script src="reshome.js"></script>
+<script src="provider.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* ============================================================
+   Value tables — built here so the field IDs stay regular:
+   <row>_<column>, e.g. fev1_prez, tlc_uln, dlcoc_z.
+   ============================================================ */
+const TABLES = {
+  t_spiro: {
+    cols: [["pred", "Pred"], ["lln", "LLN"], ["pre", "Pre"], ["prez", "Pre Z"], ["prepp", "Pre %Pred"],
+           ["post", "Post"], ["postz", "Post Z"], ["postpp", "Post %Pred"]],
+    sepBefore: "post",
+    rows: [["fev1", "FEV1 (L)"], ["fvc", "FVC (L)"], ["ratio", "FEV1/FVC (%)"]]
+  },
+  t_lv: {
+    cols: [["act", "Actual"], ["lln", "LLN"], ["uln", "ULN"], ["z", "Z-score"]],
+    rows: [["tlc", "TLC"], ["rv", "RV"], ["rvtlc", "RV/TLC (%)"]]
+  },
+  t_dlco: {
+    cols: [["act", "Actual"], ["lln", "LLN"], ["uln", "ULN"], ["z", "Z-score"]],
+    rows: [["dlco", "DLCO (uncorrected)"], ["dlcoc", "DLCO (Hb-corrected)"], ["va", "VA"], ["kco", "KCO"]]
+  },
+  t_mus: {
+    cols: [["act", "Actual"], ["lln", "LLN"], ["pp", "%Pred"]],
+    rows: [["mip", "MIP / PImax"], ["mep", "MEP / PEmax"], ["mvv", "MVV (L/min)"]]
+  }
+};
+
+for (const [tid, t] of Object.entries(TABLES)) {
+  const tbl = $(tid);
+  const head = document.createElement("tr");
+  head.appendChild(document.createElement("th"));
+  t.cols.forEach(([k, label]) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    if (k === t.sepBefore) th.className = "sep";
+    head.appendChild(th);
+  });
+  tbl.appendChild(head);
+  t.rows.forEach(([r, label]) => {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.className = "rl";
+    td0.textContent = label;
+    tr.appendChild(td0);
+    t.cols.forEach(([k]) => {
+      const td = document.createElement("td");
+      if (k === t.sepBefore) td.className = "sep";
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "any";
+      inp.id = r + "_" + k;
+      inp.setAttribute("aria-label", label + " " + k);
+      td.appendChild(inp);
+      tr.appendChild(td);
+    });
+    tbl.appendChild(tr);
+  });
+}
+
+/* ============================================================
+   Reporting logic — every sentence below is copied from the
+   template workbook; the sheet and row are cited in `src`.
+   ============================================================ */
+function num(id) {
+  const el = $(id);
+  if (!el) return null;
+  const s = el.value.trim();
+  if (s === "") return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function f(n) {
+  if (n == null) return "—";
+  return String(Math.round(n * 100) / 100).replace("-", "−");
+}
+
+const ZN = 1.64;   // template: normal is −1.64 ≤ Z ≤ +1.64
+const BANDS_LOW = "template bands: mild −1.65 to −2.50, moderate −2.51 to −4.00, severe < −4.00";
+const BANDS_HIGH = "template bands: mild +1.65 to +2.5, moderate +2.5 to +4.0, severe > +4.0";
+const ADV = { mild: "mildly", moderate: "moderately", severe: "severely" };
+
+function sevLow(z) { return z >= -2.5 ? "mild" : (z >= -4 ? "moderate" : "severe"); }
+function sevHigh(z) { return z <= 2.5 ? "mild" : (z <= 4 ? "moderate" : "severe"); }
+
+/* Classify one measurement. Z-score is the template's criterion; the printed
+   LLN/ULN is used only when the report shows no Z-score for that row. */
+function judge(label, z, act, lln, uln) {
+  if (z != null) {
+    const low = z < -ZN, high = z > ZN;
+    return { low, high, z, by: "z", txt: label + " Z " + f(z) + (low ? " (reduced)" : high ? " (increased)" : " (normal)") };
+  }
+  if (act != null && (lln != null || uln != null)) {
+    const low = lln != null && act < lln, high = uln != null && act > uln;
+    const lim = (lln != null ? " vs LLN " + f(lln) : "") + (uln != null ? (lln != null ? ", ULN " : " vs ULN ") + f(uln) : "");
+    return { low, high, z: null, by: "limit", label, txt: label + " " + f(act) + lim + (low ? " (reduced)" : high ? " (increased)" : " (normal)") };
+  }
+  return null;
+}
+
+function rowJudge(r, label) {
+  return judge(label, num(r + "_z"), num(r + "_act"), num(r + "_lln"), num(r + "_uln"));
+}
+
+// Spirometry measurements share one LLN for pre and post.
+function spiroJudge(r, label, phase) {
+  return judge(label, num(r + "_" + phase + "z"), num(r + "_" + phase), num(r + "_lln"), null);
+}
+
+/* QC grade. Template: A–C no statement; D–U caveat; F unable to perform.
+   Any D/E/F/U letter is suboptimal; F on its own means no reportable values. */
+function qc(id) {
+  const raw = $(id).value.replace(/grade\s*:?/i, "").trim();
+  const L = raw.toUpperCase().replace(/[^A-FU]/g, "");
+  if (!L) return null;
+  if (/^F+$/.test(L)) return { raw, level: "F" };
+  if (/[DEFU]/.test(L)) return { raw, level: "poor" };
+  return { raw, level: "ok" };
+}
+
+const T_UNABLE = "Patient was unable to perform the test despite attempts, thus there are no reportable values.";
+const T_POOR = "Please note that the quality grading of the test is suboptimal and values achieved should be interpreted with caution and correlated clinically.";
+const T_BMI = "The restrictive picture may be contributed by raised BMI.";
+
+/* Spirometry wording. std = Spirometry sheet; base = MCT/ECT "Baseline spirometry" rows.
+   {s} is the FEV1 Z-score severity. */
+const SPIRO = {
+  normal: {
+    std: "is within normal limits", base: "is within normal limits",
+    rule: "FEV1/FVC, FVC and FEV1 all Z ≥ −1.64",
+    src: "Spirometry r12", srcBase: "MCT/ECT r10"
+  },
+  obs: {
+    std: "demonstrates {s} airflow obstruction", base: "shows {s} airflow obstruction",
+    rule: "FEV1/FVC Z < −1.64 with FVC Z ≥ −1.64 (or FVC also reduced but TLC normal — old master list r33–37)",
+    src: "Spirometry r16–18", srcBase: "MCT r12 / ECT r11"
+  },
+  restQ: {
+    std: "demonstrates {s} ventilatory limitation which appears to be restrictive in pattern",
+    base: "shows {s} ventilatory limitation which appears to be restrictive in pattern",
+    tailStd: "Suggest to correlate clinically for possibility of restrictive lung disease and perform lung volumes & diffusion capacity if clinically indicated.",
+    tailBase: "Suggest to correlate clinically and consider doing lung volumes and diffusion capacity if clinically indicated.",
+    restrictive: true,
+    rule: "FEV1/FVC Z ≥ −1.64, FVC Z < −1.64, no lung volumes on this occasion",
+    src: "Spirometry r22–24", srcBase: "MCT r13 / ECT r12"
+  },
+  mixedQ: {
+    std: "demonstrates {s} ventilatory limitation which appears to be both obstructive and restrictive in pattern",
+    base: "shows {s} ventilatory limitation which appears to be both obstructive and restrictive in pattern",
+    tailStd: "Suggest to correlate clinically for possibility of concomitant restrictive lung disease and perform lung volumes & diffusion capacity if clinically indicated.",
+    tailBase: "Suggest to correlate clinically for possibility of concomitant restrictive lung disease and perform lung volumes & diffusion capacity if clinically indicated.",
+    restrictive: true,
+    rule: "FEV1/FVC Z < −1.64, FVC Z < −1.64, no lung volumes on this occasion",
+    src: "Spirometry r28–30", srcBase: "MCT r15 / ECT r14"
+  },
+  rest: {
+    std: "demonstrates {s} restrictive defect", base: "shows {s} restrictive defect",
+    restrictive: true,
+    rule: "FEV1/FVC Z ≥ −1.64, FVC Z < −1.64 and TLC Z < −1.64",
+    src: "Spirometry r34–36", srcBase: "MCT r14 / ECT r13"
+  },
+  mixed: {
+    std: "demonstrates {s} ventilatory limitation which is both obstructive and restrictive in pattern",
+    base: "shows {s} ventilatory limitation which appears to be both obstructive and restrictive in pattern",
+    restrictive: true,
+    rule: "FEV1/FVC Z < −1.64, FVC Z < −1.64 and TLC Z < −1.64",
+    src: "Spirometry r40–42", srcBase: "MCT r16 / ECT r15"
+  },
+  isoFev1: {
+    std: "demonstrates {s} ventilatory limitation (isolated reduced FEV1)",
+    base: "shows {s} ventilatory limitation (isolated reduced FEV1)",
+    rule: "FEV1/FVC Z ≥ −1.64, FVC Z ≥ −1.64, FEV1 Z < −1.64",
+    src: "Spirometry r46–48", srcBase: "Spirometry r46–48 (no baseline row; verb from MCT/ECT rows)"
+  },
+  nonspec: {
+    std: "demonstrates {s} non-specific ventilatory limitation",
+    base: "shows {s} non-specific ventilatory limitation",
+    rule: "FEV1/FVC normal, FVC reduced, TLC ≥ LLN",
+    src: "Spirometry r52–55", srcBase: "Spirometry r52–55 (no baseline row; verb from MCT/ECT rows)"
+  }
+};
+
+function build() {
+  const lines = [], warns = [], gaps = [];
+  /* gap() = a situation the template does not address. It is listed in the
+     "Not covered by the template" box and flags the next line added, which
+     carries the suggested interpretation. Always call it before that add(). */
+  let pending = [];
+  const add = (text, why, src) => { lines.push({ text, why, src, gaps: pending }); pending = []; };
+  const warn = (t) => { if (!warns.includes(t)) warns.push(t); };
+  const gap = (t) => { if (!pending.includes(t)) pending.push(t); if (!gaps.includes(t)) gaps.push(t); };
+  const noteLimit = (j) => { if (j && j.by === "limit") gap("No Z-score printed for " + j.label + " — the current sheets classify by Z-score only, so the printed LLN/ULN was used (old master-list criterion)."); };
+  // Bands that overlap at a shared edge (e.g. "−1.65 to −2.5" and "−2.5 to −4.0").
+  const edge = (z, label) => { if (Math.abs(z) === 2.5) gap(label + " Z " + f(z) + " sits exactly on a boundary the template assigns to two bands — the milder band was used."); };
+
+  const sq = qc("spiro_grade"), lq = qc("lv_grade"), dq = qc("dlco_grade");
+
+  // A methacholine or exercise challenge turns the spirometry into "Baseline spirometry".
+  const mchOn = ["mch_pd20", "mch_pc20", "mch_drop"].some(id => num(id) != null) || $("mch_negative").checked;
+  const exOn = num("ex_drop") != null;
+  const baseline = mchOn || exOn;
+
+  // Lung volumes are needed first: they decide restrictive vs non-specific spirometry.
+  const tlc = rowJudge("tlc", "TLC");
+  const rvtlc = rowJudge("rvtlc", "RV/TLC");
+  const lvF = lq && lq.level === "F";
+  const lvTlcLow = tlc && !lvF ? tlc.low : null;   // null = no lung volumes this occasion
+
+  let bmi = num("bmi");
+  const ht = num("height_cm"), wt = num("weight_kg");
+  if (bmi == null && ht && wt) bmi = wt / Math.pow(ht / 100, 2);
+
+  /* ---- SPIROMETRY ---- */
+  function spiroSet(phase) {
+    const s = {
+      ratio: spiroJudge("ratio", "FEV1/FVC", phase),
+      fvc: spiroJudge("fvc", "FVC", phase),
+      fev1: spiroJudge("fev1", "FEV1", phase)
+    };
+    return s.ratio && s.fvc && s.fev1 ? s : null;
+  }
+
+  function pattern(s) {
+    if (s.ratio.low) {
+      if (!s.fvc.low) return "obs";
+      if (lvTlcLow === null) return "mixedQ";
+      return lvTlcLow ? "mixed" : "obs";
+    }
+    if (s.fvc.low) {
+      if (lvTlcLow === null) return "restQ";
+      return lvTlcLow ? "rest" : "nonspec";
+    }
+    return s.fev1.low ? "isoFev1" : "normal";
+  }
+
+  // FEV1 %predicted for a phase — printed, or actual ÷ predicted.
+  function fev1pp(phase) {
+    const p = num("fev1_" + phase + "pp");
+    if (p != null) return p;
+    const a = num("fev1_" + phase), pr = num("fev1_pred");
+    return a != null && pr ? a / pr * 100 : null;
+  }
+
+  function zSeverity(z, phaseName) {
+    if (z == null) {
+      warn("No " + phaseName + " FEV1 Z-score — severity left as a placeholder; edit before copying.");
+      return ["[mild/moderate/severe]", "No FEV1 Z-score, so severity is left as a placeholder."];
+    }
+    if (z >= -ZN) {
+      gap((phaseName === "Spirometry" ? "Spirometry" : phaseName + " spirometry") + " is abnormal but FEV1 Z " + f(z) + " is in the normal range — the template's severity grades start at mild and do not cover this; “mild” used.");
+      return ["mild", "FEV1 Z " + f(z) + " is itself ≥ −1.64; the template has no grade for this, so mild is used."];
+    }
+    const s = sevLow(z);
+    return [s, "Severity from FEV1 Z " + f(z) + " → " + s + " (" + BANDS_LOW + ")."];
+  }
+
+  function spiroRead(s, phase, phaseName) {
+    [s.ratio, s.fvc, s.fev1].forEach(noteLimit);
+    const pat = pattern(s);
+    const W = SPIRO[pat];
+    let sev = "", sevWhy = "";
+    if (pat === "nonspec") {
+      // The template still grades this row by FEV1 %predicted (Spirometry r52–55).
+      const pp = fev1pp(phase);
+      if (pp == null) {
+        gap("No FEV1 %predicted for " + phaseName + " — the template grades non-specific ventilatory limitation by FEV1 %pred; graded by FEV1 Z-score instead.");
+        [sev, sevWhy] = zSeverity(s.fev1.z, phaseName);
+      } else if (pp >= 70) {
+        gap("FEV1 " + f(pp) + "% predicted — the template's non-specific ventilatory limitation rows start at 60–69% (moderate) and have no row for ≥ 70%; “mild” used.");
+        sev = "mild";
+        sevWhy = "FEV1 " + f(pp) + "% predicted; no template row for ≥ 70%, so mild is used.";
+      } else {
+        sev = pp >= 60 ? "moderate" : pp >= 50 ? "moderately-severe" : pp >= 35 ? "severe" : "very severe";
+        sevWhy = "Severity from FEV1 " + f(pp) + "% predicted → " + sev + " (template bands for this row: 60–69 moderate, 50–59 moderately-severe, 35–49 severe, 0–34 very severe).";
+      }
+    } else if (pat !== "normal") {
+      [sev, sevWhy] = zSeverity(s.fev1.z, phaseName);
+    }
+    if (baseline && (pat === "isoFev1" || pat === "nonspec")) {
+      gap("The MCT/ECT sheets have no baseline-spirometry row for " + (pat === "isoFev1" ? "isolated reduced FEV1" : "non-specific ventilatory limitation") + " — the Spirometry sheet wording was used with “Baseline spirometry shows”.");
+    }
+    const verb = (baseline ? W.base : W.std).replace("{s}", sev);
+    const tail = baseline ? W.tailBase : W.tailStd;
+    const tlcTxt = lvTlcLow === null ? "no lung volumes" : tlc.txt;
+    const why = phaseName + ": " + [s.ratio.txt, s.fvc.txt, s.fev1.txt, tlcTxt].join("; ") + ". Matches “" + W.rule + "”. " + sevWhy;
+    return { pat, sev, verb, tail, restrictive: !!W.restrictive, why, src: baseline ? W.srcBase : W.src };
+  }
+
+  const spiroF = sq && sq.level === "F";
+  const pre = spiroSet("pre");
+  const post = baseline ? null : spiroSet("post");
+  if (spiroF) {
+    add(T_UNABLE, "Spirometry QC grade “" + sq.raw + "” — grade F means no acceptable manoeuvres, so no spirometry values are reported.", "Spirometry r5");
+  } else if (pre || post) {
+    const a = pre && spiroRead(pre, "pre", baseline ? "Baseline" : (post ? "Pre-BD" : "Spirometry"));
+    const b = post && spiroRead(post, "post", "Post-BD");
+    let text, src;
+    if (baseline) {
+      text = "Baseline spirometry " + a.verb + ".";
+      src = a.src;
+    } else if (a && b) {
+      if (a.pat === b.pat && a.sev === b.sev) {
+        text = "Both Pre- & Post-bronchodilator spirometry " + a.verb + ".";
+      } else {
+        text = "Pre-bronchodilator spirometry " + a.verb + " while post-bronchodilator spirometry " + b.verb + ".";
+      }
+      src = "Spirometry r9–10 prefix · " + (a.src === b.src ? a.src : a.src + " + " + b.src);
+    } else if (a) {
+      text = "Spirometry " + a.verb + ".";
+      src = a.src;
+    } else {
+      text = "Post-bronchodilator spirometry " + b.verb + ".";
+      src = "Spirometry r8 prefix · " + b.src;
+    }
+    const tails = [];
+    [a, b].forEach(x => { if (x && x.tail && !tails.includes(x.tail)) tails.push(x.tail); });
+    if (tails.length) text += " " + tails.join(" ");
+    const why = [a, b].filter(Boolean).map(x => x.why).join(" ") +
+      (a && b ? (a.pat === b.pat && a.sev === b.sev ? " Pre and post read identically, so the “Both Pre- & Post-bronchodilator” prefix is used." : " Pre and post differ, so they are joined with “while”, as in the template's sample conclusion.") : "");
+    add(text, why, src);
+
+    if ([a, b].some(x => x && x.restrictive)) {
+      if (bmi == null) {
+        warn("Restrictive pattern but no BMI read — template asks to add the raised-BMI line if BMI ≥ 30.");
+      } else if (bmi >= 30) {
+        add(T_BMI, "BMI " + f(bmi) + " kg/m² is ≥ 30 with a restrictive component on spirometry, so the template's BMI statement is added.", "Spirometry r20 note");
+      }
+    }
+  }
+
+  /* ---- CHALLENGE RESULT (follows its baseline spirometry) ---- */
+  if (mchOn) {
+    const pd = num("mch_pd20"), pc = num("mch_pc20"), drop = num("mch_drop"), neg = $("mch_negative").checked;
+    const T = {
+      none: "There is no evidence of airway hyperresponsiveness.",
+      borderline: "There is evidence of borderline airway hyperresponsiveness.",
+      mild: "There is evidence of mild airway hyperresponsiveness.",
+      moderate: "There is evidence of moderate airway hyperresponsiveness.",
+      marked: "There is evidence of marked airway hyperresponsiveness."
+    };
+    if (pd != null) {
+      const k = pd > 400 ? "none" : pd >= 100 ? "borderline" : pd >= 25 ? "mild" : pd >= 6 ? "moderate" : "marked";
+      if ([100, 25, 6].includes(pd)) gap("PD20 " + f(pd) + " µg sits exactly on a boundary the template assigns to two bands — the milder band was used.");
+      add(T[k], "PD20 " + f(pd) + " µg → " + k + ". Bands: > 400 none, 100–400 borderline, 25–100 mild, 6–25 moderate, < 6 marked.", "MCT r18–22");
+    } else if (pc != null) {
+      const k = pc > 16 ? "none" : pc >= 4 ? "borderline" : pc >= 1 ? "mild" : pc >= 0.25 ? "moderate" : "marked";
+      if ([4, 1, 0.25].includes(pc)) gap("PC20 " + f(pc) + " mg/mL sits exactly on a boundary the template assigns to two bands — the milder band was used.");
+      add(T[k], "PC20 " + f(pc) + " mg/mL → " + k + ". Bands: > 16 none, 4–16 borderline, 1–4 mild, 0.25–1 moderate, < 0.25 marked. The current MCT sheet uses PD20; PC20 bands are from the old master list.", "Master list r124–128");
+    } else if (neg || (drop != null && drop < 20)) {
+      add(T.none, (drop != null ? "Maximum FEV1 fall " + f(drop) + "%" : "The report states") + " — the 20% fall was not reached, so there is no PD20 and no hyperresponsiveness.", "MCT r18");
+    } else {
+      warn("Methacholine challenge detected but no PD20/PC20 read — check the screenshot.");
+    }
+  }
+  if (exOn) {
+    const d = num("ex_drop");
+    let text, k;
+    if (d < 10) { k = "none"; text = "There is no evidence to suggest exercise-induced bronchoconstriction."; }
+    else if (d < 25) { k = "mild"; text = "There is evidence to suggest mild exercise-induced bronchoconstriction."; }
+    else if (d < 50) { k = "moderate"; text = "There is evidence to suggest moderate exercise-induced bronchoconstriction."; }
+    else { k = "severe"; text = "There is evidence to suggest severe exercise-induced bronchoconstriction."; }
+    if (k === "mild") gap("The template's mild exercise-induced bronchoconstriction row (10 to < 25% fall) reads “There is no evidence to suggest mild…”, which contradicts its own band — written as “There is evidence to suggest mild…”.");
+    add(text, "Fall in FEV1 %pred " + f(d) + "% → " + k + ". Bands: < 10% none, 10 to < 25% mild, 25 to < 50% moderate, ≥ 50% severe." +
+      (k === "mild" ? " The template's mild row reads “There is no evidence to suggest mild…”, which contradicts its own band — written here as “There is evidence to suggest mild…”." : ""), "ECT r17–20");
+  }
+
+  /* ---- BRONCHODILATOR RESPONSE ---- */
+  // CGH 2022: >10% rise in %predicted FEV1 (or FVC), post minus pre.
+  if (!baseline && !spiroF) {
+    const pp = (r, phase) => {
+      const p = num(r + "_" + phase + "pp");
+      if (p != null) return p;
+      const a = num(r + "_" + phase), pr = num(r + "_pred");
+      return a != null && pr ? a / pr * 100 : null;
+    };
+    const parts = [];
+    let sig = false, any = false;
+    [["fev1", "FEV1"], ["fvc", "FVC"]].forEach(([r, label]) => {
+      const p0 = pp(r, "pre"), p1 = pp(r, "post");
+      if (p0 == null || p1 == null) return;
+      any = true;
+      const d = p1 - p0;
+      if (d > 10) sig = true;
+      parts.push(label + " " + f(p0) + " → " + f(p1) + " %pred (" + (d >= 0 ? "+" : "") + f(d) + ")");
+    });
+    if (any) {
+      add(sig ? "There is significant bronchodilator response to 400mcg of inhaled Salbutamol."
+              : "There is no significant bronchodilator response to 400mcg of inhaled Salbutamol.",
+          parts.join("; ") + ". Significant when post- minus pre-bronchodilator %predicted FEV1 or FVC rises by more than 10 → " + (sig ? "significant." : "not significant."),
+          "Spirometry r57–58");
+    }
+  }
+
+  /* ---- FLOW-VOLUME LOOP ---- */
+  const FVL = {
+    insp: ["There appears to be truncation of the inspiratory limb of the FV loop which suggests possibility of a variable extrathoracic upper airway obstruction. Please correlate clinically.", "r60"],
+    exp: ["There appears to be truncation of the expiratory limb of the FV loop which suggests possibility of a variable intrathoracic upper airway obstruction. Please correlate clinically.", "r61"],
+    both: ["There appears to be truncation of both the inspiratory & expiratory limbs of the FV loop which suggests possibility of fixed upper airway obstruction. Please correlate clinically.", "r62"],
+    biphasic: ["There appears to be a biphasic FV loop which suggests possibility of unilateral mainstem bronchus obstruction. Please correlate clinically.", "r63"],
+    sawtooth: ["There appears to be sawtooth pattern of the FV loop which could be due to causes such as OSA, parkinsonism etc. Please correlate clinically.", "r64"]
+  };
+  const fvl = $("fvloop").value;
+  if (FVL[fvl]) add(FVL[fvl][0], "Loop pattern selected: " + $("fvloop").selectedOptions[0].text + ".", "Spirometry " + FVL[fvl][1]);
+
+  /* ---- SUPINE FVC ---- */
+  const sit = num("fvc_sit"), sup = num("fvc_sup");
+  if (sit && sup != null) {
+    const drop = (sit - sup) / sit * 100;
+    const why = "Sitting FVC " + f(sit) + " L → supine " + f(sup) + " L = " + f(drop) + "% fall (threshold ≥ 15%).";
+    if (drop >= 15) add("There is a significant drop in FVC of >15% from the sitting to supine position suggestive of diaphragmatic weakness. Please correlate clinically.", why, "Spirometry r66");
+    else add("There was no significant drop in the FVC from sitting to supine position.", why, "Spirometry r67");
+  }
+
+  /* ---- LUNG VOLUMES ---- */
+  if (lvF) {
+    add(T_UNABLE, "Lung volume QC grade “" + lq.raw + "” — grade F, no reportable values.", "Lung volumes r5");
+  } else if (tlc) {
+    noteLimit(tlc);
+    let trap = false, trapTxt = "RV/TLC not read";
+    if (rvtlc) { noteLimit(rvtlc); trap = rvtlc.high; trapTxt = rvtlc.txt; }
+    else warn("No RV/TLC read — air-trapping cannot be assessed.");
+    const base = tlc.txt + "; " + trapTxt + ". ";
+    const sevOf = (hi) => {
+      if (tlc.z == null) { warn("No TLC Z-score — severity left as a placeholder."); return ["[mildly/moderately/severely]", "No TLC Z-score to grade severity."]; }
+      if (hi) edge(tlc.z, "TLC");
+      const s = hi ? sevHigh(tlc.z) : sevLow(tlc.z);
+      return [ADV[s], "TLC Z " + f(tlc.z) + " → " + s + " (" + (hi ? BANDS_HIGH : BANDS_LOW) + ")."];
+    };
+    if (tlc.high) {
+      const [adv, sw] = sevOf(true);
+      if (trap) add("Total lung capacity is " + adv + " increased suggesting hyperinflation while RV/TLC ratio is increased suggesting airtrapping.", base + sw, "Lung volumes r16–18");
+      else add("Total lung capacity is " + adv + " increased suggesting hyperinflation.", base + sw, "Lung volumes r11–13");
+    } else if (tlc.low) {
+      const [adv, sw] = sevOf(false);
+      if (!trap && !(rvtlc && rvtlc.z != null && rvtlc.z <= -ZN)) gap("The template's “Lung volumes are reduced” row is written as “TLC Z < −1.64, RV/TLC Z ≤ −1.64” (likely a typo for ≤ +1.64) — applied here to any reduced TLC without raised RV/TLC.");
+      if (trap) add("Total lung capacity is " + adv + " reduced although RV/TLC ratio is increased suggesting airtrapping.", base + sw, "Lung volumes r28–30");
+      else add("Lung volumes are " + adv + " reduced.", base + sw, "Lung volumes r23–25");
+    } else {
+      if (trap) add("Total lung capacity is within normal limits but RV/TLC ratio is increased suggesting airtrapping.", base + "TLC normal with RV/TLC Z > +1.64.", "Lung volumes r19");
+      else add("Lung volumes are within normal limits.", base + "TLC within ±1.64 and RV/TLC Z ≤ +1.64.", "Lung volumes r7");
+    }
+  }
+
+  /* ---- DIFFUSION ---- */
+  if (dq && dq.level === "F") {
+    add(T_UNABLE, "DLCO QC grade “" + dq.raw + "” — grade F, no reportable values.", "Diffusion r5");
+  } else {
+    const hasC = rowJudge("dlcoc", "DLCO (Hb-corrected)"), hasU = rowJudge("dlco", "DLCO");
+    const pick = $("dlco_word").value;
+    let d, word;
+    if (pick === "uncorrected") { d = hasU || hasC; word = "uncorrected"; }
+    else if (pick === "corrected") { d = hasC || hasU; word = "corrected"; }
+    else { d = hasC || hasU; word = hasC ? "corrected" : "uncorrected"; }
+    if (d) {
+      noteLimit(d);
+      const va = rowJudge("va", "VA"), kco = rowJudge("kco", "KCO");
+      noteLimit(va); noteLimit(kco);
+      const hbTxt = num("hb") != null ? " Hb " + f(num("hb")) + " g/dL." : "";
+      const wordWhy = " Reported as " + word + " for haemoglobin (" + (pick ? "set manually" : (hasC ? "a Hb-corrected row was read" : "no Hb-corrected row")) + ")." + hbTxt;
+      const ctx = [d.txt, va ? va.txt : "VA not read", kco ? kco.txt : "KCO not read"].join("; ") + ".";
+      const sev = (hi) => {
+        if (d.z == null) { warn("No DLCO Z-score — severity left as a placeholder."); return ["[mildly/moderately/severely]", " No DLCO Z-score to grade severity."]; }
+        edge(d.z, "DLCO");
+        const s = hi ? sevHigh(d.z) : sevLow(d.z);
+        return [ADV[s], " DLCO Z " + f(d.z) + " → " + s + " (" + (hi ? BANDS_HIGH : "template bands: mild −1.65 to −2.5, moderate −2.5 to −4.0, severe < −4.0") + ")."];
+      };
+      if (word === "corrected") warn("DLCO reported as Hb-corrected — the template requires the Hb to be taken within 3 days of the test; confirm.");
+      const P = "DLCO, " + word + " for haemoglobin, is ";
+      if (d.high) {
+        const [adv, sw] = sev(true);
+        add(P + adv + " increased. DLCO may be increased due to increased pulmonary blood flow (e.g. left to right shunt, asthma, obesity), alveolar haemorrhage or erythrocytosis.", ctx + sw + wordWhy, "Diffusion r28–30");
+      } else if (!d.low) {
+        if (va && va.low) add("Diffusion capacity, " + word + " for haemoglobin, is within normal limits in the presence of a reduced alveolar volume.", ctx + " DLCO normal with VA reduced." + wordWhy, "Master list r88 (not on the current DLCO sheet)");
+        else add("Diffusion capacity, " + word + " for haemoglobin, is within normal limits.", ctx + " DLCO within ±1.64 and VA normal." + wordWhy, "Diffusion r10");
+      } else {
+        const [adv, sw] = sev(false);
+        if (!va) gap("No VA read — the template's reduced-DLCO rows all depend on VA; reported as if VA were normal.");
+        if (!va || !va.low) {
+          add(P + adv + " reduced in the presence of normal alveolar volume (VA), suggestive of parenchymal (e.g. emphysema with preserved lung volume) or pulmonary vascular disease (e.g. pulmonary hypertension, pulmonary embolism, vasculitis).", ctx + sw + wordWhy, "Diffusion r13–15");
+        } else if (kco && kco.high) {
+          add(P + adv + " reduced in the presence of reduced alveolar volume (VA). As KCO is increased, DLCO may be reduced due to incomplete lung expansion (e.g. failure to take deep breath, neuromuscular dysfunction) or localised loss of lung volume (e.g. pneumonectomy).", ctx + sw + wordWhy, "Diffusion r23–25");
+        } else {
+          let k = "<decreased/normal>";
+          if (kco) k = kco.low ? "decreased" : "normal";
+          else warn("No KCO read — “decreased/normal KCO” left as a placeholder.");
+          add(P + adv + " reduced in the presence of reduced alveolar volume (VA) and " + k + " KCO suggestive of loss of alveolar capillary structure with loss of lung volumes (e.g. emphysema, ILD).", ctx + sw + wordWhy, "Diffusion r18–20");
+        }
+      }
+    }
+  }
+
+  /* ---- MVV ---- */
+  const reducedBy = (r) => {
+    const a = num(r + "_act"), l = num(r + "_lln"), p = num(r + "_pp");
+    if (a != null && l != null) return { low: Math.abs(a) < Math.abs(l), txt: f(a) + " vs LLN " + f(l) };
+    if (p != null) return { low: p < 80, txt: f(p) + "% predicted (no LLN; < 80% = reduced)" };
+    return null;
+  };
+  const mvv = reducedBy("mvv");
+  if (mvv) gap("The template gives no criterion for “MVV is reduced” — below LLN (or < 80% predicted if no LLN) was used, borrowed from its MIP/MEP rule.");
+  if (mvv) add(mvv.low ? "MVV is reduced." : "MVV is within normal limits.", "MVV " + mvv.txt + ".", "MVV r2–3");
+
+  /* ---- MAXIMAL RESPIRATORY PRESSURES ---- */
+  const mip = reducedBy("mip"), mep = reducedBy("mep");
+  if (mip || mep) {
+    const why = [mip && "MIP " + mip.txt, mep && "MEP " + mep.txt].filter(Boolean).join("; ") + ".";
+    if ((mip && mip.low) || (mep && mep.low)) {
+      add("Measured maximal respiratory pressures are lower than expected in this patient. Please correlate clinically for the possibility of respiratory muscle weakness.", why + " MIP and/or MEP reduced.", "Max resp pressure r3");
+    } else {
+      add("Measured maximal respiratory pressures are within normal limits.", why, "Max resp pressure r2");
+    }
+  }
+
+  /* ---- FeNO ---- */
+  const feno = num("feno");
+  if (feno != null) {
+    const why = "FeNO " + f(feno) + " ppb. Bands: < 25 unlikely, 25–50 may be present, > 50 likely.";
+    if (feno < 25) add("Eosinophilic airway inflammation is unlikely at present.", why, "Master list r146");
+    else if (feno <= 50) add("Eosinophilic airway inflammation may be present. Suggest to correlate clinically.", why, "Master list r147");
+    else add("Ongoing eosinophilic airway inflammation is likely at present. Suggest to correlate clinically.", why, "Master list r148");
+  }
+
+  /* ---- 6MWT ---- */
+  const dist = num("smwt_dist");
+  if (dist != null) {
+    const one = $("smwt_walks").value === "1";
+    const withO2 = $("smwt_o2").value === "with";
+    const during = one ? "during the walk" : "during both walks";
+    const oneGap = "The 6MWT template is written for two walks (“during both walks”) — wording adapted for a single walk.";
+    if (one) gap(oneGap);
+    if (withO2) gap("The 6MWT template reads “<with or without> requiring supplemental oxygen”; “with requiring” is ungrammatical, so “covered requiring supplemental oxygen” was used.");
+    add("6 minute walk test with maximum distance of " + f(dist) + "m covered " + (withO2 ? "" : "without ") + "requiring supplemental oxygen " + during + ".",
+        "Maximum distance " + f(dist) + " m, " + (withO2 ? "on" : "without") + " supplemental oxygen." + (withO2 ? " Template reads “<with or without> requiring”; “with requiring” is shortened to “requiring”." : ""), "6MWT r2");
+    const bs = num("smwt_borg_start"), be = num("smwt_borg_end");
+    if (bs != null && be != null) {
+      const ws = borgWord(bs), we = borgWord(be), of = one ? "of the walk" : "of both walks";
+      gap("The template says “<dyspnea scale conversion>” without defining it — Borg CR10 descriptors were used (" + f(bs) + " → “" + ws + "”, " + f(be) + " → “" + we + "”).");
+      if (one) gap(oneGap);
+      add(ws === we ? "The patient experienced " + ws + " breathlessness at the start and end " + of + "."
+                    : "The patient experienced " + ws + " breathlessness at the start and " + we + " breathlessness at the end " + of + ".",
+          "Borg " + f(bs) + " → “" + ws + "”, Borg " + f(be) + " → “" + we + "” (Borg CR10 descriptors). Combined when identical, as the template allows.", "6MWT r3");
+    }
+    const nadir = num("smwt_nadir");
+    if (nadir != null) {
+      const sig = nadir <= 85;
+      if (one) gap(oneGap);
+      if (withO2) gap("The template's desaturation sentence says “on room air” — replaced by “on supplemental oxygen” because oxygen was used.");
+      add("There " + (sig ? "was" : "was no") + " significant exercise-induced desaturation (nadir SpO2 of " + f(nadir) + "% " + (withO2 ? "on supplemental oxygen" : "on room air") + ") " + during + ".",
+          "Nadir SpO2 " + f(nadir) + "% — significant if ≤ 85%." + (withO2 ? " “on room air” replaced by “on supplemental oxygen” as oxygen was used." : ""), "6MWT r4");
+    }
+    const notes = $("smwt_notes").value.trim();
+    if (notes) add(notes, "Typed into the events field — the template asks to highlight early termination, rests or other events.", "6MWT r5");
+  }
+
+  /* ---- QC caveat (once, at the end) ---- */
+  const poor = [[sq, "spirometry"], [lq, "lung volumes"], [dq, "DLCO"]].filter(([g]) => g && g.level === "poor");
+  if (poor.length) {
+    poor.forEach(([g, n]) => { if (/F/i.test(g.raw)) gap(n.charAt(0).toUpperCase() + n.slice(1) + " QC grade “" + g.raw + "” mixes F with other grades — the template has no rule for this; treated as suboptimal (D–U) rather than unable to perform."); });
+    add(T_POOR, "QC grade D–U on " + poor.map(([g, n]) => n + " (“" + g.raw + "”)").join(", ") + ".", "QC r4 (all sheets)");
+    warn("Suboptimal QC grade on " + poor.map(([, n]) => n).join(", ") + ".");
+  }
+
+  return { lines, warns, gaps };
+}
+
+const BORG = [[0, "no"], [0.5, "very, very slight"], [1, "very slight"], [2, "slight"], [3, "moderate"],
+              [4, "somewhat severe"], [5, "severe"], [7, "very severe"], [9, "very, very severe"], [10, "maximal"]];
+function borgWord(b) {
+  let w = BORG[0][1];
+  for (const [k, t] of BORG) if (b >= k) w = t;
+  return w;
+}
+
+/* ============================================================
+   Render
+   ============================================================ */
+let lastItems = [];
+
+function render() {
+  const { lines, warns, gaps } = build();
+  lastItems = lines;
+
+  const out = $("out");
+  out.textContent = "";
+  if (!lines.length) {
+    const p = document.createElement("p");
+    p.className = "out-empty";
+    p.textContent = "Paste a report screenshot — the report appears here.";
+    out.appendChild(p);
+  }
+  lines.forEach(it => {
+    const row = document.createElement("div");
+    row.className = "out-line";
+    const p = document.createElement("p");
+    p.textContent = it.text;
+    if (it.gaps.length) {
+      const tag = document.createElement("span");
+      tag.className = "gap-tag";
+      tag.textContent = "⚠ Not covered by template — see gap " + it.gaps.map(g => gaps.indexOf(g) + 1).join(", ");
+      p.appendChild(tag);
+    }
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Copy";
+    b.addEventListener("click", () => copyText(it.text, b, "Copy"));
+    row.appendChild(p);
+    row.appendChild(b);
+    out.appendChild(row);
+  });
+  $("copyBtn").disabled = !lines.length;
+
+  const wl = $("warns");
+  wl.textContent = "";
+  warns.forEach(w => { const li = document.createElement("li"); li.textContent = w; wl.appendChild(li); });
+  wl.hidden = !warns.length;
+
+  const gl = $("gaps_list");
+  gl.textContent = "";
+  gaps.forEach(g => { const li = document.createElement("li"); li.textContent = g; gl.appendChild(li); });
+  $("gaps").hidden = !gaps.length;
+
+  const list = $("why_list");
+  list.textContent = "";
+  $("copyWhyBtn").disabled = !lines.length;
+  if (!lines.length) {
+    const p = document.createElement("p");
+    p.className = "why-empty";
+    p.textContent = "Each report line appears here with the values, the template criterion it met, and the template row it was copied from.";
+    list.appendChild(p);
+    return;
+  }
+  lines.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "why-item";
+    const n = document.createElement("span");
+    n.className = "why-n";
+    n.textContent = String(i + 1);
+    const body = document.createElement("div");
+    const line = document.createElement("p");
+    line.className = "why-line";
+    line.textContent = it.text;
+    const why = document.createElement("p");
+    why.className = "why-because";
+    why.textContent = it.why;
+    const src = document.createElement("span");
+    src.className = "why-src";
+    src.textContent = "Template · " + it.src;
+    body.appendChild(line);
+    body.appendChild(why);
+    it.gaps.forEach(g => {
+      const gp = document.createElement("p");
+      gp.className = "why-gap";
+      gp.textContent = "⚠ Not covered by template: " + g;
+      body.appendChild(gp);
+    });
+    body.appendChild(src);
+    row.appendChild(n);
+    row.appendChild(body);
+    list.appendChild(row);
+  });
+}
+
+document.querySelectorAll("input, select").forEach(el => {
+  if (el.id === "api_key" || el.id === "provider" || el.id === "auto_run" || el.id === "shot_file") return;
+  el.addEventListener("input", render);
+  el.addEventListener("change", render);
+});
+
+async function copyText(text, btn, label) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }
+  btn.textContent = "Copied ✓"; btn.classList.add("copied");
+  setTimeout(() => { btn.textContent = label; btn.classList.remove("copied"); }, 1400);
+}
+
+$("copyBtn").addEventListener("click", () => {
+  if (lastItems.length) copyText(lastItems.map(it => it.text).join("\n"), $("copyBtn"), "Copy all");
+});
+$("copyWhyBtn").addEventListener("click", () => {
+  if (!lastItems.length) return;
+  const t = lastItems.map((it, i) => (i + 1) + ". " + it.text + "\n   Why: " + it.why + it.gaps.map(g => "\n   NOT COVERED BY TEMPLATE: " + g).join("") + "\n   Template: " + it.src).join("\n\n");
+  copyText(t, $("copyWhyBtn"), "Copy explanation");
+});
+$("cpetBtn").addEventListener("click", () => copyText($("cpet_tpl").textContent, $("cpetBtn"), "Copy CPET template"));
+
+function clearFields() {
+  document.querySelectorAll("input").forEach(el => {
+    if (["api_key", "auto_run", "shot_file"].includes(el.id)) return;
+    if (el.type === "checkbox") el.checked = false;
+    else el.value = "";
+  });
+  document.querySelectorAll("select").forEach(el => { if (el.id !== "provider") el.selectedIndex = 0; });
+}
+
+function newReport() {
+  reportGen++;
+  clearFields();
+  clearShots();
+  reportDone = false;
+  setFillMsg("", false);
+  render();
+}
+$("clearBtn").addEventListener("click", newReport);
+
+/* ============================================================
+   Screenshots — paste, drop, pick or capture. Held as base64
+   and sent to the model for extraction only.
+   ============================================================ */
+let shots = [];
+let reportDone = false;     // true once the current screenshots have been read
+let reportGen = 0;          // bumped by newReport so a late model reply is discarded
+let autoTimer = null;
+const SHOT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const SHOT_MAX_B64 = 4.6e6;
+
+function readAsDataURL(file) {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fail(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+function reencode(dataUrl, maxEdge, quality) {
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      ok(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => fail(new Error("Could not read that image."));
+    img.src = dataUrl;
+  });
+}
+
+async function fileToUrl(file) {
+  let url = await readAsDataURL(file);
+  if (!SHOT_TYPES.includes(file.type) || url.length > SHOT_MAX_B64) {
+    url = await reencode(url, 2400, 0.92);
+    if (url.length > SHOT_MAX_B64) url = await reencode(url, 1800, 0.85);
+  }
+  return url;
+}
+
+function pushShot(url) {
+  const m = /^data:([^;]+);base64,(.*)$/.exec(url);
+  if (!m) return;
+  shots.push({ type: m[1], data: m[2], url });
+  renderShots();
+}
+
+/* fresh = this screenshot belongs to a new patient's report if the last one was
+   already read. "+ Add page" passes fresh=false to extend the current report. */
+async function addShots(files, fresh) {
+  files = files.filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  if (fresh && reportDone) newReport();
+  try {
+    for (const f of files) pushShot(await fileToUrl(f));
+    afterAdd();
+  } catch (e) {
+    setFillMsg(e.message || String(e), true);
+  }
+}
+
+function afterAdd() {
+  setFillMsg(shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached.", false);
+  if ($("auto_run").checked) {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(extract, 1200);   // batch screenshots pasted in quick succession
+  }
+}
+
+function renderShots() {
+  const box = $("shots");
+  box.textContent = "";
+  box.hidden = !shots.length;
+  $("dz_empty").hidden = !!shots.length;
+  shots.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "shot";
+    const img = document.createElement("img");
+    img.src = s.url;
+    img.alt = "Page " + (i + 1);
+    img.title = "Open full size";
+    img.addEventListener("click", () => {
+      const w = window.open();
+      if (w) w.document.write('<body style="margin:0;background:#191919"><img src="' + s.url + '" style="max-width:100%">');
+    });
+    const pg = document.createElement("span");
+    pg.className = "pg";
+    pg.textContent = "p" + (i + 1);
+    const x = document.createElement("button");
+    x.type = "button";
+    x.textContent = "×";
+    x.title = "Remove";
+    x.addEventListener("click", () => { shots.splice(i, 1); renderShots(); });
+    d.appendChild(img);
+    d.appendChild(pg);
+    d.appendChild(x);
+    box.appendChild(d);
+  });
+}
+
+function clearShots() {
+  clearTimeout(autoTimer);
+  shots = [];
+  renderShots();
+}
+
+document.addEventListener("paste", (e) => {
+  const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  e.preventDefault();
+  addShots(files, true);
+});
+$("addBtn").addEventListener("click", () => $("shot_file").click());
+$("shot_file").addEventListener("change", () => {
+  addShots(Array.from($("shot_file").files), false);
+  $("shot_file").value = "";
+});
+["dragenter", "dragover"].forEach(t => $("shot_card").addEventListener(t, (e) => {
+  e.preventDefault();
+  $("dropzone").classList.add("dropping");
+}));
+["dragleave", "drop"].forEach(t => $("shot_card").addEventListener(t, () => $("dropzone").classList.remove("dropping")));
+$("shot_card").addEventListener("drop", (e) => {
+  e.preventDefault();
+  addShots(Array.from(e.dataTransfer.files || []), true);
+});
+
+try { const a = localStorage.getItem("pft3_auto_run"); if (a !== null) $("auto_run").checked = a === "1"; } catch (e) {}
+$("auto_run").addEventListener("change", () => {
+  try { localStorage.setItem("pft3_auto_run", $("auto_run").checked ? "1" : "0"); } catch (e) {}
+});
+
+/* Capture screen — one frame from the browser's screen-share picker, cropped
+   here. Nothing is saved; the stream stops as soon as the frame is taken. */
+let capCanvas = null, capSel = null, capStart = null;
+
+async function captureScreen() {
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) {
+    setFillMsg("Screen capture isn't available in this browser.", true);
+    return;
+  }
+  let stream;
+  try {
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: "window" }, audio: false, selfBrowserSurface: "exclude" });
+    } catch (e) {
+      if (e.name !== "NotSupportedError" && e.name !== "TypeError" && e.name !== "OverconstrainedError") throw e;
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    }
+  } catch (e) {
+    const why = {
+      NotAllowedError: "Screen capture was cancelled, or is blocked on this device.",
+      NotSupportedError: "This browser won't capture the screen here (" + (e.message || e.name) + ").",
+      NotFoundError: "No screen or window was available to capture."
+    };
+    setFillMsg(why[e.name] || "Screen capture unavailable: " + (e.message || e.name), true);
+    return;
+  }
+  try {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await video.play();
+    await new Promise(r => video.requestVideoFrameCallback ? video.requestVideoFrameCallback(() => r()) : setTimeout(r, 300));
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext("2d").drawImage(video, 0, 0);
+    capCanvas = c;
+  } catch (e) {
+    setFillMsg("Could not grab the screen: " + (e.message || e), true);
+    return;
+  } finally {
+    stream.getTracks().forEach(t => t.stop());
+  }
+  $("cap_img").src = capCanvas.toDataURL("image/png");
+  $("cap_sel").hidden = true;
+  capSel = null;
+  $("cap_use").disabled = true;
+  $("cap_modal").hidden = false;
+  window.focus();
+}
+
+function closeCrop() {
+  $("cap_modal").hidden = true;
+  $("cap_img").removeAttribute("src");
+  capCanvas = null; capSel = null; capStart = null;
+}
+
+function capPoint(e) {
+  const r = $("cap_img").getBoundingClientRect();
+  return {
+    x: Math.min(Math.max(e.clientX - r.left, 0), r.width),
+    y: Math.min(Math.max(e.clientY - r.top, 0), r.height),
+    w: r.width, h: r.height
+  };
+}
+
+function drawSel(a, b) {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+  const w = Math.abs(a.x - b.x), h = Math.abs(a.y - b.y);
+  const sel = $("cap_sel");
+  sel.style.left = x + "px"; sel.style.top = y + "px";
+  sel.style.width = w + "px"; sel.style.height = h + "px";
+  sel.hidden = false;
+  capSel = w > 8 && h > 8 ? { x: x / a.w, y: y / a.h, w: w / a.w, h: h / a.h } : null;
+  $("cap_use").disabled = !capSel;
+}
+
+$("cap_stage").addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  $("cap_stage").setPointerCapture(e.pointerId);
+  capStart = capPoint(e);
+  drawSel(capStart, capStart);
+});
+$("cap_stage").addEventListener("pointermove", (e) => { if (capStart) drawSel(capStart, capPoint(e)); });
+["pointerup", "pointercancel"].forEach(t => $("cap_stage").addEventListener(t, (e) => {
+  if (!capStart) return;
+  drawSel(capStart, capPoint(e));
+  capStart = null;
+}));
+
+$("cap_use").addEventListener("click", async () => {
+  if (!capCanvas || !capSel) return;
+  const W = capCanvas.width, H = capCanvas.height;
+  const sx = Math.round(capSel.x * W), sy = Math.round(capSel.y * H);
+  const sw = Math.max(1, Math.round(capSel.w * W)), sh = Math.max(1, Math.round(capSel.h * H));
+  const out = document.createElement("canvas");
+  out.width = sw; out.height = sh;
+  out.getContext("2d").drawImage(capCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  let url = out.toDataURL("image/png");
+  try { if (url.length > SHOT_MAX_B64) url = await reencode(url, 2400, 0.92); }
+  catch (e) { setFillMsg(e.message || String(e), true); return; }
+  closeCrop();
+  if (reportDone) newReport();
+  pushShot(url);
+  afterAdd();
+});
+$("cap_retake").addEventListener("click", () => { closeCrop(); captureScreen(); });
+$("cap_cancel").addEventListener("click", closeCrop);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("cap_modal").hidden) closeCrop(); });
+$("capBtn").addEventListener("click", captureScreen);
+
+/* ============================================================
+   Provider + API key (shared with the other pages via provider.js)
+   ============================================================ */
+function syncProviderUI() {
+  const p = AI.current();
+  $("api_key_label").innerHTML = p.keyHint + ' <span style="color:var(--faint)">(stored in this browser only)</span>';
+  $("api_key").placeholder = p.keyPlaceholder;
+  $("api_key").value = AI.storedKey() || "";
+}
+$("provider").value = AI.id();
+syncProviderUI();
+$("provider").addEventListener("change", () => { AI.setProvider($("provider").value); syncProviderUI(); });
+$("api_key").addEventListener("change", () => AI.saveKey(AI.id(), $("api_key").value.trim()));
+
+/* ============================================================
+   Extraction — the model fills fields only; the report text is
+   produced by build() above, never by the model.
+   ============================================================ */
+const FIELD_GUIDE = `
+NUMERIC FIELDS (plain numbers, sign kept on Z-scores; omit a key if not printed):
+
+Spirometry table (GLI-2012 style; columns usually Pred | LLN | Pre | %Pred | Z-score | Post | %Pred | Z-score | %Chg).
+For each row r in {fev1 (FEV1, L), fvc (FVC, L), ratio (FEV1/FVC, %)}:
+  r_pred   predicted / reference value
+  r_lln    lower limit of normal
+  r_pre    pre-bronchodilator measured value (or the only measured value)
+  r_prez   pre-bronchodilator Z-score
+  r_prepp  pre-bronchodilator %predicted
+  r_post   post-bronchodilator measured value
+  r_postz  post-bronchodilator Z-score
+  r_postpp post-bronchodilator %predicted
+  Take post values from the Post columns only — never from %Chg / Change columns.
+  For a methacholine or exercise challenge report, put the BASELINE spirometry in the pre fields and leave all post fields out.
+  For FEV1/FVC use the FEV1/FVC (or FEV1/FVC%) row; if only FEV1/VC is printed, leave ratio out.
+fvc_sit, fvc_sup  sitting and supine FVC (L) if a positional study is shown
+bmi, height_cm, weight_kg  if printed anywhere on the screenshots
+
+Lung volumes. For each row r in {tlc (TLC), rv (RV), rvtlc (RV/TLC, %)}: r_act, r_lln, r_uln, r_z
+
+Diffusion. For each row r: r_act, r_lln, r_uln, r_z
+  dlco   the UNCORRECTED DLCO / TLCO row
+  dlcoc  the haemoglobin-CORRECTED/adjusted DLCO row (DLCOc, DLCO Hb, TLCOc) — only if printed separately
+  va     alveolar volume (VA)
+  kco    KCO / DLCO/VA / TLCO/VA
+hb  haemoglobin (g/dL) if printed with the DLCO
+
+Respiratory muscle / MVV. For each row r in {mip (MIP, PImax, Pimax), mep (MEP, PEmax), mvv (MVV)}: r_act, r_lln, r_pp (%predicted)
+feno  FeNO / FENO (ppb)
+
+Methacholine challenge: mch_pd20 (PD20, µg — convert nothing), mch_pc20 (PC20, mg/mL), mch_drop (largest % fall in FEV1 from baseline)
+Exercise challenge: ex_drop (largest % fall in FEV1 %pred / FEV1 from baseline after exercise)
+
+Six-minute walk: smwt_dist (maximum distance, m), smwt_nadir (lowest SpO2, %), smwt_borg_start, smwt_borg_end (Borg dyspnoea, 0–10), smwt_walks (1 or 2 — number of walks performed)
+
+TEXT FIELDS (omit if absent):
+  spiro_grade  spirometry QC grade letters exactly as printed (e.g. "AA", "AB"); if pre and post grades are both printed, give both separated by a space (e.g. "AA EF")
+  lv_grade     lung volume QC grade letter(s) if printed
+  dlco_grade   DLCO QC grade letter(s) if printed
+  smwt_notes   early termination, rest stops or other events written on a 6MWT report, copied briefly as stated
+  smwt_o2      "with" if supplemental oxygen was used during the walk(s), "without" if room air
+
+BOOLEAN FIELDS (true only when clearly stated; otherwise omit):
+  mch_negative  the report states the 20% fall in FEV1 was not reached / PD20 or PC20 is "greater than" the final dose
+
+SELECTION FIELD (omit unless the report itself states the pattern in words — never judge the loop picture yourself):
+  fvloop  "insp" | "exp" | "both" | "biphasic" | "sawtooth"
+`.trim();
+
+const EXTRACT_SYSTEM = `You are a data-extraction assistant for a pulmonary function test (PFT) reporting tool.
+You will receive one or more screenshots of a single patient's PFT report (several pages may be split across screenshots).
+Read every table row across carefully so each value lands under the correct column. If a value is illegible, omit it rather than guess.
+
+${FIELD_GUIDE}
+
+Rules:
+- Output ONLY one JSON object. No prose, no markdown, no code fences.
+- Include a key only when the value is genuinely printed on the report.
+- Numbers are plain numbers (2.34, 78, -1.92) with no units or symbols. Keep the minus sign on negative Z-scores.
+- Do NOT interpret, estimate or calculate anything. Extraction only.`;
+
+function applyExtracted(obj) {
+  clearFields();
+  let filled = 0;
+  for (const [id, val] of Object.entries(obj)) {
+    const el = $(id);
+    if (!el || ["api_key", "provider", "auto_run", "shot_file"].includes(id)) continue;
+    if (val === null || val === undefined || val === "") continue;
+    if (el.type === "checkbox") el.checked = val === true || val === "true";
+    else el.value = String(val);
+    filled++;
+  }
+  render();
+  return filled;
+}
+
+function setFillMsg(text, isError) {
+  const m = $("fill_msg");
+  m.textContent = text;
+  m.style.color = isError ? "var(--danger)" : "var(--muted)";
+}
+
+let extracting = false;
+async function extract() {
+  clearTimeout(autoTimer);
+  if (extracting) { autoTimer = setTimeout(extract, 800); return; }
+  const key = $("api_key").value.trim();
+  if (!key) { setFillMsg(AI.missingKeyMsg(), true); return; }
+  if (!shots.length) { setFillMsg("Paste a screenshot first.", true); return; }
+  if (AI.id() === "deepseek") { setFillMsg("DeepSeek can't read images — switch to Claude or Gemini.", true); return; }
+  AI.saveKey(AI.id(), key);
+
+  const content = shots.map(s => ({ type: "image", source: { type: "base64", media_type: s.type, data: s.data } }))
+    .concat([{ type: "text", text: "Extract the values from these " + shots.length + " PFT report screenshot(s)." }]);
+
+  const gen = reportGen;
+  extracting = true;
+  $("fillBtn").disabled = true;
+  setFillMsg("Reading " + shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + "…", false);
+  try {
+    let raw;
+    try {
+      raw = await AI.call({
+        key,
+        systems: [{ text: EXTRACT_SYSTEM, cache: true }],
+        messages: [{ role: "user", content }],
+        maxTokens: 16000
+      });
+    } catch (apiErr) {
+      setFillMsg("API error: " + (apiErr.message || apiErr), true);
+      return;
+    }
+    if (gen !== reportGen) return;
+    raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1) { setFillMsg("Could not read a result from the model.", true); return; }
+    let obj;
+    try { obj = JSON.parse(raw.slice(start, end + 1)); }
+    catch (_) { setFillMsg("Model returned invalid JSON — try again.", true); return; }
+    const n = applyExtracted(obj);
+    reportDone = true;
+    setFillMsg(n ? "Read " + n + " value" + (n === 1 ? "" : "s") + " — check them below before copying." : "No recognisable values found.", n === 0);
+  } catch (err) {
+    setFillMsg("Request failed: " + (err && err.message ? err.message : err), true);
+  } finally {
+    extracting = false;
+    $("fillBtn").disabled = false;
+  }
+}
+$("fillBtn").addEventListener("click", extract);
+
+render();
+</script>
+</body>
+</html>

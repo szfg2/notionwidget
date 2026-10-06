@@ -323,6 +323,16 @@
   .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
   .status.ok { color: var(--accent); }
 
+  /* patients still generating in the background, one row each */
+  .gen-jobs { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .gen-jobs:empty { display: none; }
+  .gen-job { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .gen-job .gen-who { color: var(--text); font-weight: 600; }
+  .gen-job .gen-msg { flex: 1 1 160px; min-width: 0; }
+  .gen-job.failed .gen-msg { color: var(--danger); }
+  .gen-job .spinner { width: 12px; height: 12px; }
+  .letter-who { color: var(--faint); font-weight: 400; }
+
   .kbd-hint { font-size: 11px; color: var(--faint); }
   .kbd {
     font-family: var(--mono); font-size: 10.5px;
@@ -959,14 +969,15 @@
         <button class="generate" id="generateBtn" type="button">Generate</button>
         <span class="status" id="genStatus"></span>
       </div>
-      <div class="kbd-hint" style="margin-top:8px">Generates the blue letter reply + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+      <div class="gen-jobs" id="genJobs"></div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the blue letter reply + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box. The boxes clear straight away, so you can start the next patient while earlier ones are still generating.</div>
     </div>
 
     <div class="error" id="error"></div>
 
     <div class="card">
       <div class="out-head">
-        <span class="eyebrow">Blue letter reply</span>
+        <span class="eyebrow">Blue letter reply <span class="letter-who" id="letterWho"></span></span>
         <div class="gen-row" style="gap:10px">
           <span class="status" id="letterStatus"></span>
           <button class="ghost-btn" id="copyBtn" type="button">Copy</button>
@@ -1266,10 +1277,12 @@ const TOPICS_SYSTEM =
 /* Instruction that shapes the starter job list saved with each new patient. */
 const JOBS_SYSTEM =
   "You are a respiratory registrar who has just read a referral and is about to see the patient. " +
-  "From the case provided, list the 4-5 most useful things to FIND OUT about this case before or at the review: " +
+  "From the case provided, list the 2-4 most useful things to FIND OUT about this case before or at the review: " +
   "missing history, results to chase, imaging to look at, collateral to get, or questions for the primary team. " +
-  "Prioritise what would change the diagnosis or management. Skip anything the notes already answer.\n\n" +
-  "FORMAT: 4-5 lines, each starting with \"- \", each one short imperative job (e.g. \"- Chase pleural fluid cytology\"). " +
+  "Only include what would change the diagnosis or management. Skip anything the notes already answer.\n\n" +
+  "FORMAT: 2-4 lines, each starting with \"- \". Write each as a terse ward job-list entry of 2-6 words, " +
+  "using standard abbreviations (e.g. \"- Chase PF cytology\", \"- Review CTPA\", \"- Smoking hx, pack-yrs\", \"- ?Prior PFTs\"). " +
+  "No explanations, no reasons, no brackets, no full sentences. " +
   "Plain text only, no headings, no bold, no preamble, no closing remarks.";
 
 /* Appended to the letter / summary prompts when Update folds new information
@@ -1340,7 +1353,6 @@ function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { retu
 function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
 let patients = [];          // local cache of the synced list (newest first)
-let genController = null;   // in-flight generate (for cancel)
 let listView = "full";      // Patient List layout — "full" or "hx" (history taking)
 const jobTimers = new Map();
 const hxTimers = new Map();
@@ -2353,110 +2365,207 @@ async function archiveStale() {
 /* ============================================================== *
  *  Generate — letter + summary in parallel, then save            *
  * ============================================================== */
-$("generateBtn").addEventListener("click", async () => {
-  if (genController) { genController.abort(); return; }
+// Each Generate copies the boxes into its own job and clears them at once, so
+// the next patient can be typed in while earlier letters are still being
+// written. Jobs are listed under the button until their patient is saved; a
+// failed one keeps its case so it can be retried or put back in the boxes.
+const genJobs = new Map();   // id -> job
+// Patient-list saves run one at a time so two letters finishing together
+// don't race each other for the file.
+let saveChain = Promise.resolve();
+function queueSave(fn) {
+  const p = saveChain.then(fn);
+  saveChain = p.catch(() => {});
+  return p;
+}
 
+const CASE_BOXES = ["referralLetter", "pastMedical", "clinical"];
+function caseBoxesEmpty() {
+  return ["ptLocation", "ptName", ...CASE_BOXES].every(id => !$(id).value.trim()) &&
+    CASE_BOXES.every(id => !shotsOf($(id)).length);
+}
+
+$("generateBtn").addEventListener("click", () => {
   clearError();
-  // Commit anything still pending against the previous record before the box is
-  // overwritten, and detach the box until the new record has been saved.
-  flushLetterSave();
-  currentLetterId = "";
 
-  const key = AI.key();
-  if (!key) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
+  if (!AI.key()) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
-  const location = $("ptLocation").value.trim();
-  const name = $("ptName").value.trim();
-  const referral = $("referralLetter").value.trim();
-  const past = $("pastMedical").value.trim();
-  const clinical = $("clinical").value.trim();
-  const refShots = shotsOf($("referralLetter"));
-  const pastShots = shotsOf($("pastMedical"));
-  const clinShots = shotsOf($("clinical"));
-  const allShots = refShots.concat(pastShots, clinShots);
-  if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
-  if (!referral && !past && !clinical && !allShots.length) return showError("Add a referral letter, past medical details or clinical data.");
+  const input = {
+    location: $("ptLocation").value.trim(),
+    name: $("ptName").value.trim(),
+    referral: $("referralLetter").value.trim(),
+    past: $("pastMedical").value.trim(),
+    clinical: $("clinical").value.trim(),
+    refShots: shotsOf($("referralLetter")),
+    pastShots: shotsOf($("pastMedical")),
+    clinShots: shotsOf($("clinical"))
+  };
+  const allShots = input.refShots.concat(input.pastShots, input.clinShots);
+  if (!input.name && !input.location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
+  if (!input.referral && !input.past && !input.clinical && !allShots.length) return showError("Add a referral letter, past medical details or clinical data.");
   const blocked = shotsBlocked(allShots);
   if (blocked) return showError(blocked);
 
-  // Only the de-identified medical content is sent to Claude — never name/location.
-  const seeShots = (text, shots) => text || (shots.length ? "(see attached screenshots)" : "");
-  const userMessage = withShots([
-    ...(referral || refShots.length
-      ? [{ text: "REFERRAL LETTER FROM PRIMARY TEAM:\n" + seeShots(referral, refShots), shots: refShots }]
-      : []),
-    { text: "PATIENT DETAILS:\n" + seeShots(past, pastShots), shots: pastShots },
-    { text: "LATEST CLINICAL DATA:\n" + seeShots(clinical, clinShots), shots: clinShots }
-  ]);
-
-  genController = new AbortController();
-  setLoading(true);
-  setGenStatus("Generating letter + summary…");
-  try {
-    const [letterSys, summarySys] = await Promise.all([
-      fetch(CONFIG.LETTER_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.LETTER_PROMPT); return r.text(); }),
-      fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal: genController.signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
-    ]);
-
-    const [letter, summary, jobs] = await Promise.all([
-      callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, genController.signal, CONFIG.LETTER_EFFORT),
-      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT),
-      // a starter job list is a nice-to-have — never let it sink the letter
-      callClaude(key, CONFIG.MODEL, JOBS_SYSTEM, userMessage, CONFIG.JOBS_MAX_TOKENS, genController.signal, CONFIG.LOW_EFFORT)
-        .catch(e => { if (e.name === "AbortError") throw e; return ""; })
-    ]);
-
-    $("output").value = letter || "(No text returned.)";
-    updateCount();
-    setLetterStatus("");
-
-    const record = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-      created: new Date().toISOString(),
-      location, name,
-      referral,
-      pastMedical: past,
-      clinical,
-      letter: letter || "",
-      summary: summary || "",
-      jobs: (jobs || "").trim()
-    };
-
-    setGenStatus("Saving patient to GitHub…");
-    try {
-      await mutateRemote(list => upsertByName(list, record), "Add blue letter patient: " + (name || location));
-      currentLetterId = record.id;   // the output box now edits this record
-      renderTable();
-      // Safely stored — empty the case boxes ready for the next patient. The
-      // letter stays on screen to copy, and Ask / reading topics keep working
-      // off the retained copy until a new case is typed in.
-      currentCase = { referral, past, clinical };
-      clearCaseInputs();
-      setGenStatus("Done ✓ — saved to Patient List", true);
-    } catch (e) {
-      setGenStatus("");
-      showError("Letter generated, but saving the patient failed: " + (e.message || e) +
-        "\nCheck your GitHub settings, then regenerate to save.");
-    }
-  } catch (e) {
-    if (e.name === "AbortError") { clearError(); setGenStatus(""); }
-    else { setGenStatus(""); showError(e.message || String(e)); }
-  } finally {
-    genController = null;
-    setLoading(false);
-  }
+  const job = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    label: [input.location, input.name].filter(Boolean).join(" "),
+    input,
+    record: null,
+    controller: null,
+    state: "running",
+    error: ""
+  };
+  genJobs.set(job.id, job);
+  clearCaseInputs();
+  currentCase = null;
+  setGenStatus("");
+  runGenJob(job);
 });
 
-function setLoading(on) {
-  const btn = $("generateBtn");
-  if (on) {
-    btn.classList.add("is-cancel");
-    btn.innerHTML = '<span class="spinner"></span>Cancel';
-  } else {
-    btn.classList.remove("is-cancel");
-    btn.innerHTML = "Generate";
+async function runGenJob(job) {
+  const key = AI.key();
+  const { location, name, referral, past, clinical, refShots, pastShots, clinShots } = job.input;
+  job.state = "running";
+  job.error = "";
+  job.controller = new AbortController();
+  const signal = job.controller.signal;
+  renderGenJobs();
+  try {
+    if (!key) throw new Error(AI.missingKeyMsg());
+    if (!job.record) {
+      // Only the de-identified medical content is sent to Claude — never name/location.
+      const seeShots = (text, shots) => text || (shots.length ? "(see attached screenshots)" : "");
+      const userMessage = withShots([
+        ...(referral || refShots.length
+          ? [{ text: "REFERRAL LETTER FROM PRIMARY TEAM:\n" + seeShots(referral, refShots), shots: refShots }]
+          : []),
+        { text: "PATIENT DETAILS:\n" + seeShots(past, pastShots), shots: pastShots },
+        { text: "LATEST CLINICAL DATA:\n" + seeShots(clinical, clinShots), shots: clinShots }
+      ]);
+
+      const [letterSys, summarySys] = await Promise.all([
+        fetch(CONFIG.LETTER_PROMPT, { cache: "no-store", signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.LETTER_PROMPT); return r.text(); }),
+        fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
+      ]);
+
+      const [letter, summary, jobs] = await Promise.all([
+        callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, signal, CONFIG.LETTER_EFFORT),
+        callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, signal, CONFIG.LOW_EFFORT),
+        // a starter job list is a nice-to-have — never let it sink the letter
+        callClaude(key, CONFIG.MODEL, JOBS_SYSTEM, userMessage, CONFIG.JOBS_MAX_TOKENS, signal, CONFIG.LOW_EFFORT)
+          .catch(e => { if (e.name === "AbortError") throw e; return ""; })
+      ]);
+
+      job.record = {
+        id: job.id,
+        created: new Date().toISOString(),
+        location, name,
+        referral,
+        pastMedical: past,
+        clinical,
+        letter: letter || "",
+        summary: summary || "",
+        jobs: (jobs || "").trim()
+      };
+    }
+
+    job.state = "saving";
+    job.controller = null;
+    renderGenJobs();
+    await queueSave(() => mutateRemote(list => upsertByName(list, job.record), "Add blue letter patient: " + job.label));
+    genJobs.delete(job.id);
+    renderGenJobs();
+    renderTable();
+    showGeneratedLetter(job);
+    setGenStatus("Done ✓ — " + job.label + " saved to Patient List", true);
+  } catch (e) {
+    job.controller = null;
+    if (e.name === "AbortError") { genJobs.delete(job.id); renderGenJobs(); return; }
+    job.state = "failed";
+    job.error = (job.record ? "Letter generated, but saving failed: " : "") + (e.message || String(e));
+    renderGenJobs();
   }
 }
+
+// Put a freshly saved letter in the output box — unless another letter there is
+// being edited right now, in which case it stays on that patient's Patient List row.
+function showGeneratedLetter(job) {
+  const out = $("output");
+  if (document.activeElement === out && currentLetterId) return;
+  flushLetterSave();
+  currentLetterId = job.record.id;
+  out.value = job.record.letter || "(No text returned.)";
+  updateCount();
+  setLetterStatus("");
+  $("letterWho").textContent = "· " + job.label;
+  // Ask / reading topics fall back to this case only while the boxes are empty,
+  // so a half-typed next patient never gets mixed with it.
+  if (caseBoxesEmpty()) {
+    const { referral, past, clinical } = job.input;
+    currentCase = { referral, past, clinical };
+  }
+}
+
+// Put a failed job's case back in the boxes to edit and regenerate.
+function restoreGenJob(job) {
+  if (!caseBoxesEmpty() && !confirm("Replace what's in the boxes with " + job.label + "'s case?")) return;
+  const i = job.input;
+  $("ptLocation").value = i.location;
+  $("ptName").value = i.name;
+  $("referralLetter").value = i.referral;
+  $("pastMedical").value = i.past;
+  $("clinical").value = i.clinical;
+  setShots($("referralLetter"), i.refShots);
+  setShots($("pastMedical"), i.pastShots);
+  setShots($("clinical"), i.clinShots);
+  currentCase = null;
+  genJobs.delete(job.id);
+  renderGenJobs();
+}
+
+function renderGenJobs() {
+  const box = $("genJobs");
+  box.innerHTML = "";
+  for (const job of genJobs.values()) {
+    const row = document.createElement("div");
+    row.className = "gen-job" + (job.state === "failed" ? " failed" : "");
+    const btn = (text, fn) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ghost-btn";
+      b.textContent = text;
+      b.addEventListener("click", fn);
+      return b;
+    };
+    if (job.state !== "failed") {
+      const sp = document.createElement("span");
+      sp.className = "spinner grey";
+      row.appendChild(sp);
+    }
+    const who = document.createElement("span");
+    who.className = "gen-who";
+    who.textContent = job.label;
+    const msg = document.createElement("span");
+    msg.className = "gen-msg";
+    msg.textContent = job.state === "running" ? "Generating letter + summary…"
+      : job.state === "saving" ? "Saving to Patient List…"
+      : job.error;
+    row.append(who, msg);
+    if (job.state === "running") {
+      row.appendChild(btn("Cancel", () => job.controller && job.controller.abort()));
+    } else if (job.state === "failed") {
+      row.appendChild(btn(job.record ? "Retry save" : "Retry", () => runGenJob(job)));
+      if (!job.record) row.appendChild(btn("Edit", () => restoreGenJob(job)));
+      row.appendChild(btn("Dismiss", () => { genJobs.delete(job.id); renderGenJobs(); }));
+    }
+    box.appendChild(row);
+  }
+}
+
+// Closing the tab would drop any patient still generating or waiting on a retry.
+window.addEventListener("beforeunload", (e) => {
+  if (genJobs.size) { e.preventDefault(); e.returnValue = ""; }
+});
 
 /* ============================================================== *
  *  Letter edits — the output box autosaves onto its own record   *
