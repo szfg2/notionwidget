@@ -379,8 +379,8 @@
       <div class="field"><label class="lbl">Supplemental O₂</label>
         <select id="smwt_o2"><option value="without">Without</option><option value="with">With</option></select></div>
       <div class="field"><label class="lbl">Nadir SpO₂ (%)</label><input type="number" step="any" id="smwt_nadir"></div>
-      <div class="field"><label class="lbl">Borg dyspnoea — start</label><input type="number" step="any" id="smwt_borg_start"></div>
-      <div class="field"><label class="lbl">Borg dyspnoea — end</label><input type="number" step="any" id="smwt_borg_end"></div>
+      <div class="field"><label class="lbl">Modified Borg — start (0–10)</label><input type="number" step="any" id="smwt_borg_start"></div>
+      <div class="field"><label class="lbl">Modified Borg — end (0–10)</label><input type="number" step="any" id="smwt_borg_end"></div>
       <div class="field span2"><label class="lbl">Early termination / rests / events</label><input type="text" id="smwt_notes" placeholder="Written into the report as typed"></div>
     </div>
   </div>
@@ -1033,12 +1033,13 @@ function build() {
         "Maximum distance " + f(dist) + " m, " + (withO2 ? "on" : "without") + " supplemental oxygen." + (withO2 ? " Template reads “<with or without> requiring”; “with requiring” is shortened to “requiring”." : ""), "6MWT r2");
     const bs = num("smwt_borg_start"), be = num("smwt_borg_end");
     if (bs != null && be != null) {
-      const ws = borgWord(bs), we = borgWord(be), of = one ? "of the walk" : "of both walks";
-      gap("The template says “<dyspnea scale conversion>” without defining it — Borg CR10 descriptors were used (" + f(bs) + " → “" + ws + "”, " + f(be) + " → “" + we + "”).");
+      const bS = borgWord(bs), bE = borgWord(be), ws = bS.word, we = bE.word, of = one ? "of the walk" : "of both walks";
+      if (bS.gap) gap(bS.gap);
+      if (bE.gap) gap(bE.gap);
       if (one) gap(oneGap);
       add(ws === we ? "The patient experienced " + ws + " breathlessness at the start and end " + of + "."
                     : "The patient experienced " + ws + " breathlessness at the start and " + we + " breathlessness at the end " + of + ".",
-          "Borg " + f(bs) + " → “" + ws + "”, Borg " + f(be) + " → “" + we + "” (Borg CR10 descriptors). Combined when identical, as the template allows.", "6MWT r3");
+          "Borg " + f(bs) + " → “" + ws + "”, Borg " + f(be) + " → “" + we + "” (Modified Borg Dyspnea Scale). Combined when identical, as the template allows.", "6MWT r3");
     }
     const nadir = num("smwt_nadir");
     if (nadir != null) {
@@ -1063,12 +1064,19 @@ function build() {
   return { lines, warns, gaps };
 }
 
-const BORG = [[0, "no"], [0.5, "very, very slight"], [1, "very slight"], [2, "slight"], [3, "moderate"],
-              [4, "somewhat severe"], [5, "severe"], [7, "very severe"], [9, "very, very severe"], [10, "maximal"]];
+/* Modified Borg Dyspnea Scale — the lab's standard, descriptors verbatim.
+   6 and 8 are printed blank on the scale. */
+const BORG = [[0, "nothing at all"], [0.5, "very, very slight (just noticeable)"], [1, "very slight"], [2, "slight"],
+              [3, "moderate"], [4, "somewhat severe"], [5, "severe"], [7, "very severe"],
+              [9, "very, very severe (almost maximal)"], [10, "maximal"]];
+// → { word, gap }. gap is set when the score has no descriptor of its own.
 function borgWord(b) {
-  let w = BORG[0][1];
-  for (const [k, t] of BORG) if (b >= k) w = t;
-  return w;
+  const exact = BORG.find(([k]) => k === b);
+  if (exact) return { word: exact[1], gap: null };
+  let below = BORG[0];
+  for (const row of BORG) if (b >= row[0]) below = row;
+  const why = b === 6 || b === 8 ? "is printed blank on the Modified Borg Dyspnea Scale" : "is not a point on the Modified Borg Dyspnea Scale";
+  return { word: below[1], gap: "Borg " + f(b) + " " + why + " — the descriptor for " + f(below[0]) + " (“" + below[1] + "”) was used." };
 }
 
 /* ============================================================
@@ -1501,7 +1509,7 @@ feno  FeNO / FENO (ppb)
 Methacholine challenge: mch_pd20 (PD20, µg — convert nothing), mch_pc20 (PC20, mg/mL), mch_drop (largest % fall in FEV1 from baseline)
 Exercise challenge: ex_drop (largest % fall in FEV1 %pred / FEV1 from baseline after exercise)
 
-Six-minute walk: smwt_dist (maximum distance, m), smwt_nadir (lowest SpO2, %), smwt_borg_start, smwt_borg_end (Borg dyspnoea, 0–10), smwt_walks (1 or 2 — number of walks performed)
+Six-minute walk: smwt_dist (maximum distance, m), smwt_nadir (lowest SpO2, %), smwt_borg_start, smwt_borg_end (Modified Borg dyspnoea score 0–10 as a number; if only the descriptor is printed, give its number: nothing at all 0, very very slight 0.5, very slight 1, slight 2, moderate 3, somewhat severe 4, severe 5, very severe 7, very very severe 9, maximal 10), smwt_walks (1 or 2 — number of walks performed)
 
 TEXT FIELDS (omit if absent):
   spiro_grade  spirometry QC grade letters exactly as printed (e.g. "AA", "AB"); if pre and post grades are both printed, give both separated by a space (e.g. "AA EF")
