@@ -28,6 +28,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 import tkinter as tk
+import tkinter.font as tkfont
 from calendar import monthrange
 from ctypes import wintypes
 from datetime import date, timedelta
@@ -51,6 +52,9 @@ BORDER, BORDER_STRONG = "#343633", "#464944"
 TEXT, MUTED, FAINT = "#eeece8", "#9a9892", "#73716c"
 ACCENT, ACCENT_STRONG, DANGER = "#65c1a7", "#81d4bd", "#e68a82"
 FONT = ("Segoe UI", 10)
+ICON_FONTS = ("Segoe Fluent Icons", "Segoe MDL2 Assets")  # Windows 11 / Windows 10 icon fonts
+TABS = (("drop", "Drop", "\uE896"), ("chat", "Chat", "\uE8BD"), ("telegram", "Telegram", "\uE724"),
+        ("todos", "To-Dos", "\uE73A"), ("search", "Search", "\uE721"))
 
 
 # ---------- GitHub ----------
@@ -801,7 +805,7 @@ class DropButton:
         self.menu.add_command(label="Open Vault home", command=open_vault)
         self.menu.add_command(label="Open Drop page", command=lambda: webbrowser.open(PAGE_URL))
         self.menu.add_command(label="Quit", command=self.quit)
-        for w in (self.btn, self.head, *self.tabs.values()):
+        for w in (self.btn, self.head, *self.tab_widgets):
             w.bind("<Button-3>", lambda e: self.menu.tk_popup(e.x_root, e.y_root))
 
         self.collapse()
@@ -820,24 +824,34 @@ class DropButton:
 
         self.head = head = tk.Frame(p, bg=SURFACE, cursor="fleur")
         head.pack(fill="x", padx=10, pady=(8, 6))
+        families = set(tkfont.families(self.root))
+        self.icon_font = (next((f for f in ICON_FONTS if f in families), "Segoe UI Symbol"), 11)
+        self.tip = None
+        # Icon tabs: only the open one shows its name; the others name themselves on hover.
         self.tabs = {}
-        for name, label in (("drop", "Drop"), ("chat", "Chat"), ("telegram", "Telegram"), ("todos", "To-Dos"),
-                            ("search", "Search")):
-            t = self.tabs[name] = tk.Label(head, text=label, bg=SURFACE, font=("Segoe UI Semibold", 10), cursor="hand2")
-            t.tab = name
-            t.pack(side="left", padx=(0, 10))
+        for name, label, glyph in TABS:
+            box = tk.Frame(head, bg=SURFACE, cursor="hand2")
+            box.pack(side="left", padx=(0, 2))
+            icon = tk.Label(box, text=glyph, bg=SURFACE, font=self.icon_font, cursor="hand2")
+            icon.pack(side="left", pady=3)
+            text = tk.Label(box, text=label, bg=SURFACE, font=("Segoe UI Semibold", 9), cursor="hand2")
+            for w in (box, icon, text):
+                w.tab = name
+                w.bind("<Enter>", lambda e, n=name: self.tab_hover(n, True))
+                w.bind("<Leave>", lambda e, n=name: self.tab_hover(n, False))
+            self.tabs[name] = (box, icon, text)
+        self.tab_widgets = [w for parts in self.tabs.values() for w in parts]
         self.status = tk.Label(head, text="", bg=SURFACE, fg=MUTED, font=("Segoe UI", 9))
-        self.status.pack(side="left")
-        close = tk.Label(head, text="✕", bg=SURFACE, fg=MUTED, font=FONT, cursor="hand2")
-        close.pack(side="right")
-        close.bind("<Button-1>", lambda e: self.collapse(manual=True))
-        link = tk.Label(head, text="↗", bg=SURFACE, fg=MUTED, font=FONT, cursor="hand2")
-        link.pack(side="right", padx=(0, 10))
-        link.bind("<Button-1>", lambda e: webbrowser.open(PAGE_URL))
-        vault = tk.Label(head, text="⌂ Vault", bg=SURFACE, fg=ACCENT_STRONG, font=("Segoe UI Semibold", 9), cursor="hand2")
-        vault.pack(side="right", padx=(0, 10))
-        vault.bind("<Button-1>", lambda e: open_vault())
-        for w in (head, *self.tabs.values()):
+        self.status.pack(side="left", padx=(6, 0))
+        for glyph, tip, command in (("\uE8BB", "Close", lambda: self.collapse(manual=True)),
+                                    ("\uE8A7", "Open Drop page", lambda: webbrowser.open(PAGE_URL)),
+                                    ("\uE80F", "Vault home", open_vault)):
+            w = tk.Label(head, text=glyph, bg=SURFACE, fg=MUTED, font=(self.icon_font[0], 10), cursor="hand2")
+            w.pack(side="right", padx=(8, 0))
+            w.bind("<Button-1>", lambda e, c=command: (self.hide_tip(), c()))
+            w.bind("<Enter>", lambda e, w=w, t=tip: (w.configure(fg=ACCENT_STRONG), self.show_tip(w, t)))
+            w.bind("<Leave>", lambda e, w=w: (w.configure(fg=MUTED), self.hide_tip()))
+        for w in (head, *self.tab_widgets):
             w.bind("<ButtonPress-1>", self.drag_start)
             w.bind("<B1-Motion>", self.drag_move)
             w.bind("<ButtonRelease-1>", self.drag_end)
@@ -1020,10 +1034,44 @@ class DropButton:
         w.bind("<Button-1>", lambda e: command())
         return w
 
+    def paint_tabs(self, hover=None):
+        for n, (box, icon, text) in self.tabs.items():
+            on = n == self.tab
+            bg = SURFACE2 if on else SURFACE
+            for w in (box, icon, text):
+                w.configure(bg=bg)
+            icon.configure(fg=ACCENT_STRONG if on else MUTED if n == hover else FAINT)
+            text.configure(fg=TEXT)
+            icon.pack_configure(padx=(8, 5) if on else 7)
+            if on:
+                text.pack(side="left", padx=(0, 9))
+            else:
+                text.pack_forget()
+
+    def tab_hover(self, name, inside):
+        if inside and name != self.tab:
+            self.show_tip(self.tabs[name][0], dict((n, l) for n, l, g in TABS)[name])
+        else:
+            self.hide_tip()
+        self.paint_tabs(hover=name if inside else None)
+
+    def show_tip(self, widget, text):
+        self.hide_tip()
+        tip = self.tip = tk.Toplevel(self.root, bg=BORDER_STRONG)
+        tip.overrideredirect(True)
+        tip.attributes("-topmost", True)
+        tk.Label(tip, text=text, bg=SURFACE2, fg=TEXT, font=("Segoe UI", 8), padx=6, pady=2).pack(padx=1, pady=1)
+        tip.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
+
+    def hide_tip(self):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
+
     def show_tab(self, name, focus=True):
         self.tab = name
-        for n, t in self.tabs.items():
-            t.configure(fg=TEXT if n == name else FAINT)
+        self.hide_tip()
+        self.paint_tabs()
         for n, view in self.views.items():
             if n != name:
                 view.pack_forget()
@@ -1124,6 +1172,7 @@ class DropButton:
     def collapse(self, manual=False):
         if self.busy:
             return
+        self.hide_tip()
         self.expanded = False
         self.wait_for_leave = manual
         self.outside_since = None
