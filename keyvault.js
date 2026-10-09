@@ -98,7 +98,13 @@
     return JSON.parse(new TextDecoder().decode(plain));
   }
 
-  function apply(values) {
+  // keep: write the keys as if typed in by hand, so they are never wiped (for your own devices only).
+  function apply(values, keep) {
+    if (keep) {
+      Object.keys(values).forEach(name => { if (values[name] && !get(name)) set(name, values[name]); });
+      remove(SESSION);
+      return;
+    }
     const prev = session();
     const written = prev && Array.isArray(prev.names) ? prev.names.slice() : [];
     Object.keys(values).forEach(name => {
@@ -123,6 +129,8 @@
 .kv-btn{flex:1;padding:9px 12px;font-family:inherit;font-size:13px;font-weight:600;line-height:1;border-radius:8px;border:1px solid #464944;background:#252625;color:#eeece8;cursor:pointer}
 .kv-btn.kv-primary{background:#65c1a7;border-color:#65c1a7;color:#10201b}
 .kv-btn:disabled{opacity:.55;cursor:default}
+.kv-keep{display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12.5px;line-height:1.4;color:#9a9892;cursor:pointer}
+.kv-keep input{width:auto;margin:2px 0 0;accent-color:#65c1a7}
 .kv-status{min-height:18px;margin-top:10px;font-size:12.5px;color:#9a9892;text-align:center}
 .kv-status.kv-bad{color:#e68a82}
 .kv-chip{position:fixed;left:10px;bottom:10px;z-index:2147482000;display:flex;align-items:center;gap:8px;padding:5px 10px;font:500 11.5px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#9a9892;background:rgba(31,32,31,.92);border:1px solid #343633;border-radius:999px}
@@ -143,7 +151,7 @@
     box.setAttribute("aria-modal", "true");
     box.appendChild(el("h2", "", "Unlock your keys"));
     box.appendChild(el("p", "", "This browser has no saved keys. Enter your code to use them here for " +
-      UNLOCK_HOURS + " hours. The page will reload."));
+      UNLOCK_HOURS + " hours, or tick below to keep them. The page will reload."));
     const input = el("input");
     input.placeholder = "XXXXX-XXXXX";
     input.setAttribute("autocomplete", "off");
@@ -153,8 +161,12 @@
     const later = el("button", "kv-btn", "Not now");
     const go = el("button", "kv-btn kv-primary", "Unlock");
     row.append(later, go);
+    const keepLabel = el("label", "kv-keep");
+    const keep = el("input");
+    keep.type = "checkbox";
+    keepLabel.append(keep, el("span", "", "Keep on this device — only on your own phone or computer, never a work PC"));
     const status = el("div", "kv-status");
-    box.append(input, row, status);
+    box.append(input, keepLabel, row, status);
     back.appendChild(box);
     document.body.appendChild(back);
     input.focus();
@@ -171,15 +183,15 @@
         status.textContent = "The code is " + CODE_LENGTH + " characters.";
         return;
       }
-      go.disabled = later.disabled = input.disabled = true;
+      go.disabled = later.disabled = input.disabled = keep.disabled = true;
       status.className = "kv-status";
       status.textContent = "Unlocking…";
       try {
         const values = await unlock(vault, input.value);
-        apply(values);
+        apply(values, keep.checked);
         location.reload();
       } catch (e) {
-        go.disabled = later.disabled = input.disabled = false;
+        go.disabled = later.disabled = input.disabled = keep.disabled = false;
         status.className = "kv-status kv-bad";
         status.textContent = e && e.name === "OperationError" ? "Wrong code." : "Could not unlock: " + (e && e.message);
         input.select();
@@ -200,7 +212,14 @@
       chip.appendChild(el("span", "", "Keys unlocked until " + until));
       const btn = el("button", "", "Lock now");
       btn.onclick = () => { wipe(); location.reload(); };
-      chip.appendChild(btn);
+      const keepBtn = el("button", "", "Keep");
+      keepBtn.title = "Stop the timer and keep these keys on this device (your own devices only)";
+      keepBtn.onclick = () => {
+        if (!confirm("Keep your keys on this device with no time limit? Only do this on your own phone or computer.")) return;
+        remove(SESSION);
+        renderChip(vault);
+      };
+      chip.append(keepBtn, btn);
       // A tab left open past the deadline still clears storage on time.
       setTimeout(() => { wipe(); renderChip(vault); }, Math.min(Math.max(s.until - Date.now(), 0), 2147483647));
     } else if (vault && !hasKeys(vault)) {
