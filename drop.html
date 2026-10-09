@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Drop</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<!-- use-credentials: the manifest is otherwise fetched without the passcode cookie and gets the PIN page instead. -->
+<link rel="manifest" href="drop-manifest.webmanifest" crossorigin="use-credentials" />
+<link rel="apple-touch-icon" href="drop-icon-192.png" />
 <meta name="theme-color" content="#171817" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -887,10 +890,78 @@
   const c0 = cfg();
   $("where").textContent = c0.owner + "/" + c0.repo + "/" + c0.dir;
 
+  /* ---------- Android share sheet ---------- */
+  // drop-sw.js parks anything shared to the installed app in this cache; it's saved here and then removed.
+  // Items wait in the cache if keys are locked or the save fails, and are retried next time the page opens.
+  const SHARE_CACHE = "drop-share";
+
+  function addText(box, text, bold) {
+    const d = el("div");
+    d.style.whiteSpace = "pre-wrap";
+    if (bold) d.style.fontWeight = "700";
+    text.split(/(https?:\/\/[^\s<>"]+)/).forEach((part, i) => {
+      if (i % 2) { const a = el("a", "", part); a.href = part; d.appendChild(a); }
+      else if (part) d.appendChild(document.createTextNode(part));
+    });
+    box.appendChild(d);
+  }
+
+  async function sharedToHtml(meta, files) {
+    const title = (meta.title || "").trim(), text = (meta.text || "").trim(), url = (meta.url || "").trim();
+    const box = el("div");
+    if (title && text.indexOf(title) < 0) addText(box, title, !!(text || url));
+    if (text) addText(box, text);
+    if (url && text.indexOf(url) < 0) addText(box, url);
+    const pics = files.filter(isImageFile);
+    if (pics.length) box.insertAdjacentHTML("beforeend", await filesToHtml(pics));
+    return hasContent(box) ? box.innerHTML : "";
+  }
+
+  let taking = false;
+  async function takeShared() {
+    if (taking || !window.caches) return;
+    taking = true;
+    try {
+      const cache = await caches.open(SHARE_CACHE);
+      const metas = (await cache.keys()).filter(r => /\.json$/.test(r.url)).sort((a, b) => a.url < b.url ? -1 : 1);
+      if (!metas.length) return;
+      if (!cfg().token) { $("setup").hidden = false; toast("Unlock your keys — the shared item will save then"); return; }
+      for (const req of metas) {
+        const base = req.url.replace(/\.json$/, "/");
+        const meta = await (await cache.match(req)).json();
+        const files = [];
+        for (let i = 0; i < meta.files; i++) {
+          const r = await cache.match(base + i);
+          if (r) files.push(new File([await r.blob()], decodeURIComponent(r.headers.get("x-name") || "") || "shared", { type: r.headers.get("content-type") || "" }));
+        }
+        const html = await sharedToHtml(meta, files);
+        if (html) {
+          flash();
+          const wasEmpty = zoneEmpty();
+          // A failed save puts the item back in the paste box; it's still queued here, so clear that to avoid saving it twice.
+          if (!(await save(html))) { if (wasEmpty) { zone.innerHTML = ""; updateZone(); } break; }
+        }
+        else toast("Nothing in that share Drop can keep");
+        await cache.delete(req);
+        for (let i = 0; i < meta.files; i++) await cache.delete(base + i);
+      }
+    } catch (e) {
+      toast("Couldn't read the shared item — " + e.message);
+    } finally {
+      taking = false;
+    }
+  }
+
+  if (/[?&]share-failed/.test(location.search)) toast("Sharing to Drop failed — try again");
+  if (location.search) history.replaceState(null, "", location.pathname);
+  // Scoped to /drop so it can't interfere with Dictation's worker, which covers the rest of the site.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("drop-sw.js", { scope: "./drop" }).catch(() => {});
+
   /* ---------- sync ---------- */
   refresh();
+  takeShared();
   setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 20000);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); takeShared(); } });
   window.addEventListener("focus", refresh);
 })();
 </script>
