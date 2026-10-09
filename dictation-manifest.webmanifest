@@ -3,7 +3,7 @@
   "short_name": "Dictation",
   "description": "Record a clinical dictation; it transcribes, formats to a template, and syncs to GitHub.",
   "start_url": "./dictation.html",
-  "scope": "./",
+  "scope": "./dictation",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#191919",
