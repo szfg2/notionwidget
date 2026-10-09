@@ -19,7 +19,7 @@
       label: "Claude",
       longLabel: "Claude (Anthropic)",
       url: "https://api.anthropic.com/v1/messages",
-      models: { default: "claude-sonnet-5-5", ask: "claude-opus-5-5" },
+      models: { default: "claude-sonnet-5-5", ask: "claude-opus-5-5", light: "claude-haiku-5-5" },
       /* Opus 5.5 thinks less by default than Opus 5 did (effort "medium"
        * rather than "high"), so the reasoning tier asks for "high" to keep
        * the depth the clinical notes and Ask answers were tuned on. */
@@ -31,7 +31,7 @@
       label: "DeepSeek",
       longLabel: "DeepSeek",
       url: "https://api.deepseek.com/chat/completions",
-      models: { default: "deepseek-v4-flash", ask: "deepseek-v4-pro" },
+      models: { default: "deepseek-v4-flash", ask: "deepseek-v4-pro", light: "deepseek-v4-flash" },
       /* Both V4 models think by default. Thinking is left ON for the reasoning
        * tier and turned OFF for the routine tier, so summaries and letters stay
        * as quick as they were on Sonnet. Flip a value here to change that.
@@ -52,7 +52,7 @@
       /* Google puts the model id in the URL path, so this is only the stem —
        * the full endpoint is assembled per call in AI.call(). */
       url: "https://generativelanguage.googleapis.com/v1beta/models/",
-      models: { default: "gemini-3.8-flash", ask: "gemini-3.8-flash" },
+      models: { default: "gemini-3.8-flash", ask: "gemini-3.8-flash", light: "gemini-3.8-flash" },
       /* 3.x replaced the old thinkingBudget number with a thinkingLevel enum:
        * "low" | "medium" | "high" ("minimal" is rejected). Medium is the
        * default; leave these null to accept it, or name a level to force the
@@ -72,6 +72,9 @@
   const PRICES = {
     "claude-opus-5-5":   { in: 4, out: 20, cacheWrite: 5.00, cacheRead: 0.20 },
     "claude-sonnet-5-5": { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.10 },
+    // Haiku 5.5 rates for prompts up to 100k tokens; they rise 5x above that,
+    // which no page here gets near.
+    "claude-haiku-5-5":  { in: 0.10, out: 0.50, cacheWrite: 0.125, cacheRead: 0.01 },
     "claude-opus-5":     { in: 5, out: 25, cacheWrite: 6.25, cacheRead: 0.50 },
     "claude-sonnet-5":   { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.20 },
     "claude-sonnet-4-6": { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 },
@@ -220,10 +223,13 @@
     label() { return AI.current().label; },
     setProvider(id) { set(LS.provider, PROVIDERS[id] ? id : "anthropic"); },
 
-    // kind: "ask" picks the stronger/reasoning model, anything else the default
+    // kind: "ask" picks the stronger/reasoning model, "light" the cheap fast one
+    // for short mechanical rewrites, anything else the default
     model(kind) {
       const m = AI.current().models;
-      return kind === "ask" ? m.ask : m.default;
+      if (kind === "ask") return m.ask;
+      if (kind === "light") return m.light || m.default;
+      return m.default;
     },
 
     /* Where a provider's key lives. Some have a second, older location kept
@@ -279,7 +285,7 @@
     /* The one request path.
      *   systems  [{ text, cache }]  cache=true marks the reusable prefix
      *   messages [{ role, content }]
-     *   kind     "ask" | undefined   (ignored when `model` is given)
+     *   kind     "ask" | "light" | undefined   (ignored when `model` is given)
      *   effort   "low" | "medium" | "high" | undefined   (Claude only)
      */
     async call(opts) {

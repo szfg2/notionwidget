@@ -943,8 +943,8 @@ const CONFIG = {
   NOTE_MODEL: "claude-opus-5-5",
   NOTE_MAX_TOKENS: 16000,
   SUMMARY_MAX_TOKENS: 16000,
-  // To-dos are a short mechanical rewrite of the note's plan — Sonnet is plenty.
-  TODOS_MODEL: "claude-sonnet-5-5",
+  // To-dos are a short mechanical rewrite of the note's plan — Haiku is plenty.
+  TODOS_MODEL: "claude-haiku-5-5",
   TODOS_MAX_TOKENS: 16000,
   // Reading topics + Ask use the stronger model, same as the "Ask about this
   // case" box in index.html, because clinical reasoning benefits from it.
@@ -954,6 +954,8 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 16000,
   ASK_MODEL: "claude-opus-5-5",
   ASK_MAX_TOKENS: 16000,
+  // The memo fills a fixed template in a few sentences and is read before it is sent.
+  MEMO_MODEL: "claude-haiku-5-5",
   MEMO_MAX_TOKENS: 16000,
   // Consult dictation — Whisper transcribes the recorded consult, then Claude
   // rewrites only the "Currently" section of the stored note from it.
@@ -1227,12 +1229,13 @@ function refreshCasePill() {
  *  Model API - see provider.js                                   *
  * ============================================================== */
 /* The provider adapter lives in provider.js. The `model` argument is kept as a
- * tier hint: pages pass Opus for the reasoning-heavy calls and Sonnet for the
- * rest, which maps onto whichever pair the selected provider uses. */
+ * tier hint: pages pass Opus for the reasoning-heavy calls, Haiku for the short
+ * mechanical rewrites and Sonnet for the rest, which maps onto whichever set
+ * the selected provider uses. */
 async function callClaude(key, model, system, userMessage, maxTokens, signal) {
   return AI.call({
     key,
-    kind: /opus|v4-pro/.test(model) ? "ask" : "default",
+    kind: /opus|v4-pro/.test(model) ? "ask" : /haiku/.test(model) ? "light" : "default",
     systems: [{ text: system, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens,
@@ -2102,7 +2105,7 @@ function renderTable() {
       memoBtn.innerHTML = '<span class="spinner"></span>Cancel';
       memoStatus.textContent = "Writing memo…";
       try {
-        const memo = await callClaude(key, CONFIG.MODEL, MEMO_SYSTEM, userMessage, CONFIG.MEMO_MAX_TOKENS, memoController.signal);
+        const memo = await callClaude(key, CONFIG.MEMO_MODEL, MEMO_SYSTEM, userMessage, CONFIG.MEMO_MAX_TOKENS, memoController.signal);
         if (!memo) throw new Error("No text returned.");
         memoOut.value = memo;
         memoOutWrap.style.display = "";
