@@ -1,6 +1,6 @@
 /* ==================================================================== *
  *  reshome.js — "Drop" and "RES tools" buttons at the top right of every
- *  tool, linking to drop.html and back to the RES.html launcher.
+ *  tool, linking to Drop (szfg2.github.io/drop) and back to the RES.html launcher.
  *
  *  It sits on its own row just above the page header rather than inside
  *  it, because each tool lays its header out differently (settings boxes,
@@ -23,11 +23,11 @@
   const SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   const LINKS = [
     {
-      href: "drop.html", label: "Drop", title: "Open Drop",
+      id: "drop", href: "https://szfg2.github.io/drop/", label: "Drop", title: "Open Drop",
       icon: SVG + '<path d="M8 2.5v7M5 6.5l3 3 3-3"/><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></svg>'
     },
     {
-      href: "RES.html", label: "RES tools", title: "Back to RES tools",
+      id: "res", href: "RES.html", label: "RES tools", title: "Back to RES tools",
       icon: SVG + '<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>' +
         '<rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>'
     }
@@ -41,13 +41,15 @@
 
     const row = document.createElement("div");
     row.className = "res-home-row";
-    // A page never links to itself — Drop shows only the RES tools button.
-    // Compared without ".html", so a host serving clean URLs (/drop) still matches.
-    const bare = s => s.toLowerCase().replace(/\.html$/, "");
-    const here = bare(location.pathname.split("/").pop());
+    // A page never links to itself. Drop lives in its own repo (/drop/), so from there RES is one folder over.
+    const onDrop = /\/drop\/(index\.html)?$/i.test(location.pathname);
+    const onRes = /\/res(\.html)?$/i.test(location.pathname);
     row.innerHTML = LINKS
-      .filter(l => bare(l.href) !== here)
-      .map(l => '<a class="res-home" href="' + l.href + '" title="' + l.title + '">' + l.icon + l.label + "</a>")
+      .filter(l => !(l.id === "drop" && onDrop) && !(l.id === "res" && onRes))
+      .map(l => {
+        const href = l.id === "res" && onDrop ? "../notionwidget/RES.html" : l.href;
+        return '<a class="res-home" href="' + href + '" title="' + l.title + '">' + l.icon + l.label + "</a>";
+      })
       .join("");
 
     const header = document.querySelector("header.app");

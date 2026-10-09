@@ -1,7 +1,7 @@
 """Floating Drop button for Windows.
 
 Hover the round button at the screen edge to open a small panel, then paste or type
-and it's saved to the same place drop.html reads (szfg2/patient-data/drop).
+and it's saved to the same place the Drop page reads (szfg2/patient-data/drop).
 The Chat tab talks to Claude Code running in the vault, optionally with a screenshot.
 The GitHub token comes from DROP_GH_TOKEN or, failing that, `gh auth token`.
 Drag the panel by its header to move it; right-click for the menu.
@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageGrab, ImageTk
 
 OWNER, REPO, BRANCH, DIR = "szfg2", "patient-data", "main", "drop"
 INDEX = DIR + "/index.json"
-PAGE_URL = "https://szfg2.github.io/notionwidget/drop.html"
+PAGE_URL = "https://szfg2.github.io/drop/"
 VAULT_HOME = "https://pages.szfg2.tech/"
 VIEW_URL = VAULT_HOME + "view/"  # the vault webpage's in-browser note viewer
 VAULT = os.path.expanduser(r"~\Vault")
@@ -146,7 +146,7 @@ def new_id():
 
 
 def encode_image(img):
-    """Small screenshots stay as crisp PNGs; big ones are shrunk to WebP, as drop.html does."""
+    """Small screenshots stay as crisp PNGs; big ones are shrunk to WebP, as the Drop page does."""
     png = io.BytesIO()
     (img if img.mode in ("RGB", "RGBA", "L", "LA", "P") else img.convert("RGBA")).save(png, "PNG")
     scale = min(1, 2400 / max(img.size))
