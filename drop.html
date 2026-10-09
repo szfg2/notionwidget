@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Drop</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-<!-- use-credentials: the manifest is otherwise fetched without the passcode cookie and gets the PIN page instead. -->
-<link rel="manifest" href="drop-app.webmanifest" crossorigin="use-credentials" />
-<link rel="apple-touch-icon" href="drop-icon-192.png" />
 <meta name="theme-color" content="#171817" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -891,7 +888,7 @@
   $("where").textContent = c0.owner + "/" + c0.repo + "/" + c0.dir;
 
   /* ---------- Android share sheet ---------- */
-  // drop-sw.js parks anything shared to the installed app in this cache; it's saved here and then removed.
+  // The installable Drop app (szfg2.github.io/drop, which shows this page) parks Android shares in this cache; it's saved here and then removed.
   // Items wait in the cache if keys are locked or the save fails, and are retried next time the page opens.
   const SHARE_CACHE = "drop-share";
 
@@ -954,8 +951,10 @@
 
   if (/[?&]share-failed/.test(location.search)) toast("Sharing to Drop failed — try again");
   if (location.search) history.replaceState(null, "", location.pathname);
-  // Scoped to /drop so it can't interfere with Dictation's worker, which covers the rest of the site.
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("drop-sw.js", { scope: "./drop" }).catch(() => {});
+  // Retire the share worker from when Drop was installed from this folder; the /drop app does that job now.
+  if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => {
+    if (/\/notionwidget\/drop$/.test(r.scope)) r.unregister();
+  })).catch(() => {});
 
   /* ---------- sync ---------- */
   refresh();
