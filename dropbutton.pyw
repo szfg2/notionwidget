@@ -3,9 +3,11 @@
 Hover the round button at the screen edge to open a small panel, then paste or type
 and it's saved to the same place the Drop page reads (szfg2/patient-data/drop).
 The Chat tab talks to Claude Code running in the vault, optionally with a screenshot.
+The Telegram tab is your chat with the vault bot, signed in as you (one-time setup: --telegram-login).
 The GitHub token comes from DROP_GH_TOKEN or, failing that, `gh auth token`.
 Drag the panel by its header to move it; right-click for the menu.
 """
+import asyncio
 import base64
 import ctypes
 import html
@@ -17,6 +19,7 @@ import random
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -308,6 +311,163 @@ CHAT_TOOLS = ",".join([
     "mcp__claude_ai_Gmail__get_thread", "mcp__claude_ai_Gmail__get_message",
     "mcp__claude_ai_Google_Drive__search_files", "mcp__claude_ai_Google_Drive__read_file_content",
 ])
+
+
+# ---------- telegram ----------
+# Signs in to Telegram as Samuel (Telethon) and only ever talks to the vault bot, so the bot's
+# reminders, calendar answers, procedure logging and Undo buttons all work from the panel.
+
+TG_BOT = "samuel_vault_capture_bot"
+TG_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "dropbutton-telegram")
+TG_API = os.path.join(TG_DIR, "api.json")
+TG_SESSION = os.path.join(TG_DIR, "session")  # the saved sign-in: treat it like a password, never commit it
+TG_HISTORY = 40
+TG_LOGIN = f'python "{os.path.abspath(__file__)}" --telegram-login'
+TG_KINDS = {"MessageEntityPre": "code", "MessageEntityCode": "code", "MessageEntityBold": "bold",
+            "MessageEntityItalic": "italic", "MessageEntityTextUrl": "link", "MessageEntityUrl": "link"}
+
+
+def tg_api():
+    try:
+        with open(TG_API, encoding="utf-8") as f:
+            api = json.load(f)
+        return api if api.get("api_id") and api.get("api_hash") else None
+    except (OSError, ValueError):
+        return None
+
+
+def tg_segments(text, entities):
+    """Splits a message into (piece, spans) runs; Telegram counts entity offsets in UTF-16 units."""
+    raw = text.encode("utf-16-le")
+    n = len(raw) // 2
+    spans = []
+    for e in entities or []:
+        kind = TG_KINDS.get(type(e).__name__)
+        if kind:
+            a, b = e.offset, min(n, e.offset + e.length)
+            spans.append((a, b, kind, getattr(e, "url", None), len(spans),
+                          raw[a * 2:b * 2].decode("utf-16-le", "replace")))
+    cuts = sorted({0, n, *(x[0] for x in spans), *(x[1] for x in spans)})
+    for a, b in zip(cuts, cuts[1:]):
+        yield raw[a * 2:b * 2].decode("utf-16-le", "replace"), [x for x in spans if x[0] <= a and b <= x[1]]
+
+
+def tg_day(dt):
+    days = (date.today() - dt.date()).days
+    return "TODAY" if days == 0 else "YESTERDAY" if days == 1 else dt.strftime("%a %d %b").replace(" 0", " ").upper()
+
+
+def tg_size(n):
+    return f"{n / 1e6:.1f} MB" if n >= 1e6 else f"{max(1, n // 1000)} KB"
+
+
+class Telegram:
+    """Runs the Telegram connection on its own asyncio thread; results come back through post() on the UI thread."""
+
+    def __init__(self, post):
+        self.post = post
+        self.loop = self.client = self.bot = None
+        self.ready = False
+        self.lock = threading.Lock()
+        self.messages = {}
+
+    def start(self, on_state, on_change):
+        if self.loop:
+            return
+        self.loop = asyncio.new_event_loop()
+        threading.Thread(target=self._run, args=(self.loop, on_state, on_change), daemon=True).start()
+
+    def _run(self, loop, on_state, on_change):
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self._main(on_state, on_change))
+        except Exception as e:  # noqa: BLE001 — shown in the tab
+            self.post(lambda e=e: on_state("offline", str(e)))
+        finally:
+            self.ready = False
+            self.loop = None
+            loop.close()
+
+    async def _main(self, on_state, on_change):
+        try:
+            from telethon import TelegramClient, events
+        except ImportError:
+            self.post(lambda: on_state("setup", "Telethon isn't installed: run  python -m pip install telethon"))
+            return
+        api = tg_api()
+        if not api:
+            self.post(lambda: on_state("setup", None))
+            return
+        client = self.client = TelegramClient(TG_SESSION, int(api["api_id"]), api["api_hash"])
+        await client.connect()
+        try:
+            if not await client.is_user_authorized():
+                self.post(lambda: on_state("setup", None))
+                return
+            self.bot = await client.get_input_entity(TG_BOT)
+
+            async def changed(event):
+                self.remember(event.message)
+                self.post(lambda m=event.message: on_change(m))
+
+            client.add_event_handler(changed, events.NewMessage(chats=self.bot))
+            client.add_event_handler(changed, events.MessageEdited(chats=self.bot))
+            history = await client.get_messages(self.bot, limit=TG_HISTORY)
+            with self.lock:
+                self.messages = {m.id: m for m in history}
+            self.ready = True
+            self.post(lambda: on_state("ready", None))
+            self.post(lambda: on_change(None))
+            await client.run_until_disconnected()
+            self.post(lambda: on_state("offline", "Disconnected"))
+        finally:
+            self.ready = False
+            await client.disconnect()
+
+    def remember(self, msg):
+        with self.lock:
+            self.messages[msg.id] = msg
+            for old in sorted(self.messages)[:-TG_HISTORY]:
+                del self.messages[old]
+
+    def snapshot(self):
+        with self.lock:
+            return [self.messages[k] for k in sorted(self.messages)]
+
+    def run(self, make, done):
+        """Runs the coroutine make(client, bot) on the Telegram thread, then done(result, error) on the UI thread."""
+        if not (self.ready and self.loop):
+            done(None, RuntimeError("Telegram isn't connected"))
+            return
+        future = asyncio.run_coroutine_threadsafe(make(self.client, self.bot), self.loop)
+
+        def finished(f):
+            err = f.exception()
+            res = None if err else f.result()
+            self.post(lambda: done(res, err))
+
+        future.add_done_callback(finished)
+
+    def stop(self):
+        if self.loop and self.client:
+            asyncio.run_coroutine_threadsafe(self.client.disconnect(), self.loop)
+
+
+def telegram_login():
+    """One-time sign-in, run from a terminal: python dropbutton.pyw --telegram-login"""
+    from telethon.sync import TelegramClient
+    os.makedirs(TG_DIR, exist_ok=True)
+    api = tg_api()
+    if not api:
+        print("Get these from https://my.telegram.org -> API development tools (create an app with any name).")
+        api = {"api_id": int(input("api_id: ").strip()), "api_hash": input("api_hash: ").strip()}
+        with open(TG_API, "w", encoding="utf-8") as f:
+            json.dump(api, f)
+    with TelegramClient(TG_SESSION, int(api["api_id"]), api["api_hash"]) as client:  # asks for phone, code, 2FA
+        me = client.get_me()
+        client.get_input_entity(TG_BOT)
+        print(f"\nSigned in as {me.first_name}. Press Reconnect in the panel's Telegram tab.")
+    input("Press Enter to close.")
 
 
 class MONITORINFO(ctypes.Structure):
@@ -613,6 +773,14 @@ class DropButton:
         self.reply = ""
         self.unread = False
         self.shot = False
+        self.tg = Telegram(self.results.put)
+        self.tg_state = "connecting"
+        self.tg_unread = False
+        self.tg_seen = 0
+        self.tg_image = None
+        self.tg_sending = False
+        self.tg_pics = {}
+        self.tg_loading = set()
         self.thumbs = []
         self.todos = []
         self.undo = None
@@ -639,10 +807,12 @@ class DropButton:
         self.collapse()
         r.deiconify()
         self.index_notes()
+        self.tg_connect()
         self.poll()
 
     def quit(self):
         self.stop_chat()
+        self.tg.stop()
         self.root.destroy()
 
     def build_panel(self):
@@ -651,7 +821,8 @@ class DropButton:
         self.head = head = tk.Frame(p, bg=SURFACE, cursor="fleur")
         head.pack(fill="x", padx=10, pady=(8, 6))
         self.tabs = {}
-        for name, label in (("drop", "Drop"), ("chat", "Chat"), ("todos", "To-Dos"), ("search", "Search")):
+        for name, label in (("drop", "Drop"), ("chat", "Chat"), ("telegram", "Telegram"), ("todos", "To-Dos"),
+                            ("search", "Search")):
             t = self.tabs[name] = tk.Label(head, text=label, bg=SURFACE, font=("Segoe UI Semibold", 10), cursor="hand2")
             t.tab = name
             t.pack(side="left", padx=(0, 10))
@@ -693,10 +864,11 @@ class DropButton:
         self.list.pack(fill="x", padx=4, pady=(0, 6))
 
         self.build_chat(p)
+        self.build_telegram(p)
         self.build_todos(p)
         self.build_search(p)
-        self.views = {"drop": self.drop_view, "chat": self.chat_view, "todos": self.todo_view,
-                      "search": self.search_view}
+        self.views = {"drop": self.drop_view, "chat": self.chat_view, "telegram": self.tg_view,
+                      "todos": self.todo_view, "search": self.search_view}
         self.show_tab(self.tab if self.tab in self.views else "drop", focus=False)
 
     def build_chat(self, p):
@@ -730,6 +902,46 @@ class DropButton:
         self.set_shot(False)
         self.send_btn = self.button(bar, "Send", lambda: self.stop_chat() if self.chat_proc else self.send(), primary=True)
         self.send_btn.pack(side="right")
+
+    def build_telegram(self, p):
+        v = self.tg_view = tk.Frame(p, bg=SURFACE)
+        top = tk.Frame(v, bg=SURFACE)
+        top.pack(fill="x", padx=10)
+        self.tg_note = tk.Label(top, text="Connecting…", bg=SURFACE, fg=MUTED, font=("Segoe UI", 8))
+        self.tg_note.pack(side="left")
+        self.link(top, "Open in Telegram", lambda: webbrowser.open("https://t.me/" + TG_BOT)).pack(side="right")
+        self.link(top, "Reconnect", self.tg_connect).pack(side="right", padx=(0, 10))
+
+        t = self.tg_log = tk.Text(v, width=46, height=16, wrap="word", bg=SURFACE, fg=TEXT, relief="flat", font=FONT,
+                                  padx=2, pady=4, highlightthickness=0, cursor="arrow", spacing3=2)
+        t.pack(fill="both", expand=True, padx=10, pady=(4, 6))
+        t.tag_configure("you", foreground=ACCENT_STRONG, font=("Segoe UI Semibold", 9))
+        t.tag_configure("bot", foreground=MUTED, font=("Segoe UI Semibold", 9))
+        t.tag_configure("day", foreground=FAINT, font=("Segoe UI Semibold", 8), justify="center", spacing1=6)
+        t.tag_configure("meta", foreground=FAINT, font=("Segoe UI", 8))
+        t.tag_configure("hint", foreground=FAINT, font=("Segoe UI", 9))
+        t.tag_configure("bold", font=("Segoe UI Semibold", 10))
+        t.tag_configure("italic", font=("Segoe UI", 10, "italic"))
+        t.tag_configure("code", font=("Consolas", 10), background=SURFACE2, foreground=ACCENT_STRONG)
+        t.tag_configure("link", foreground=ACCENT_STRONG, underline=True)
+        t.tag_configure("btn", foreground=ACCENT_STRONG, background=SURFACE2, font=("Segoe UI Semibold", 8))
+        t.tag_configure("err", foreground=DANGER)
+        self.readonly(t)
+
+        self.tg_input = self.input(v, height=3)
+        self.tg_input.pack(fill="x", padx=10)
+        self.tg_input.bind("<Return>", lambda e: (self.tg_send(), "break")[1])
+        self.tg_input.bind("<Shift-Return>", lambda e: (self.tg_input.insert("insert", "\n"), "break")[1])
+        self.tg_input.bind("<<Paste>>", self.tg_paste)
+
+        bar = tk.Frame(v, bg=SURFACE)
+        bar.pack(fill="x", padx=10, pady=(6, 10))
+        self.tg_attach = tk.Label(bar, text="Paste a picture to file it", bg=SURFACE, fg=FAINT, font=("Segoe UI", 8),
+                                  cursor="hand2")
+        self.tg_attach.pack(side="left")
+        self.tg_attach.bind("<Button-1>", lambda e: self.tg_set_image(None))
+        self.tg_send_btn = self.button(bar, "Send", self.tg_send, primary=True)
+        self.tg_send_btn.pack(side="right")
 
     def build_todos(self, p):
         v = self.todo_view = tk.Frame(p, bg=SURFACE)
@@ -821,6 +1033,13 @@ class DropButton:
             if focus:
                 self.root.focus_force()
                 self.ask.focus_set()
+        elif name == "telegram":
+            self.tg_unread = False
+            self.draw_button()
+            self.tg_log.see("end")
+            if focus:
+                self.root.focus_force()
+                self.tg_input.focus_set()
         elif name == "todos" and self.expanded:
             self.load_todos()
         elif name == "search" and self.expanded:
@@ -844,7 +1063,8 @@ class DropButton:
 
     def draw_button(self, color=ACCENT):
         # Red dot: unsaved note. White dot: a chat reply arrived while the panel was closed.
-        dot = DANGER if hasattr(self, "text") and not self.draft_empty() else TEXT if self.unread else None
+        dot = (DANGER if hasattr(self, "text") and not self.draft_empty()
+               else TEXT if self.unread or self.tg_unread else None)
         key = (color, dot)
         if key not in self.images:
             s, k = self.size, 4
@@ -880,6 +1100,8 @@ class DropButton:
         self.panel.pack(fill="both", expand=True)
         if self.unread:
             self.tab = "chat"
+        elif self.tg_unread:
+            self.tab = "telegram"
         self.show_tab(self.tab, focus=False)
         self.render_list()
         self.show_pending()
@@ -964,6 +1186,7 @@ class DropButton:
                     self.expand()
         elif (inside or self.dragging or self.busy or self.chat_proc or not self.draft_empty()
               or self.ask.get("1.0", "end").strip()
+              or self.tg_input.get("1.0", "end").strip() or self.tg_image or self.tg_sending
               or (self.root.focus_get() is self.query and self.query_var.get().strip())):
             self.outside_since = None
         else:
@@ -1027,7 +1250,7 @@ class DropButton:
                 items = save(text, images, self.device)
                 self.results.put(lambda: self.finish(items, from_draft, ""))
             except Exception as e:  # noqa: BLE001 — any failure is shown in the panel
-                self.results.put(lambda: self.finish(None, from_draft, str(e)))
+                self.results.put(lambda e=e: self.finish(None, from_draft, str(e)))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1061,7 +1284,7 @@ class DropButton:
                 items, _ = read_index()
                 self.results.put(lambda: self.loaded(items, ""))
             except Exception as e:  # noqa: BLE001
-                self.results.put(lambda: self.loaded(None, str(e)))
+                self.results.put(lambda e=e: self.loaded(None, str(e)))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1125,7 +1348,7 @@ class DropButton:
                 formats = clipboard_formats(img=fetch_image(names[0]))
                 self.results.put(lambda: self.copied(formats, ""))
             except Exception as e:  # noqa: BLE001
-                self.results.put(lambda: self.copied(None, str(e)))
+                self.results.put(lambda e=e: self.copied(None, str(e)))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1305,6 +1528,214 @@ class DropButton:
             return
         self.copied(clipboard_formats(text=self.reply), "", "Reply copied ✓")
 
+    # ----- telegram -----
+
+    def tg_connect(self):
+        if self.tg.ready:
+            self.set_status("Telegram is connected", MUTED)
+            return
+        self.tg_note.configure(text="Connecting…", fg=MUTED)
+        self.tg.start(self.tg_on_state, self.tg_on_change)
+
+    def tg_on_state(self, state, detail):
+        self.tg_state = state
+        if state == "ready":
+            self.tg_note.configure(text="Connected · @" + TG_BOT, fg=MUTED)
+        elif state == "setup":
+            self.tg_note.configure(text="Not set up yet", fg=DANGER)
+            self.tg_setup(detail)
+        else:
+            self.tg_note.configure(text="Offline: " + (detail or "")[:40], fg=DANGER)
+
+    def tg_setup(self, detail):
+        t = self.tg_log
+        t.delete("1.0", "end")
+        if detail:
+            t.insert("end", detail + "\n", "err")
+            return
+        t.insert("end", "Connect this tab to your vault bot (one time):\n\n"
+                        "1. Go to my.telegram.org → sign in → API development tools → create an app (any name). "
+                        "Keep its api_id and api_hash handy.\n\n"
+                        "2. Open a terminal and run this (click to copy). It asks for those two values, your phone "
+                        "number and the code Telegram sends you:\n", "hint")
+        t.insert("end", TG_LOGIN, ("code", "#login"))
+        t.tag_bind("#login", "<Button-1>",
+                   lambda e: self.copied(clipboard_formats(text=TG_LOGIN), "", "Command copied ✓"))
+        t.insert("end", "\n\n3. Press Reconnect above.\n\n"
+                        "The sign-in is saved in %APPDATA%\\dropbutton-telegram and works like a password to your "
+                        "Telegram account. You can end it any time in Telegram → Settings → Devices.", "hint")
+
+    def tg_on_change(self, msg):
+        if msg is not None and not msg.out and msg.id > self.tg_seen and (not self.expanded or self.tab != "telegram"):
+            self.tg_unread = True
+            self.draw_button()
+        self.render_tg()
+
+    def tg_hover(self, tag):
+        self.tg_log.tag_bind(tag, "<Enter>", lambda e: self.tg_log.configure(cursor="hand2"))
+        self.tg_log.tag_bind(tag, "<Leave>", lambda e: self.tg_log.configure(cursor="arrow"))
+
+    def render_tg(self):
+        if self.tg_state == "setup":
+            return
+        t = self.tg_log
+        t.delete("1.0", "end")
+        for tag in t.tag_names():
+            if tag.startswith("#"):
+                t.tag_delete(tag)
+        msgs = self.tg.snapshot()
+        if not msgs:
+            t.insert("end", "No messages yet. Ask the bot about your vault, calendar or reminders.", "hint")
+        day = None
+        for m in msgs:
+            dt = m.date.astimezone()
+            if tg_day(dt) != day:
+                day = tg_day(dt)
+                t.insert("end", day + "\n", "day")
+            t.insert("end", "You" if m.out else "Vault bot", "you" if m.out else "bot")
+            t.insert("end", "  " + dt.strftime("%H:%M") + "\n", "meta")
+            self.tg_body(m)
+            t.insert("end", "\n")
+        if msgs:
+            self.tg_seen = max(self.tg_seen, msgs[-1].id)
+        t.see("end")
+
+    def tg_body(self, m):
+        t = self.tg_log
+        if m.photo:
+            tag = f"#p{m.id}"
+            if m.id in self.tg_pics:
+                t.image_create("end", image=self.tg_pics[m.id], pady=2)
+                t.tag_add(tag, "end-2c", "end-1c")
+                t.insert("end", "\n")
+            else:
+                t.insert("end", "🖼 Picture (loading…)\n", ("meta", tag))
+                self.tg_fetch_pic(m)
+            t.tag_bind(tag, "<Button-1>", lambda e: self.tg_open(m))
+            self.tg_hover(tag)
+        elif m.document:
+            tag = f"#d{m.id}"
+            t.insert("end", f"📄 {m.file.name or 'file'}  ·  {tg_size(m.file.size or 0)}\n", ("link", tag))
+            t.tag_bind(tag, "<Button-1>", lambda e: self.tg_open(m))
+            self.tg_hover(tag)
+        if m.message:
+            for piece, spans in tg_segments(m.message, m.entities):
+                tags = [x[2] for x in spans]
+                for a, b, kind, url, i, whole in spans:
+                    if kind in ("code", "link"):
+                        tag = f"#e{m.id}-{i}"
+                        tags.append(tag)
+                        if kind == "code":
+                            action = lambda e, w=whole: self.copied(clipboard_formats(text=w), "", "Copied ✓")
+                        else:
+                            target = url or (whole if "://" in whole else "https://" + whole)
+                            action = lambda e, u=target: webbrowser.open(u)
+                        t.tag_bind(tag, "<Button-1>", action)
+                        self.tg_hover(tag)
+                t.insert("end", piece, tuple(tags))
+            t.insert("end", "\n")
+        for r, row in enumerate(m.buttons or []):
+            for c, b in enumerate(row):
+                tag = f"#b{m.id}-{r}-{c}"
+                t.insert("end", f"  {b.text}  ", ("btn", tag))
+                t.insert("end", "  ")
+                t.tag_bind(tag, "<Button-1>", lambda e, b=b: self.tg_click(b))
+                self.tg_hover(tag)
+            t.insert("end", "\n")
+
+    def tg_fetch_pic(self, m):
+        if m.id in self.tg_loading:
+            return
+        self.tg_loading.add(m.id)
+
+        def done(data, err):
+            self.tg_loading.discard(m.id)
+            if data:
+                img = Image.open(io.BytesIO(data))
+                img.thumbnail((300, 220))
+                self.tg_pics[m.id] = ImageTk.PhotoImage(img)
+                self.render_tg()
+
+        self.tg.run(lambda client, bot: client.download_media(m, file=bytes), done)
+
+    def tg_open(self, m):
+        self.set_status("Downloading…", ACCENT_STRONG)
+        folder = os.path.join(os.path.expanduser("~"), "Downloads") + os.sep
+
+        def done(path, err):
+            if err or not path:
+                self.set_status("Download failed: " + str(err)[:30], DANGER)
+                return
+            self.set_status("Saved to Downloads ✓", ACCENT_STRONG)
+            os.startfile(path)
+
+        self.tg.run(lambda client, bot: client.download_media(m, file=folder), done)
+
+    def tg_click(self, b):
+        if b.url:
+            webbrowser.open(b.url)
+            return
+        self.set_status("Pressing “" + b.text[:20] + "”…", ACCENT_STRONG)
+
+        def done(res, err):
+            if err:
+                self.set_status("Failed: " + str(err)[:36], DANGER)
+            else:
+                self.set_status(getattr(res, "message", None) or "Done ✓", ACCENT_STRONG)
+
+        self.tg.run(lambda client, bot: b.click(), done)
+
+    def tg_set_image(self, img):
+        self.tg_image = img
+        if img:
+            self.tg_attach.configure(text="📎 Picture attached · ✕ remove", fg=ACCENT_STRONG)
+        else:
+            self.tg_attach.configure(text="Paste a picture to file it", fg=FAINT)
+
+    def tg_paste(self, e=None):
+        text, images = read_clipboard(self.root)
+        if not images:
+            return None
+        self.tg_set_image(images[0])  # the bot files one attachment per message
+        if text:
+            self.tg_input.insert("insert", text)
+        return "break"
+
+    def tg_send(self):
+        text, img = self.tg_input.get("1.0", "end").strip(), self.tg_image
+        if self.tg_sending or not (text or img):
+            self.tg_input.focus_set()
+            return
+        if not self.tg.ready:
+            self.set_status("Telegram isn't connected", DANGER)
+            return
+        self.tg_sending = True
+        self.tg_send_btn.configure(state="disabled")
+        self.set_status("Sending…", ACCENT_STRONG)
+
+        async def send(client, bot):
+            if img:
+                buf = io.BytesIO()
+                img.save(buf, "PNG")
+                buf.name = "picture.png"
+                buf.seek(0)
+                return await client.send_file(bot, buf, caption=text or None)
+            return await client.send_message(bot, text)
+
+        def done(msg, err):
+            self.tg_sending = False
+            self.tg_send_btn.configure(state="normal")
+            if err:
+                self.set_status("Not sent: " + str(err)[:36], DANGER)
+                return
+            self.tg_input.delete("1.0", "end")
+            self.tg_set_image(None)
+            self.set_status("Sent ✓", ACCENT_STRONG)
+            self.tg.remember(msg)  # Telegram doesn't echo our own sends back as events
+            self.render_tg()
+
+        self.tg.run(send, done)
+
     # ----- to-dos -----
 
     def load_todos(self):
@@ -1478,6 +1909,9 @@ class DropButton:
 
 
 def main():
+    if "--telegram-login" in sys.argv:
+        telegram_login()
+        return
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except (AttributeError, OSError):
