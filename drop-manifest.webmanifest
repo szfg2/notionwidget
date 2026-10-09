@@ -1,9 +1,9 @@
 {
-  "id": "./drop.html",
+  "id": "./drop.html?app",
   "name": "Drop",
   "short_name": "Drop",
   "description": "Pass text and pictures between your devices.",
-  "start_url": "./drop.html",
+  "start_url": "./drop.html?app",
   "scope": "./drop",
   "display": "standalone",
   "orientation": "any",
