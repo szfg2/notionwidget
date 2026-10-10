@@ -151,6 +151,12 @@
   .gaps ol { margin: 0; padding-left: 20px; }
   .gaps li { margin: 3px 0; }
   .gaps p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+  /* BMI prompt — shown when a restrictive pattern is reported without a BMI */
+  .bmi-ask { flex: 0 0 auto; margin: 0 0 10px; padding: 9px 11px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(95,184,160,.07); font-size: 12.5px; }
+  .bmi-ask strong { display: block; color: var(--accent-strong); font-size: 12.5px; margin-bottom: 7px; }
+  .bmi-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--muted); }
+  .bmi-row input { width: 76px; padding: 6px 8px; font-size: 13px; }
+  .bmi-row button { padding: 6px 12px; font-size: 13px; }
   .gap-tag { display: block; margin-top: 3px; font-family: var(--sans); font-size: 11.5px; color: var(--danger); }
   .why-gap { margin: 5px 0 0; font-size: 12px; color: var(--danger); }
 
@@ -259,6 +265,16 @@
           <ol id="gaps_list"></ol>
           <p>The flagged lines below use a suggested interpretation for these gaps — check them before copying.</p>
         </div>
+        <form class="bmi-ask" id="bmi_ask" hidden>
+          <strong>Restrictive pattern — enter the BMI so the template's raised-BMI line can be added if BMI ≥ 30</strong>
+          <div class="bmi-row">
+            <label for="bmi_q">BMI</label><input type="number" step="any" id="bmi_q" placeholder="kg/m²">
+            <span>or</span>
+            <label for="ht_q">Ht</label><input type="number" step="any" id="ht_q" placeholder="cm">
+            <label for="wt_q">Wt</label><input type="number" step="any" id="wt_q" placeholder="kg">
+            <button type="submit" class="primary">Apply</button>
+          </div>
+        </form>
         <ul class="warns" id="warns" hidden></ul>
         <div id="out" aria-live="polite"></div>
         <div class="btnrow">
@@ -670,6 +686,7 @@ function build() {
      "Not covered by the template" box and flags the next line added, which
      carries the suggested interpretation. Always call it before that add(). */
   let pending = [];
+  let needBmi = false;   // restrictive pattern reported but no BMI to apply the template's BMI line
   const add = (text, why, src) => { lines.push({ text, why, src, gaps: pending }); pending = []; };
   const warn = (t) => { if (!warns.includes(t)) warns.push(t); };
   const gap = (t) => { if (!pending.includes(t)) pending.push(t); if (!gaps.includes(t)) gaps.push(t); };
@@ -805,7 +822,7 @@ function build() {
 
     if ([a, b].some(x => x && x.restrictive)) {
       if (bmi == null) {
-        warn("Restrictive pattern but no BMI read — template asks to add the raised-BMI line if BMI ≥ 30.");
+        needBmi = true;
       } else if (bmi >= 30) {
         add(T_BMI, "BMI " + f(bmi) + " kg/m² is ≥ 30 with a restrictive component on spirometry, so the template's BMI statement is added.", "Spirometry r20 note");
       }
@@ -1061,7 +1078,7 @@ function build() {
     warn("Suboptimal QC grade on " + poor.map(([, n]) => n).join(", ") + ".");
   }
 
-  return { lines, warns, gaps };
+  return { lines, warns, gaps, needBmi };
 }
 
 /* Modified Borg Dyspnea Scale — the lab's standard, descriptors verbatim.
@@ -1085,7 +1102,8 @@ function borgWord(b) {
 let lastItems = [];
 
 function render() {
-  const { lines, warns, gaps } = build();
+  const { lines, warns, gaps, needBmi } = build();
+  $("bmi_ask").hidden = !needBmi;
   lastItems = lines;
 
   const out = $("out");
@@ -1169,7 +1187,7 @@ function render() {
 }
 
 document.querySelectorAll("input, select").forEach(el => {
-  if (el.id === "api_key" || el.id === "provider" || el.id === "shot_file") return;
+  if (["api_key", "provider", "shot_file", "bmi_q", "ht_q", "wt_q"].includes(el.id)) return;
   el.addEventListener("input", render);
   el.addEventListener("change", render);
 });
@@ -1537,6 +1555,18 @@ Rules:
 - Numbers are plain numbers (2.34, 78, -1.92) with no units or symbols. Keep the minus sign on negative Z-scores.
 - Do NOT interpret, estimate or calculate anything. Extraction only.`;
 
+/* BMI prompt → writes into the BMI / height / weight fields of the spirometry
+   card, so the report re-runs exactly as if the screenshot had carried them. */
+$("bmi_ask").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const b = $("bmi_q").value.trim(), h = $("ht_q").value.trim(), w = $("wt_q").value.trim();
+  if (b === "" && (h === "" || w === "")) { $("bmi_q").focus(); return; }
+  if (b !== "") $("bmi").value = b;
+  else { $("height_cm").value = h; $("weight_kg").value = w; }
+  ["bmi_q", "ht_q", "wt_q"].forEach(id => { $(id).value = ""; });
+  render();
+});
+
 function applyExtracted(obj) {
   clearFields();
   let filled = 0;
@@ -1549,6 +1579,7 @@ function applyExtracted(obj) {
     filled++;
   }
   render();
+  if (!$("bmi_ask").hidden) $("bmi_q").focus();
   return filled;
 }
 
