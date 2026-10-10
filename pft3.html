@@ -1236,6 +1236,7 @@ function newReport() {
   clearShots();
   reportDone = false;
   setFillMsg("", false);
+  setState("");
   render();
 }
 $("clearBtn").addEventListener("click", newReport);
@@ -1309,6 +1310,7 @@ async function addShots(files, fresh) {
 }
 
 function afterAdd() {
+  setState("");
   setFillMsg(shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + " attached — paste more, or click Read screenshots.", false);
 }
 
@@ -1553,6 +1555,8 @@ SELECTION FIELD (omit unless the report itself states the pattern in words — n
 
 const EXTRACT_SYSTEM = `You are a data-extraction assistant for a pulmonary function test (PFT) reporting tool.
 You will receive one or more screenshots of a single patient's PFT report (several pages may be split across screenshots).
+A screenshot may be a whole page holding several tables, charts and free text, or a page with nothing listed below — take only the listed values and ignore the rest.
+If a measurement is printed in more than one place, take it from the table dedicated to that test (e.g. FEV1, FVC and FEV1/FVC from the Spirometry table, not from a lung volume or diffusion page that repeats them).
 Read every table row across carefully so each value lands under the correct column. If a value is illegible, omit it rather than guess.
 
 ${FIELD_GUIDE}
@@ -1597,20 +1601,30 @@ function setFillMsg(text, isError) {
   m.style.color = isError ? "var(--danger)" : "var(--muted)";
 }
 
+/* The window title carries the read state so the AutoHotkey dashboard can wait on
+   it: "PFT Reporter - reading", "- done" (values filled) or "- check" (nothing
+   usable / an error). Plain ASCII, and it must keep the words "PFT Reporter",
+   which the dashboard uses to find this window. */
+function setState(state) {
+  document.title = "PFT Reporter" + (state ? " - " + state : "");
+}
+
 let extracting = false;
 async function extract() {
   if (extracting) return;
   const key = $("api_key").value.trim();
-  if (!key) { setFillMsg(AI.missingKeyMsg(), true); return; }
-  if (!shots.length) { setFillMsg("Paste a screenshot first.", true); return; }
-  if (AI.id() === "deepseek") { setFillMsg("DeepSeek can't read images — switch to Claude or Gemini.", true); return; }
+  if (!key) { setFillMsg(AI.missingKeyMsg(), true); setState("check"); return; }
+  if (!shots.length) { setFillMsg("Paste a screenshot first.", true); setState("check"); return; }
+  if (AI.id() === "deepseek") { setFillMsg("DeepSeek can't read images — switch to Claude or Gemini.", true); setState("check"); return; }
   AI.saveKey(AI.id(), key);
 
   const content = shots.map(s => ({ type: "image", source: { type: "base64", media_type: s.type, data: s.data } }))
     .concat([{ type: "text", text: "Extract the values from these " + shots.length + " PFT report screenshot(s)." }]);
 
   const gen = reportGen;
+  let ok = false;
   extracting = true;
+  setState("reading");
   $("fillBtn").disabled = true;
   setFillMsg("Reading " + shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + "…", false);
   try {
@@ -1635,12 +1649,14 @@ async function extract() {
     catch (_) { setFillMsg("Model returned invalid JSON — try again.", true); return; }
     const n = applyExtracted(obj);
     reportDone = true;
+    ok = n > 0;
     setFillMsg(n ? "Read " + n + " value" + (n === 1 ? "" : "s") + " — check them below before copying." : "No recognisable values found.", n === 0);
   } catch (err) {
     setFillMsg("Request failed: " + (err && err.message ? err.message : err), true);
   } finally {
     extracting = false;
     $("fillBtn").disabled = false;
+    if (gen === reportGen) setState(ok ? "done" : "check");
   }
 }
 $("fillBtn").addEventListener("click", extract);
