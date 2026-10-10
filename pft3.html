@@ -742,10 +742,18 @@ function build() {
     return a != null && pr ? a / pr * 100 : null;
   }
 
-  function zSeverity(z, phaseName) {
+  function zSeverity(z, phaseName, pat, set) {
     if (z == null) {
       warn("No " + phaseName + " FEV1 Z-score — severity left as a placeholder; edit before copying.");
       return ["[mild/moderate/severe]", "No FEV1 Z-score, so severity is left as a placeholder."];
+    }
+    if (z >= -ZN && pat === "obs") {
+      // Obstruction is defined on the ratio alone; the old master list (r15) grades
+      // FEV1 > 70% pred as mild, so this is an advisory rather than a template gap.
+      const who = phaseName === "Spirometry" ? "" : phaseName + ": ";
+      const fvcZ = set.fvc.z != null ? "FVC Z " + f(set.fvc.z) : "FVC Z not printed";
+      warn(who + "FEV1 Z " + f(z) + " is normal with a reduced FEV1/FVC — reported as mild airflow obstruction. Consider a normal variant (dysanapsis) if FVC is high (" + fvcZ + ") and pre-test probability is low.");
+      return ["mild", "FEV1 Z " + f(z) + " is ≥ −1.64. Obstruction is defined by FEV1/FVC alone, and master list r15 grades obstruction with FEV1 > 70% pred as mild, so mild is used; " + fvcZ + "."];
     }
     if (z >= -ZN) {
       gap((phaseName === "Spirometry" ? "Spirometry" : phaseName + " spirometry") + " is abnormal but FEV1 Z " + f(z) + " is in the normal range — the template's severity grades start at mild and do not cover this; “mild” used.");
@@ -765,7 +773,7 @@ function build() {
       const pp = fev1pp(phase);
       if (pp == null) {
         gap("No FEV1 %predicted for " + phaseName + " — the template grades non-specific ventilatory limitation by FEV1 %pred; graded by FEV1 Z-score instead.");
-        [sev, sevWhy] = zSeverity(s.fev1.z, phaseName);
+        [sev, sevWhy] = zSeverity(s.fev1.z, phaseName, pat, s);
       } else if (pp >= 70) {
         gap("FEV1 " + f(pp) + "% predicted — the template's non-specific ventilatory limitation rows start at 60–69% (moderate) and have no row for ≥ 70%; “mild” used.");
         sev = "mild";
@@ -775,7 +783,7 @@ function build() {
         sevWhy = "Severity from FEV1 " + f(pp) + "% predicted → " + sev + " (template bands for this row: 60–69 moderate, 50–59 moderately-severe, 35–49 severe, 0–34 very severe).";
       }
     } else if (pat !== "normal") {
-      [sev, sevWhy] = zSeverity(s.fev1.z, phaseName);
+      [sev, sevWhy] = zSeverity(s.fev1.z, phaseName, pat, s);
     }
     if (baseline && (pat === "isoFev1" || pat === "nonspec")) {
       gap("The MCT/ECT sheets have no baseline-spirometry row for " + (pat === "isoFev1" ? "isolated reduced FEV1" : "non-specific ventilatory limitation") + " — the Spirometry sheet wording was used with “Baseline spirometry shows”.");
