@@ -305,7 +305,8 @@ def open_vault():
 
 CLAUDE = shutil.which("claude") or os.path.expanduser(r"~\.local\bin\claude.exe")
 CHAT_PROMPT = ("You are replying in a small floating chat panel on Samuel's Windows desktop (the Drop button). "
-               "Keep answers short and in plain text: no tables or headings, minimal markdown. "
+               "Keep answers short. Simple markdown is drawn as rich text (bold, italics, lists, inline code, "
+               "links, [[wikilinks]]); avoid tables and large headings, as the panel is narrow. "
                "When a screenshot is attached it shows Samuel's current screen.")
 # Vault edits are allowed by --permission-mode acceptEdits; connectors are read-only; shell commands are refused.
 CHAT_TOOLS = ",".join([
@@ -315,6 +316,77 @@ CHAT_TOOLS = ",".join([
     "mcp__claude_ai_Gmail__get_thread", "mcp__claude_ai_Gmail__get_message",
     "mcp__claude_ai_Google_Drive__search_files", "mcp__claude_ai_Google_Drive__read_file_content",
 ])
+
+# Claude replies in markdown; these pick out the parts the chat log draws as rich text.
+MD_INLINE = re.compile(
+    r"`([^`\n]+)`"                                          # `code`
+    r"|\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]"                # [[Note]] or [[Note|shown text]]
+    r"|\[([^\]\n]+)\]\((https?://[^)\s]+)\)"                # [text](url)
+    r"|(https?://[^\s<>\"]*[^\s<>\".,;:!?)\]*_])"           # a bare url, without trailing punctuation
+    r"|\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*"                      # ***bold italic***
+    r"|\*\*(?=\S)(.+?)(?<=\S)\*\*"                          # **bold**
+    r"|(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)"                 # __bold__
+    r"|(?<![\w*])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![\w*])"   # *italic*
+    r"|(?<!\w)_(?=[^\s_])(.+?)(?<=[^\s_])_(?!\w)"           # _italic_
+    r"|~~(?=\S)(.+?)(?<=\S)~~")                             # ~~struck out~~
+MD_FENCE = re.compile(r"^\s*(```|~~~)")
+MD_RULE = re.compile(r"^\s*([-*_])(\s*\1){2,}\s*$")
+MD_ITEM = re.compile(r"^(\s*)(?:[-*+]|(\d+)[.)])\s+(.*)$")
+MD_BOX = re.compile(r"^\[([ xX])\]\s+")
+MD_QUOTE = re.compile(r"^\s*>\s?(.*)$")
+MD_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
+
+
+def md_inline(text, style=frozenset()):
+    """Splits one line into (piece, styles, link target) runs; styles nest, so bold can sit inside italics."""
+    pos = 0
+    for m in MD_INLINE.finditer(text):
+        if m.start() > pos:
+            yield text[pos:m.start()], style, None
+        pos = m.end()
+        code, note, alias, label, url, bare, both, bold1, bold2, ital1, ital2, struck = m.groups()
+        if code:
+            yield code, style | {"code"}, None
+        elif note:
+            yield alias or note, style, "note:" + note
+        elif label:
+            yield label, style, url
+        elif bare:
+            yield bare, style, bare
+        elif both:
+            yield from md_inline(both, style | {"bold", "italic"})
+        elif bold1 or bold2:
+            yield from md_inline(bold1 or bold2, style | {"bold"})
+        elif ital1 or ital2:
+            yield from md_inline(ital1 or ital2, style | {"italic"})
+        else:
+            yield from md_inline(struck, style | {"strike"})
+    if pos < len(text):
+        yield text[pos:], style, None
+
+
+def md_block(line):
+    """Works out what kind of line this is: (tag for the whole line, text to put in front, the rest of the line)."""
+    h = HEADING.match(line)
+    if h:
+        return "h", "", h.group(2).rstrip("# ")
+    if MD_RULE.match(line):
+        return "rule", "─" * 24, ""
+    item = MD_ITEM.match(line)
+    if item:
+        indent, number, body = item.groups()
+        box = MD_BOX.match(body)
+        if box:
+            lead, body = "☐ " if box.group(1) == " " else "☑ ", body[box.end():]
+        else:
+            lead = number + ". " if number else "• "
+        return f"li{min(2, len(indent.expandtabs(4)) // 2)}", lead, body
+    quote = MD_QUOTE.match(line)
+    if quote:
+        return "quote", "", quote.group(1)
+    if line.lstrip().startswith("|"):
+        return None, "", "  │  ".join(c.strip() for c in line.strip().strip("|").split("|"))
+    return None, "", line
 
 
 # ---------- telegram ----------
@@ -775,6 +847,8 @@ class DropButton:
         self.chat_proc = None
         self.stopped = False
         self.reply = ""
+        self.seg = ""
+        self.links = {}
         self.unread = False
         self.shot = False
         self.tg = Telegram(self.results.put)
@@ -900,6 +974,20 @@ class DropButton:
         self.log.tag_configure("tool", foreground=FAINT, font=("Segoe UI", 8))
         self.log.tag_configure("hint", foreground=FAINT, font=("Segoe UI", 9))
         self.log.tag_configure("err", foreground=DANGER)
+        # Later tags win where two set the same thing, so a heading keeps its size even around bold words.
+        self.log.tag_configure("bold", font=("Segoe UI Semibold", 10))
+        self.log.tag_configure("italic", font=("Segoe UI", 10, "italic"))
+        self.log.tag_configure("bolditalic", font=("Segoe UI Semibold", 10, "italic"))
+        self.log.tag_configure("h", font=("Segoe UI Semibold", 11), spacing1=4)
+        self.log.tag_configure("code", font=("Consolas", 10), background=SURFACE2, foreground=ACCENT_STRONG)
+        self.log.tag_configure("pre", font=("Consolas", 9), background=SURFACE2, lmargin1=6, lmargin2=6)
+        self.log.tag_configure("strike", overstrike=True)
+        self.log.tag_configure("link", foreground=ACCENT_STRONG, underline=True)
+        self.log.tag_configure("quote", foreground=MUTED, lmargin1=10, lmargin2=10)
+        self.log.tag_configure("rule", foreground=BORDER_STRONG)
+        bullet = tkfont.Font(root=self.root, font=FONT).measure("• ")
+        for level in range(3):  # wrapped lines of a list item line up with its text, not its bullet
+            self.log.tag_configure(f"li{level}", lmargin1=bullet * 2 * level, lmargin2=bullet * (2 * level + 1))
         self.readonly(self.log)
         self.chat_hint()
 
@@ -1421,6 +1509,60 @@ class DropButton:
         self.log.insert("end", text, tags)
         self.log.see("end")
 
+    def new_segment(self):
+        # A reply arrives a few words at a time, so the stretch of text since this mark is redrawn as it grows;
+        # that way "**bold**" turns bold as soon as its closing stars arrive.
+        self.seg = ""
+        self.log.mark_set("seg", "end-1c")
+        self.log.mark_gravity("seg", "left")
+
+    def render(self, text):
+        """Draws markdown at the end of the chat log as rich text."""
+        t, fenced, first = self.log, False, True
+        for line in text.split("\n"):
+            if MD_FENCE.match(line):
+                fenced = not fenced
+                continue
+            if not fenced and MD_TABLE_RULE.match(line) and "|" in line:
+                continue
+            if not first:
+                t.insert("end", "\n")
+            first = False
+            if fenced:
+                t.insert("end", line, "pre")
+                continue
+            block, lead, body = md_block(line)
+            base = (block,) if block else ()
+            t.insert("end", lead, base)
+            for piece, style, target in md_inline(body):
+                tags = list(base)
+                if "code" in style:
+                    tags.append("code")
+                elif style & {"bold", "italic"}:
+                    tags.append("".join(s for s in ("bold", "italic") if s in style))
+                if "strike" in style:
+                    tags.append("strike")
+                if target:
+                    tags += ["link", self.chat_link(target)]
+                t.insert("end", piece, tuple(tags))
+
+    def chat_link(self, target):
+        tag = self.links.get(target)
+        if not tag:
+            tag = self.links[target] = f"#l{len(self.links)}"
+            self.log.tag_bind(tag, "<Button-1>", lambda e: self.open_link(target))
+            self.log.tag_bind(tag, "<Enter>", lambda e: self.log.configure(cursor="hand2"))
+            self.log.tag_bind(tag, "<Leave>", lambda e: self.log.configure(cursor="arrow"))
+        return tag
+
+    def open_link(self, target):
+        if target.startswith("note:"):  # a [[wikilink]]: open that note in the vault viewer
+            name = target[5:].split("#")[0].strip()
+            path = find_note(os.path.basename(name))
+            rel = os.path.relpath(path, VAULT)[:-3].replace("\\", "/") if path else name
+            target = VIEW_URL + urllib.parse.quote(rel)
+        webbrowser.open(target)
+
     def set_shot(self, on):
         self.shot = on
         self.shot_toggle.configure(text=("☑" if on else "☐") + "  Include current screen",
@@ -1462,6 +1604,7 @@ class DropButton:
             self.write("\n")
         self.write("\nClaude\n", "claude")
         self.reply = ""
+        self.new_segment()
         self.stopped = False
 
         args = [CLAUDE, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
@@ -1518,12 +1661,16 @@ class DropButton:
 
     def chat_text(self, text):
         self.reply += text
-        self.write(text)
+        self.seg += text
+        self.log.delete("seg", "end-1c")
+        self.render(self.seg)
+        self.log.see("end")
 
     def chat_tool(self, name, args):
         if self.log.get("end-2c") != "\n":
             self.write("\n")
         self.write("· " + describe_tool(name, args) + "\n", "tool")
+        self.new_segment()
         if self.reply:
             self.reply += "\n\n"
 
@@ -1566,7 +1713,11 @@ class DropButton:
         self.session = None
         self.reply = ""
         self.thumbs = []
+        self.links = {}
         self.log.delete("1.0", "end")
+        for tag in self.log.tag_names():
+            if tag.startswith("#"):
+                self.log.tag_delete(tag)
         self.chat_hint()
         self.set_status("New chat", MUTED)
         self.ask.focus_set()
