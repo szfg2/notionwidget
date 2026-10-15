@@ -29,18 +29,30 @@ Triage for: #fill in referral reason#
 
 Past Medical History
 - #For patients ≥ 75 years, assign a Clinical Frailty Scale (CFS) score 1-9 based on status 2 weeks prior to admission#
-#List relevant PMH as a numbered list, e.g. COPD, T2DM, IHD (include EF% if known). For example:
-1. Heart failure with reduced ejection fraction (HFrEF), EF 35% (09/2025)
-2. Type 2 diabetes mellitus (HbA1c 7.8%, 01/2026)
-3. Hypertension
-4. CKD Stage 3b (baseline Cr ~150)
-5. Hyperlipidaemia
-6. Atrial fibrillation (on apixaban)
-Where one condition has a related detail (e.g. a recent procedure or change in plan), put that detail on its own "- " sub-point directly under its numbered item#
+#List the patient's past medical conditions as a numbered list. Rules:
+- Include ONLY conditions diagnosed BEFORE this admission. Anything new this admission (new diagnoses, complications, incidental findings, new imaging or echo findings) belongs in Current Admission Summary or Impression, never here. An existing condition stays here, but describe it as it was before this admission
+- The numbered line is the condition name with its stage or grade where established, e.g. "COPD GOLD 3", "CKD stage 3b"
+- Under it, add at most two short "- " sub-points that summarise the investigations and treatment relevant to managing this admission: the key prior result with its date (e.g. last echo EF, FEV1, HbA1c, baseline Cr) and the current treatment (e.g. home oxygen, anticoagulant, insulin, immunosuppression)
+- Minor conditions with nothing relevant to add get the numbered line only, and closely related minor conditions may share one line, e.g. "Hypertension, hyperlipidaemia"
+- Put the conditions most relevant to the current presentation first
+For example:
+1. HFrEF
+- TTE EF 35% (09/2025)
+- Sacubitril/valsartan, bisoprolol, dapagliflozin
+2. COPD GOLD 3
+- FEV1 0.9 L, 38% (03/2025); 2 admissions for AECOPD in the past year
+- Home O2 2 L/min, Trelegy
+3. T2DM on insulin
+- HbA1c 7.8% (01/2026)
+4. CKD stage 3b
+- Baseline Cr ~150
+5. Atrial fibrillation on apixaban
+6. Hypertension, hyperlipidaemia#
 
 Current Admission Summary
 - #Admission date and primary reason for presentation#
 - #Each key event or intervention already performed on its own line, e.g. fluid boluses, antibiotics, supplemental oxygen/NIV, referrals made#
+- #Each new diagnosis or significant new finding made this admission on its own line, e.g. new AF, new LV dysfunction on echo, incidental lung nodule#
 
 History from patient
 ___
