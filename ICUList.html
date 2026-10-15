@@ -333,6 +333,9 @@
   .patients td.objective { min-width: 240px; }
   .patients td.jobs { min-width: 170px; }
   .patients td.actions { white-space: nowrap; }
+  .patients td.impression { min-width: 280px; line-height: 1.5; cursor: pointer; }
+  .patients td.impression:hover { background: var(--surface-2); }
+  .patients td.impression .imp-line { display: block; }
   .patients textarea.jobbox {
     min-height: 96px;
     font-size: 13px;
@@ -476,12 +479,12 @@
       background: var(--surface-2);
       white-space: normal;
     }
-    .patients td.summary, .patients td.objective,
+    .patients td.summary, .patients td.objective, .patients td.impression,
     .patients td.jobs, .patients td.actions { grid-column: 1 / -1; min-width: 0; }
 
     .patients td.loc::before, .patients td.name::before,
     .patients td.summary::before, .patients td.objective::before,
-    .patients td.jobs::before {
+    .patients td.impression::before, .patients td.jobs::before {
       display: block;
       font-size: 10px;
       font-weight: 600;
@@ -494,6 +497,7 @@
     .patients td.name::before { content: "Name"; }
     .patients td.summary::before { content: "Summarised history"; }
     .patients td.objective::before { content: "Objective"; }
+    .patients td.impression::before { content: "Impression"; }
     .patients td.jobs::before { content: "Job list"; }
 
     .patients input.cell-edit { width: 100%; }
@@ -664,8 +668,10 @@
   <!-- TABS -->
   <div class="mode-tabs">
     <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
+    <button class="mode-tab" id="tabCs" type="button">Case Summary</button>
     <button class="mode-tab" id="tabIn" type="button">Inpatient List</button>
     <button class="mode-tab" id="tabTri" type="button">Triaged Patient List</button>
+    <button class="mode-tab" id="tabCsl" type="button">Case Summary Patients</button>
     <button class="mode-tab" id="tabTexts" type="button">Commonly Used Texts</button>
   </div>
 
@@ -716,6 +722,61 @@
       </div>
       <textarea class="output" id="output" placeholder="The generated ICU triage note appears here. You can edit it before copying." spellcheck="false"></textarea>
       <div class="out-foot" id="count"></div>
+    </div>
+
+  </div>
+
+  <!-- =========================  CASE SUMMARY  ========================= -->
+  <div id="csTab" style="display:none">
+
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label class="lbl" for="csLocation">Location</label>
+          <input type="text" id="csLocation" placeholder="e.g. ICU Bed 4 or W46 Bed 12" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="lbl" for="csName">Name (bed / initials only)</label>
+          <input type="text" id="csName" placeholder="e.g. TSH or 12A-34" autocomplete="off">
+        </div>
+      </div>
+      <div class="hint">Location and name are only stored in your GitHub patient list — they are never sent to Claude.</div>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Past medical details</span>
+      <textarea class="input-box" id="csPast" placeholder="Background, significant PMH, baseline function, allergies, presentation and progress so far…"></textarea>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Latest clinical data — vitals, vent settings &amp; labs</span>
+      <textarea class="input-box" id="csClinical" placeholder="Vitals, oxygen / ventilator settings, inotropes, GCS, bloods, gases, fluid balance, micro, antibiotics, imaging…"></textarea>
+    </div>
+
+    <div class="card">
+      <span class="eyebrow">Clinical concern</span>
+      <textarea class="input-box" id="csConcern" placeholder="What you're worried about and what to consider — e.g. worried about evolving septic shock; ?PE given tachycardia; consider Legionella; ?needs CVC…"></textarea>
+    </div>
+
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere.</span></p>
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="generate" id="csBtn" type="button">Generate Case Summary</button>
+        <span class="status" id="csStatus"></span>
+      </div>
+      <div class="kbd-hint" style="margin-top:8px"><b>Generate Case Summary</b> writes the summary and saves the patient to Case Summary Patients, where they can be moved to the Inpatient or Triaged list. Press <span class="kbd">Ctrl/⌘ + Enter</span> to generate.</div>
+    </div>
+
+    <div class="error" id="csError"></div>
+
+    <div class="card">
+      <div class="out-head">
+        <span class="eyebrow">Case summary</span>
+        <button class="ghost-btn" id="csCopyBtn" type="button">Copy</button>
+      </div>
+      <textarea class="output" id="csOutput" placeholder="The generated case summary appears here. You can edit it before copying." spellcheck="false"></textarea>
+      <div class="out-foot" id="csCount"></div>
     </div>
 
   </div>
@@ -794,6 +855,36 @@
 
   </div>
 
+  <!-- =========================  CASE SUMMARY PATIENTS  ========================= -->
+  <div id="cslTab" style="display:none">
+
+    <div class="card">
+      <div class="gen-row">
+        <button class="ghost-btn" id="cslRefreshBtn" type="button">↻ Refresh</button>
+        <input type="search" id="cslSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
+        <button class="ghost-btn danger" id="cslDeleteAllBtn" type="button">Delete all</button>
+        <span class="status" id="cslStatus"></span>
+      </div>
+      <div class="error" id="cslError" style="margin:10px 0 0"></div>
+      <div class="table-scroll" style="margin-top:12px">
+        <table class="patients">
+          <thead>
+            <tr>
+              <th style="width:1%">Location</th>
+              <th style="width:1%">Name</th>
+              <th>Impression</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="cslBody"></tbody>
+        </table>
+        <div class="empty-note" id="cslEmpty" style="display:none">No case summaries yet — generate one in the Case Summary tab and the patient will appear here.</div>
+      </div>
+      <div class="out-foot">Click a patient's impression to open the full case summary; edits autosave to GitHub a moment after you stop typing. <b>→ Inpatient</b> and <b>→ Triaged</b> generate the summarised history and B–I objective, then move the patient across; on the Triaged list the case summary shows under Note.</div>
+    </div>
+
+  </div>
+
   <!-- =========================  COMMONLY USED TEXTS  ========================= -->
   <div id="textsTab" style="display:none">
 
@@ -857,6 +948,7 @@ const CONFIG = {
   SUMMARY_PROMPT: "prompts/icu-ward-round-summary.txt",
   OBJECTIVE_PROMPT: "prompts/icu-objective-status.txt",
   REVIEW_PROMPT: "prompts/icu-review-note.txt",
+  CASE_PROMPT: "prompts/icu-case-summary.txt",
   REVIEW_MAX_TOKENS: 16000
 };
 
@@ -911,7 +1003,7 @@ function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { retu
 function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
 // Local cache of the synced lists (newest first in each)
-let data = { inpatients: [], triaged: [] };
+let data = { inpatients: [], triaged: [], cases: [] };
 let genController = null;   // in-flight generate/save (for cancel)
 const saveTimers = new Map();
 
@@ -923,9 +1015,13 @@ const LISTS = {
   triaged: {
     body: "triBody", empty: "triEmpty", status: "triStatus", error: "triError", upcoming: "triUpcoming", label: "triaged patient",
     emptyText: "No triaged patients yet — generate a triage note in the Create New Patient tab and the patient will appear here."
+  },
+  cases: {
+    body: "cslBody", empty: "cslEmpty", status: "cslStatus", error: "cslError", label: "case summary patient",
+    emptyText: "No case summaries yet — generate one in the Case Summary tab and the patient will appear here."
   }
 };
-const searchTerms = { inpatients: "", triaged: "" };
+const searchTerms = { inpatients: "", triaged: "", cases: "" };
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -958,25 +1054,28 @@ $("saveSettings").addEventListener("click", () => {
 /* ============================================================== *
  *  Tabs                                                          *
  * ============================================================== */
+// tab key -> [tab button id, panel id]
+const TABS = {
+  create: ["tabCreate", "createTab"],
+  cs: ["tabCs", "csTab"],
+  in: ["tabIn", "inTab"],
+  tri: ["tabTri", "triTab"],
+  csl: ["tabCsl", "cslTab"],
+  texts: ["tabTexts", "textsTab"]
+};
 function setTab(t) {
-  $("tabCreate").classList.toggle("active", t === "create");
-  $("tabIn").classList.toggle("active", t === "in");
-  $("tabTri").classList.toggle("active", t === "tri");
-  $("tabTexts").classList.toggle("active", t === "texts");
-  $("createTab").style.display = t === "create" ? "" : "none";
-  $("inTab").style.display = t === "in" ? "" : "none";
-  $("triTab").style.display = t === "tri" ? "" : "none";
-  $("textsTab").style.display = t === "texts" ? "" : "none";
+  for (const [k, [btn, panel]] of Object.entries(TABS)) {
+    $(btn).classList.toggle("active", t === k);
+    $(panel).style.display = t === k ? "" : "none";
+  }
   // only the patient tables need the full screen width
-  document.querySelector(".wrap").classList.toggle("full", t === "in" || t === "tri");
-  if ((t === "in" || t === "tri") && get(K.ghToken)) loadPatients(true);
+  const isList = t === "in" || t === "tri" || t === "csl";
+  document.querySelector(".wrap").classList.toggle("full", isList);
+  if (isList && get(K.ghToken)) loadPatients(true);
   if (t === "texts") { sizeAllTexts(); loadTexts(true); }
   refreshPatNav();
 }
-$("tabCreate").addEventListener("click", () => setTab("create"));
-$("tabIn").addEventListener("click", () => setTab("in"));
-$("tabTri").addEventListener("click", () => setTab("tri"));
-$("tabTexts").addEventListener("click", () => setTab("texts"));
+for (const [k, [btn]] of Object.entries(TABS)) $(btn).addEventListener("click", () => setTab(k));
 
 /* ============================================================== *
  *  Helpers                                                       *
@@ -1038,7 +1137,8 @@ async function callClaude(key, model, system, userMessage, maxTokens, signal) {
 
 /* ============================================================== *
  *  GitHub sync (single shared JSON file, sha-based overwrite)    *
- *  File shape: { "inpatients": [...], "triaged": [...] }         *
+ *  File shape: { "inpatients": [...], "triaged": [...],          *
+ *                "cases": [...] }                                *
  * ============================================================== */
 function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
 function ghCfg() {
@@ -1059,11 +1159,10 @@ function ghHeaders(c) {
   return h;
 }
 function normaliseData(parsed) {
-  const d = { inpatients: [], triaged: [] };
+  const d = { inpatients: [], triaged: [], cases: [] };
   if (Array.isArray(parsed)) d.inpatients = parsed;
   else if (parsed && typeof parsed === "object") {
-    if (Array.isArray(parsed.inpatients)) d.inpatients = parsed.inpatients;
-    if (Array.isArray(parsed.triaged)) d.triaged = parsed.triaged;
+    for (const k of Object.keys(d)) if (Array.isArray(parsed[k])) d[k] = parsed[k];
   }
   return d;
 }
@@ -1071,7 +1170,7 @@ function normaliseData(parsed) {
 async function getRemote() {
   const c = ghCfg();
   const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
-  if (res.status === 404) return { sha: null, data: { inpatients: [], triaged: [] } };
+  if (res.status === 404) return { sha: null, data: normaliseData({}) };
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || ("HTTP " + res.status));
   let parsed = {};
@@ -1270,6 +1369,103 @@ function setLoading(mode, on) {
 });
 
 /* ============================================================== *
+ *  Case Summary — PMH + clinical data + clinical concern,        *
+ *  saved to Case Summary Patients                                *
+ * ============================================================== */
+let csController = null;
+function showCsError(msg) { $("csError").textContent = msg; $("csError").style.display = "block"; }
+function clearCsError() { $("csError").style.display = "none"; $("csError").textContent = ""; }
+function setCsStatus(msg, ok) {
+  $("csStatus").textContent = msg;
+  $("csStatus").classList.toggle("ok", !!ok);
+}
+function updateCsCount() {
+  const t = $("csOutput").value.trim();
+  $("csCount").textContent = t ? (t.split(/\s+/).length + " words · " + t.length + " chars") : "";
+}
+$("csOutput").addEventListener("input", updateCsCount);
+
+$("csBtn").addEventListener("click", async () => {
+  if (csController) { csController.abort(); return; }
+
+  clearCsError();
+  const key = AI.key();
+  if (!key) { $("settingsBox").open = true; return showCsError(AI.missingKeyMsg()); }
+
+  const location = $("csLocation").value.trim();
+  const name = $("csName").value.trim();
+  const past = $("csPast").value.trim();
+  const clinical = $("csClinical").value.trim();
+  const concern = $("csConcern").value.trim();
+  if (!name && !location) return showCsError("Add a location or name (bed/initials) so the patient can be identified in the list.");
+  if (!past && !clinical) return showCsError("Add some past medical details or clinical data.");
+
+  // Only the de-identified medical content is sent to Claude — never name/location.
+  const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical +
+    (concern ? "\n\nCLINICAL CONCERN:\n" + concern : "");
+
+  csController = new AbortController();
+  $("csBtn").classList.add("is-cancel");
+  $("csBtn").innerHTML = '<span class="spinner"></span>Cancel';
+  setCsStatus("Generating case summary…");
+  try {
+    const sys = await loadPrompt(CONFIG.CASE_PROMPT, csController.signal);
+    const note = await callClaude(key, CONFIG.TRIAGE_MODEL, sys, userMessage, CONFIG.NOTE_MAX_TOKENS, csController.signal);
+    $("csOutput").value = note || "(No text returned.)";
+    updateCsCount();
+
+    // summary + objective are left empty until the patient is moved to another list
+    const record = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      created: new Date().toISOString(),
+      location, name,
+      pastMedical: past,
+      clinical,
+      concern,
+      caseSummary: note || "",
+      summary: "",
+      objective: "",
+      triageNote: "",
+      jobs: ""
+    };
+    setCsStatus("Saving patient to GitHub…");
+    try {
+      await mutateRemote(d => {
+        d.cases = upsertByName(d.cases, record);
+        return d;
+      }, "Add ICU " + LISTS.cases.label + ": " + (name || location));
+      renderTables();
+      setCsStatus("Done ✓ — saved to Case Summary Patients", true);
+    } catch (e) {
+      setCsStatus("");
+      showCsError("Case summary generated, but saving the patient failed: " + (e.message || e) +
+        "\nCheck your GitHub settings, then regenerate to save.");
+    }
+  } catch (e) {
+    setCsStatus("");
+    if (e.name !== "AbortError") showCsError(e.message || String(e));
+  } finally {
+    csController = null;
+    $("csBtn").classList.remove("is-cancel");
+    $("csBtn").innerHTML = "Generate Case Summary";
+  }
+});
+
+[$("csLocation"), $("csName"), $("csPast"), $("csClinical"), $("csConcern")].forEach(el => {
+  el.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("csBtn").click(); }
+  });
+});
+
+$("csCopyBtn").addEventListener("click", async () => {
+  const t = $("csOutput").value;
+  if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { $("csOutput").select(); document.execCommand("copy"); }
+  flashCopied($("csCopyBtn"));
+});
+
+/* ============================================================== *
  *  Copy                                                          *
  * ============================================================== */
 $("copyBtn").addEventListener("click", async () => {
@@ -1290,23 +1486,24 @@ function flashCopied(btn, label) {
  * ============================================================== */
 async function loadPatients(auto) {
   const c = ghCfg();
-  if (!c.token) { if (!auto) { showListError("inpatients", "Set your GitHub token in Settings first."); showListError("triaged", "Set your GitHub token in Settings first."); } return; }
-  clearListError("inpatients"); clearListError("triaged");
-  setListStatus("inpatients", "Loading…"); setListStatus("triaged", "Loading…");
+  const keys = Object.keys(LISTS);
+  if (!c.token) { if (!auto) keys.forEach(k => showListError(k, "Set your GitHub token in Settings first.")); return; }
+  keys.forEach(k => { clearListError(k); setListStatus(k, "Loading…"); });
   try {
     const { data: remote } = await getRemote();
     data = remote;
     renderTables();
-    setListStatus("inpatients", "Synced ✓ " + timeNow(), true);
-    setListStatus("triaged", "Synced ✓ " + timeNow(), true);
+    keys.forEach(k => setListStatus(k, "Synced ✓ " + timeNow(), true));
   } catch (e) {
-    setListStatus("inpatients", ""); setListStatus("triaged", "");
-    showListError("inpatients", "Couldn't load the patient list: " + (e.message || e));
-    showListError("triaged", "Couldn't load the patient list: " + (e.message || e));
+    keys.forEach(k => {
+      setListStatus(k, "");
+      showListError(k, "Couldn't load the patient list: " + (e.message || e));
+    });
   }
 }
 $("inRefreshBtn").addEventListener("click", () => loadPatients(false));
 $("triRefreshBtn").addEventListener("click", () => loadPatients(false));
+$("cslRefreshBtn").addEventListener("click", () => loadPatients(false));
 
 function timeNow() {
   const t = new Date();
@@ -1411,6 +1608,7 @@ function editableBlock(td, div, p, field, listKey, renderFn) {
 function renderTables() {
   renderList("inpatients");
   renderList("triaged");
+  renderList("cases");
 }
 
 // Inpatients render sorted by location (natural sort, so ICU 2 < ICU 10);
@@ -1524,7 +1722,7 @@ function renderLocCounts(list) {
 }
 
 function matchesSearch(p, q) {
-  return ["location", "name", "summary", "objective", "jobs", "triageNote", "pastMedical", "clinical"]
+  return ["location", "name", "summary", "objective", "jobs", "triageNote", "pastMedical", "clinical", "concern", "caseSummary"]
     .some(f => (p[f] || "").toLowerCase().includes(q));
 }
 
@@ -1543,8 +1741,8 @@ function renderList(listKey) {
     : (all.length && !list.length)
       ? "No patients match the search."
       : LISTS[listKey].emptyText;
-  for (const p of list) buildRow(p, listKey, body);
-  renderUpcoming(listKey);
+  for (const p of list) (listKey === "cases" ? buildCaseRow : buildRow)(p, listKey, body);
+  if (LISTS[listKey].upcoming) renderUpcoming(listKey);
   refreshPatNav();
 }
 
@@ -1556,6 +1754,7 @@ $("inLocFilter").addEventListener("click", (e) => {
   renderList("inpatients");
 });
 $("triSearch").addEventListener("input", () => { searchTerms.triaged = $("triSearch").value; renderList("triaged"); });
+$("cslSearch").addEventListener("input", () => { searchTerms.cases = $("cslSearch").value; renderList("cases"); });
 
 /* Delete all — one warning, then wipes the whole list on every device */
 function wireDeleteAll(btnId, listKey, listName) {
@@ -1580,6 +1779,7 @@ function wireDeleteAll(btnId, listKey, listName) {
 }
 wireDeleteAll("inDeleteAllBtn", "inpatients", "Inpatient List");
 wireDeleteAll("triDeleteAllBtn", "triaged", "Triaged Patient List");
+wireDeleteAll("cslDeleteAllBtn", "cases", "Case Summary Patients");
 
 // De-identified stored content only — name/location are never sent to Claude.
 function caseContextOf(p) {
@@ -1587,6 +1787,8 @@ function caseContextOf(p) {
     "\n\nLATEST CLINICAL DATA:\n" + ((p.clinical || "").trim() || "(none provided)") +
     ((p.summary || "").trim() ? "\n\nSUMMARISED HISTORY:\n" + p.summary.trim() : "") +
     ((p.objective || "").trim() ? "\n\nOBJECTIVE STATUS (B-I):\n" + p.objective.trim() : "") +
+    ((p.concern || "").trim() ? "\n\nCLINICAL CONCERN:\n" + p.concern.trim() : "") +
+    ((p.caseSummary || "").trim() && p.caseSummary !== p.triageNote ? "\n\nCASE SUMMARY:\n" + p.caseSummary.trim() : "") +
     ((p.triageNote || "").trim() ? "\n\nICU TRIAGE NOTE:\n" + p.triageNote.trim() : "") +
     ((p.jobs || "").trim() ? "\n\nCURRENT JOB LIST:\n" + p.jobs.trim() : "");
 }
@@ -2180,6 +2382,165 @@ function buildRow(p, listKey, body) {
       showListError(listKey, "Delete failed: " + (e.message || e));
     }
   });
+}
+
+/* ============================================================== *
+ *  Case Summary Patients — impression row, full note on click,   *
+ *  and the two transfers                                         *
+ * ============================================================== */
+// The numbered diagnoses between "Impression" and "Plans".
+function impressionLines(note) {
+  const out = [];
+  let inImp = false;
+  for (const raw of String(note || "").split("\n")) {
+    const line = raw.trim();
+    if (/^impression:?$/i.test(line)) { inImp = true; continue; }
+    if (/^plans?:?$/i.test(line)) break;
+    if (inImp && /^\d+\.\s/.test(line)) out.push(line);
+  }
+  return out;
+}
+
+function renderImpression(div, note) {
+  div.innerHTML = "";
+  const lines = impressionLines(note);
+  if (!lines.length) { div.textContent = "Open case summary"; return; }
+  for (const l of lines) {
+    const span = document.createElement("span");
+    span.className = "imp-line";
+    span.textContent = l;
+    div.appendChild(span);
+  }
+}
+
+function buildCaseRow(p, listKey, body) {
+  const tr = document.createElement("tr");
+
+  const tdLoc = document.createElement("td");
+  tdLoc.className = "loc";
+  editableCell(tdLoc, p, "location", listKey);
+  tr.appendChild(tdLoc);
+
+  const tdName = document.createElement("td");
+  tdName.className = "name";
+  editableCell(tdName, p, "name", listKey);
+  const meta = document.createElement("div");
+  meta.className = "rowmeta";
+  meta.textContent = fmtDate(p.created);
+  tdName.appendChild(meta);
+  tr.appendChild(tdName);
+
+  const tdImp = document.createElement("td");
+  tdImp.className = "impression";
+  tdImp.title = "Click to open the full case summary";
+  const impDiv = document.createElement("div");
+  renderImpression(impDiv, p.caseSummary);
+  tdImp.appendChild(impDiv);
+  tr.appendChild(tdImp);
+
+  const tdAct = document.createElement("td");
+  tdAct.className = "actions";
+  const toIn = document.createElement("button");
+  toIn.className = "ghost-btn";
+  toIn.type = "button";
+  toIn.textContent = "→ Inpatient";
+  const toTri = document.createElement("button");
+  toTri.className = "ghost-btn";
+  toTri.type = "button";
+  toTri.textContent = "→ Triaged";
+  tdAct.appendChild(toIn);
+  tdAct.appendChild(toTri);
+  tr.appendChild(tdAct);
+  body.appendChild(tr);
+
+  // --- expandable full case summary ---
+  const trNote = document.createElement("tr");
+  trNote.className = "detail-row";
+  trNote.style.display = "none";
+  const tdNote = document.createElement("td");
+  tdNote.colSpan = 4;
+  const head = document.createElement("div");
+  head.className = "letter-head";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.style.margin = "0";
+  eyebrow.textContent = "Case summary";
+  const copyNote = document.createElement("button");
+  copyNote.className = "ghost-btn";
+  copyNote.type = "button";
+  copyNote.textContent = "Copy";
+  head.appendChild(eyebrow);
+  head.appendChild(copyNote);
+  const noteBox = document.createElement("textarea");
+  noteBox.className = "note-edit";
+  noteBox.placeholder = "(No case summary stored.)";
+  noteBox.value = p.caseSummary || "";
+  noteBox.spellcheck = false;
+  noteBox.addEventListener("input", () => {
+    autoGrow(noteBox);
+    renderImpression(impDiv, noteBox.value);
+    queueFieldSave(listKey, p.id, "caseSummary", noteBox.value, "Edit ICU case summary: " + (p.name || p.id));
+  });
+  copyNote.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(noteBox.value); } catch (e) {}
+    flashCopied(copyNote);
+  });
+  tdNote.appendChild(head);
+  tdNote.appendChild(noteBox);
+  trNote.appendChild(tdNote);
+  body.appendChild(trNote);
+
+  tdImp.addEventListener("click", () => {
+    const open = trNote.style.display !== "none";
+    trNote.style.display = open ? "none" : "";
+    if (!open) autoGrow(noteBox);
+  });
+
+  toIn.addEventListener("click", () => transferCase(p, "inpatients", [toIn, toTri]));
+  toTri.addEventListener("click", () => transferCase(p, "triaged", [toIn, toTri]));
+}
+
+// Generates the summarised history + B–I objective the other lists need, then
+// moves the record across. On the Triaged list the case summary stands in as
+// the triage note, so the Note button there shows it.
+async function transferCase(p, target, btns) {
+  clearListError("cases");
+  const key = AI.key();
+  if (!key) { $("settingsBox").open = true; return showListError("cases", AI.missingKeyMsg()); }
+  const label = target === "inpatients" ? "Inpatient List" : "Triaged Patient List";
+  btns.forEach(b => { b.disabled = true; });
+  setListStatus("cases", "Generating summary + objective…");
+  try {
+    const [summarySys, objectiveSys] = await Promise.all([
+      loadPrompt(CONFIG.SUMMARY_PROMPT),
+      loadPrompt(CONFIG.OBJECTIVE_PROMPT)
+    ]);
+    // De-identified stored content only — name/location are never sent.
+    const userMessage = "PATIENT DETAILS:\n" + (p.pastMedical || "") + "\n\nLATEST CLINICAL DATA:\n" + (p.clinical || "");
+    const [summary, objective] = await Promise.all([
+      callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS),
+      callClaude(key, CONFIG.MODEL, objectiveSys, userMessage, CONFIG.OBJECTIVE_MAX_TOKENS)
+    ]);
+    setListStatus("cases", "Moving to " + label + "…");
+    await mutateRemote(d => {
+      const rec = d.cases.find(x => x.id === p.id);
+      if (rec) {
+        rec.caseSummary = p.caseSummary;   // local copy may hold an edit still waiting to autosave
+        rec.summary = summary || "";
+        rec.objective = objective || "";
+        if (target === "triaged" && !(rec.triageNote || "").trim()) rec.triageNote = rec.caseSummary || "";
+        d.cases = d.cases.filter(x => x.id !== p.id);
+        d[target] = upsertByName(d[target], rec);
+      }
+      return d;
+    }, "Move ICU case summary patient to " + label.toLowerCase() + ": " + (p.name || p.location || p.id));
+    renderTables();
+    setListStatus("cases", "Moved to " + label + " ✓", true);
+  } catch (e) {
+    btns.forEach(b => { b.disabled = false; });
+    setListStatus("cases", "");
+    showListError("cases", "Move failed: " + (e.message || e));
+  }
 }
 
 /* ============================================================== *
