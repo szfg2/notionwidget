@@ -710,7 +710,7 @@
         <button class="generate secondary" id="saveBtn" type="button">Save to Inpatient List</button>
         <span class="status" id="genStatus"></span>
       </div>
-      <div class="kbd-hint" style="margin-top:8px"><b>Generate Triage Note</b> writes a full triage note and saves the patient to the Triaged Patient List. <b>Save to Inpatient List</b> skips the note and adds the patient straight to the Inpatient List. Both generate the summary and B–I objective. Press <span class="kbd">Ctrl/⌘ + Enter</span> to generate the triage note.</div>
+      <div class="kbd-hint" style="margin-top:8px"><b>Generate Triage Note</b> writes a full triage note and saves the patient to the Triaged Patient List. <b>Save to Inpatient List</b> skips the note and adds the patient straight to the Inpatient List. Both generate the summary and B–I objective; Save to Inpatient List also fills the job list with up to 4 overnight jobs. Press <span class="kbd">Ctrl/⌘ + Enter</span> to generate the triage note.</div>
     </div>
 
     <div class="error" id="error"></div>
@@ -949,6 +949,8 @@ const CONFIG = {
   OBJECTIVE_PROMPT: "prompts/icu-objective-status.txt",
   REVIEW_PROMPT: "prompts/icu-review-note.txt",
   CASE_PROMPT: "prompts/icu-case-summary.txt",
+  JOBS_PROMPT: "prompts/icu-overnight-jobs.txt",
+  JOBS_MAX_TOKENS: 16000,
   REVIEW_MAX_TOKENS: 16000
 };
 
@@ -1282,20 +1284,28 @@ async function runGenerate(mode) {
 
   genController = new AbortController();
   setLoading(mode, true);
-  setGenStatus(triage ? "Generating triage note + summary + objective…" : "Generating summary + objective…");
+  setGenStatus(triage ? "Generating triage note + summary + objective…" : "Generating summary + objective + overnight jobs…");
   try {
-    const [summarySys, objectiveSys, triageSys] = await Promise.all([
+    const [summarySys, objectiveSys, triageSys, jobsSys] = await Promise.all([
       loadPrompt(CONFIG.SUMMARY_PROMPT, genController.signal),
       loadPrompt(CONFIG.OBJECTIVE_PROMPT, genController.signal),
-      triage ? loadPrompt(CONFIG.TRIAGE_PROMPT, genController.signal) : Promise.resolve(null)
+      triage ? loadPrompt(CONFIG.TRIAGE_PROMPT, genController.signal) : Promise.resolve(null),
+      triage ? Promise.resolve(null) : loadPrompt(CONFIG.JOBS_PROMPT, genController.signal)
     ]);
 
-    const [summary, objective, triageNote] = await Promise.all([
+    // The overnight jobs need the clock so their "@ time" items land later tonight.
+    const jobsMessage = "CURRENT TIME: " + new Date().toDateString() + " " + timeNow() + "\n\n" + userMessage;
+    const [summary, objective, triageNote, jobs] = await Promise.all([
       callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, genController.signal),
       callClaude(key, CONFIG.MODEL, objectiveSys, userMessage, CONFIG.OBJECTIVE_MAX_TOKENS, genController.signal),
       triage
         ? callClaude(key, CONFIG.TRIAGE_MODEL, triageSys, userMessage, CONFIG.NOTE_MAX_TOKENS, genController.signal)
-        : Promise.resolve("")
+        : Promise.resolve(""),
+      // A failed jobs call shouldn't stop the patient being saved — the list just starts empty.
+      triage
+        ? Promise.resolve("")
+        : callClaude(key, CONFIG.MODEL, jobsSys, jobsMessage, CONFIG.JOBS_MAX_TOKENS, genController.signal)
+            .catch(e => { if (e.name === "AbortError") throw e; return ""; })
     ]);
 
     if (triage) {
@@ -1312,7 +1322,7 @@ async function runGenerate(mode) {
       summary: summary || "",
       objective: objective || "",
       triageNote: triageNote || "",
-      jobs: ""
+      jobs: (jobs || "").trim()
     };
 
     const listKey = triage ? "triaged" : "inpatients";
