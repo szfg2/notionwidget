@@ -169,6 +169,26 @@
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   }
+  .mode-tab .count { color: var(--faint); font-weight: 500; margin-left: 4px; }
+  .mode-tab.new-list { border-style: dashed; background: transparent; }
+
+  /* add-patient form sits above the list, collapsed by default */
+  .add-row { margin: 0 0 14px; }
+  #addPanel { max-width: 1000px; }
+
+  /* "Move to…" picker in each row's buttons column */
+  .patients .actions select.move-sel {
+    display: block;
+    width: 100%;
+    min-width: 96px;
+    margin-bottom: 6px;
+    padding: 5px 8px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: transparent;
+    border-radius: 7px;
+    text-align: center;
+  }
 
   /* generate button */
   button.generate {
@@ -455,6 +475,7 @@
       margin: 0;
       min-height: 38px;
     }
+    .patients .actions select.move-sel { width: auto; flex: 1 1 auto; margin: 0; min-height: 38px; }
 
     /* expanded panels (Ask / Update) hang off the card above them */
     .patients tbody tr.detail-row {
@@ -558,7 +579,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap full">
 
   <header class="app">
     <div class="head-row">
@@ -611,14 +632,18 @@
     </div>
   </header>
 
-  <!-- TABS -->
-  <div class="mode-tabs">
-    <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
-    <button class="mode-tab" id="tabIn" type="button">Inpatient List</button>
+  <!-- TABS — one per patient list, built by renderTabs() -->
+  <div class="mode-tabs" id="listTabs"></div>
+
+  <!-- =========================  PATIENT LIST (active tab)  ========================= -->
+  <div id="inTab">
+
+  <div class="add-row">
+    <button class="generate" id="addToggle" type="button" aria-expanded="false">+ Add patient</button>
   </div>
 
-  <!-- =========================  CREATE NEW PATIENT  ========================= -->
-  <div id="createTab">
+  <!-- add-patient form — collapsed until "+ Add patient" is clicked -->
+  <div id="addPanel" style="display:none">
 
     <div class="card">
       <div class="row2">
@@ -648,18 +673,15 @@
 
     <div class="card">
       <div class="gen-row">
-        <button class="generate" id="saveBtn" type="button">Save to Inpatient List</button>
+        <button class="generate" id="saveBtn" type="button">Save to list</button>
         <span class="status" id="genStatus"></span>
       </div>
-      <div class="kbd-hint" style="margin-top:8px">Generates the ward-round summary and saves the patient to the Inpatient List, then clears the form for the next patient. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the ward-round summary and saves the patient to the list you're on, then clears and closes the form. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
     </div>
 
     <div class="error" id="error"></div>
 
   </div>
-
-  <!-- =========================  INPATIENT LIST  ========================= -->
-  <div id="inTab" style="display:none">
 
     <div class="upcoming" id="inUpcoming" style="display:none"></div>
 
@@ -669,7 +691,9 @@
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
         <button class="ghost-btn" id="inSortBtn" type="button" title="Toggle sort order"></button>
-        <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
+        <button class="ghost-btn" id="renameListBtn" type="button">✎ Rename list</button>
+        <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all patients</button>
+        <button class="ghost-btn danger" id="deleteListBtn" type="button">Delete list</button>
         <span class="status" id="inStatus"></span>
       </div>
       <div class="error" id="inError" style="margin:10px 0 0"></div>
@@ -687,9 +711,9 @@
           </thead>
           <tbody id="inBody"></tbody>
         </table>
-        <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab.</div>
+        <div class="empty-note" id="inEmpty" style="display:none"></div>
       </div>
-      <div class="out-foot">Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest list from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats / HR / RR / I/O / CBG) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
+      <div class="out-foot">Each tab is an independent list — use “+ New list” to add one, and a patient's “Move to…” to shift them between lists. Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest lists from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats / HR / RR / I/O / CBG) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
     </div>
 
   </div>
@@ -803,18 +827,24 @@ const $ = (id) => document.getElementById(id);
 function get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
 function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
-// Local cache of the synced list (render-sorted by location)
-let data = { inpatients: [] };
+// Local cache of the synced lists — any number of independent patient lists,
+// one tab each. Patient ids are unique across all lists, so edits find their
+// record by id wherever it now lives (e.g. after a Move).
+const DEFAULT_LIST_NAME = "Inpatient List";
+const blankData = () => ({ lists: [{ id: "main", name: DEFAULT_LIST_NAME, patients: [] }] });
+let data = blankData();
+let activeId = get("gwActiveList") || "main";
 let genController = null;   // in-flight save (for cancel)
 const saveTimers = new Map();
+const searchTerms = {};     // per list id
 
-const LISTS = {
-  inpatients: {
-    body: "inBody", empty: "inEmpty", status: "inStatus", error: "inError", upcoming: "inUpcoming", label: "inpatient",
-    emptyText: "No inpatients yet — add a patient in the Create New Patient tab."
-  }
-};
-const searchTerms = { inpatients: "" };
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function listById(d, id) { return d.lists.find(l => l.id === id) || null; }
+function findPatient(d, pid) {
+  for (const l of d.lists) { const p = l.patients.find(x => x.id === pid); if (p) return p; }
+  return null;
+}
+function activeList() { return listById(data, activeId) || data.lists[0]; }
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -845,34 +875,127 @@ $("saveSettings").addEventListener("click", () => {
 });
 
 /* ============================================================== *
- *  Tabs                                                          *
+ *  List tabs — one per list, plus "+ New list"                   *
  * ============================================================== */
-function setTab(t, skipLoad) {
-  $("tabCreate").classList.toggle("active", t === "create");
-  $("tabIn").classList.toggle("active", t === "in");
-  $("createTab").style.display = t === "create" ? "" : "none";
-  $("inTab").style.display = t === "in" ? "" : "none";
-  document.querySelector(".wrap").classList.toggle("full", t !== "create");
-  if (!skipLoad && t !== "create" && get(K.ghToken)) loadPatients(true);
-  refreshPatNav();
+function renderTabs() {
+  const host = $("listTabs");
+  host.innerHTML = "";
+  for (const l of data.lists) {
+    const b = document.createElement("button");
+    b.className = "mode-tab" + (l.id === activeList().id ? " active" : "");
+    b.type = "button";
+    b.textContent = l.name || "Untitled list";
+    const n = document.createElement("span");
+    n.className = "count";
+    n.textContent = "(" + l.patients.length + ")";
+    b.appendChild(n);
+    b.addEventListener("click", () => switchList(l.id));
+    host.appendChild(b);
+  }
+  const add = document.createElement("button");
+  add.className = "mode-tab new-list";
+  add.type = "button";
+  add.textContent = "+ New list";
+  add.addEventListener("click", createList);
+  host.appendChild(add);
+  if (!genController) $("saveBtn").textContent = saveLabel();
 }
-$("tabCreate").addEventListener("click", () => setTab("create"));
-$("tabIn").addEventListener("click", () => setTab("in"));
+
+function switchList(id) {
+  activeId = id;
+  set("gwActiveList", id);
+  $("inSearch").value = searchTerms[id] || "";
+  clearListError();
+  renderList();
+}
+
+function saveLabel() { return "Save to " + (activeList().name || "list"); }
+
+async function createList() {
+  const name = (prompt("Name for the new list:", "") || "").trim();
+  if (!name) return;
+  const list = { id: "l" + newId(), name, patients: [] };
+  clearListError();
+  setListStatus("Creating list…");
+  try {
+    await mutateRemote(d => { d.lists.push(list); return d; }, "Add GW list: " + name);
+    setListStatus("List created ✓", true);
+    switchList(list.id);
+  } catch (e) {
+    setListStatus("");
+    showListError("Couldn't create the list: " + (e.message || e));
+  }
+}
+
+$("renameListBtn").addEventListener("click", async () => {
+  const l = activeList();
+  const name = (prompt("Rename list:", l.name || "") || "").trim();
+  if (!name || name === l.name) return;
+  clearListError();
+  setListStatus("Renaming…");
+  try {
+    await mutateRemote(d => {
+      const rec = listById(d, l.id);
+      if (!rec) throw new Error("That list no longer exists — refresh.");
+      rec.name = name;
+      return d;
+    }, "Rename GW list: " + l.name + " → " + name);
+    renderList();
+    setListStatus("Renamed ✓", true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Rename failed: " + (e.message || e));
+  }
+});
+
+$("deleteListBtn").addEventListener("click", async () => {
+  const l = activeList();
+  if (data.lists.length < 2) {
+    showListError("This is your only list, so it can't be deleted — use Delete all patients to empty it instead.");
+    return;
+  }
+  const n = l.patients.length;
+  if (!confirm("⚠ Delete the list “" + l.name + "”" + (n ? " and its " + n + " patient" + (n === 1 ? "" : "s") : "") +
+    "?\n\nThis removes it on all your devices and cannot be undone.")) return;
+  clearListError();
+  setListStatus("Deleting list…");
+  try {
+    await mutateRemote(d => {
+      d.lists = d.lists.filter(x => x.id !== l.id);
+      if (!d.lists.length) d.lists = blankData().lists;
+      return d;
+    }, "Delete GW list: " + l.name);
+    switchList(data.lists[0].id);
+    setListStatus("List deleted ✓", true);
+  } catch (e) {
+    setListStatus("");
+    showListError("Delete list failed: " + (e.message || e));
+  }
+});
+
+// "+ Add patient" — expands the add form above the list
+function setAddOpen(open) {
+  $("addPanel").style.display = open ? "" : "none";
+  $("addToggle").textContent = open ? "− Hide add patient" : "+ Add patient";
+  $("addToggle").setAttribute("aria-expanded", String(open));
+  if (open) $("ptLocation").focus();
+}
+$("addToggle").addEventListener("click", () => setAddOpen($("addPanel").style.display === "none"));
 
 /* ============================================================== *
  *  Helpers                                                       *
  * ============================================================== */
 function showError(msg) { $("error").textContent = msg; $("error").style.display = "block"; }
 function clearError() { $("error").style.display = "none"; $("error").textContent = ""; }
-function showListError(listKey, msg) { const el = $(LISTS[listKey].error); el.textContent = msg; el.style.display = "block"; }
-function clearListError(listKey) { const el = $(LISTS[listKey].error); el.style.display = "none"; el.textContent = ""; }
+function showListError(msg) { const el = $("inError"); el.textContent = msg; el.style.display = "block"; }
+function clearListError() { const el = $("inError"); el.style.display = "none"; el.textContent = ""; }
 function setGenStatus(msg, ok) {
   const el = $("genStatus");
   el.textContent = msg;
   el.classList.toggle("ok", !!ok);
 }
-function setListStatus(listKey, msg, ok) {
-  const el = $(LISTS[listKey].status);
+function setListStatus(msg, ok) {
+  const el = $("inStatus");
   el.textContent = msg;
   el.classList.toggle("ok", !!ok);
 }
@@ -923,7 +1046,7 @@ enableShots($("clinical"));
 
 /* ============================================================== *
  *  GitHub sync (single shared JSON file, sha-based overwrite)    *
- *  File shape: { "inpatients": [...] }                           *
+ *  File shape: { "lists": [{ id, name, patients: [...] }] }      *
  * ============================================================== */
 function b64utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
 function ghCfg() {
@@ -941,17 +1064,28 @@ function ghHeaders(c) {
   if (c.token) h["Authorization"] = "Bearer " + c.token;
   return h;
 }
+// Older single-list files ({ inpatients: [...] } or a bare array) migrate into
+// one list called "Inpatient List" — rewritten in the new shape on next save.
 function normaliseData(parsed) {
-  const d = { inpatients: [] };
-  if (Array.isArray(parsed)) d.inpatients = parsed;
-  else if (parsed && typeof parsed === "object" && Array.isArray(parsed.inpatients)) d.inpatients = parsed.inpatients;
+  if (parsed && Array.isArray(parsed.lists) && parsed.lists.length) {
+    return {
+      lists: parsed.lists.map(l => ({
+        id: l.id || "l" + newId(),
+        name: l.name || "Untitled list",
+        patients: Array.isArray(l.patients) ? l.patients : []
+      }))
+    };
+  }
+  const d = blankData();
+  if (Array.isArray(parsed)) d.lists[0].patients = parsed;
+  else if (parsed && Array.isArray(parsed.inpatients)) d.lists[0].patients = parsed.inpatients;
   return d;
 }
 // Fetch the remote list. Returns { sha, data } — sha null if the file doesn't exist yet.
 async function getRemote() {
   const c = ghCfg();
   const res = await fetch(ghUrl(c) + "?ref=" + encodeURIComponent(c.branch), { cache: "no-store", headers: ghHeaders(c) });
-  if (res.status === 404) return { sha: null, data: { inpatients: [] } };
+  if (res.status === 404) return { sha: null, data: blankData() };
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || ("HTTP " + res.status));
   let parsed = {};
@@ -997,12 +1131,14 @@ function upsertByName(list, record) {
 }
 
 /* ============================================================== *
- *  Save to Inpatient List                                        *
+ *  Add patient to the list on screen                             *
  * ============================================================== */
 $("saveBtn").addEventListener("click", async () => {
   if (genController) { genController.abort(); return; }
 
   clearError();
+  // Captured now, so switching tabs mid-generation still saves to this list.
+  const target = activeList();
   if (!AI.hasKey()) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
   const location = $("ptLocation").value.trim();
@@ -1035,7 +1171,7 @@ $("saveBtn").addEventListener("click", async () => {
     const parsed = parseSummaryObjective(out || "");
 
     const record = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      id: newId(),
       created: new Date().toISOString(),
       location, name,
       pastMedical: past,
@@ -1048,10 +1184,12 @@ $("saveBtn").addEventListener("click", async () => {
     setGenStatus("Saving patient to GitHub…");
     try {
       await mutateRemote(d => {
-        d.inpatients = upsertByName(d.inpatients, record);
+        const L = listById(d, target.id);
+        if (!L) throw new Error("The list “" + target.name + "” no longer exists — refresh and pick another.");
+        L.patients = upsertByName(L.patients, record);
         return d;
-      }, "Add GW inpatient: " + (name || location));
-      renderList("inpatients");
+      }, "Add GW patient to " + target.name + ": " + (name || location));
+      renderList();
       // Clear the form ready for the next patient.
       $("ptLocation").value = "";
       $("ptName").value = "";
@@ -1059,7 +1197,9 @@ $("saveBtn").addEventListener("click", async () => {
       $("clinical").value = "";
       clearShots($("pastMedical"));
       clearShots($("clinical"));
-      setGenStatus("Done ✓ — saved to Inpatient List", true);
+      setAddOpen(false);
+      setListStatus("Added ✓ — " + (name || location) + " saved to " + target.name, true);
+      setGenStatus("");
     } catch (e) {
       setGenStatus("");
       showError("Summary generated, but saving the patient failed: " + (e.message || e) +
@@ -1081,7 +1221,7 @@ function setLoading(on) {
     btn.innerHTML = '<span class="spinner"></span>Cancel';
   } else {
     btn.classList.remove("is-cancel");
-    btn.innerHTML = "Save to Inpatient List";
+    btn.textContent = saveLabel();
   }
 }
 
@@ -1104,19 +1244,19 @@ function flashCopied(btn, label) {
 let loadingPatients = false;
 async function loadPatients(auto) {
   const c = ghCfg();
-  if (!c.token) { if (!auto) showListError("inpatients", "Set your GitHub token in Settings first."); return; }
+  if (!c.token) { if (!auto) showListError("Set your GitHub token in Settings first."); return; }
   if (loadingPatients) return;
   loadingPatients = true;
-  clearListError("inpatients");
-  setListStatus("inpatients", "Loading…");
+  clearListError();
+  setListStatus("Loading…");
   try {
     const { data: remote } = await getRemote();
     data = remote;
-    renderList("inpatients");
-    setListStatus("inpatients", "Synced ✓ " + timeNow(), true);
+    renderList();
+    setListStatus("Synced ✓ " + timeNow(), true);
   } catch (e) {
-    setListStatus("inpatients", "");
-    showListError("inpatients", "Couldn't load the patient list: " + (e.message || e));
+    setListStatus("");
+    showListError("Couldn't load the patient list: " + (e.message || e));
   } finally {
     loadingPatients = false;
   }
@@ -1130,9 +1270,8 @@ document.addEventListener("keydown", (e) => {
   if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
   if (e.key !== "r" && e.key !== "R") return;
   e.preventDefault();
-  setTab("in", true);
   if (saveTimers.size) {
-    setListStatus("inpatients", "Saving edits before refresh…");
+    setListStatus("Saving edits before refresh…");
     flushFieldSaves().then(() => loadPatients(false));
   } else {
     loadPatients(false);
@@ -1163,7 +1302,7 @@ function refocusOnReturn(el, isDone) {
 
 // Click-to-edit cell for location / name. Click swaps in an input; Enter or
 // clicking away commits and saves to GitHub, Escape cancels.
-function editableCell(td, p, field, listKey) {
+function editableCell(td, p, field) {
   const span = document.createElement("span");
   span.className = "editable";
   span.title = "Click to edit";
@@ -1185,16 +1324,16 @@ function editableCell(td, p, field, listKey) {
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
       span.textContent = v || "—";
-      setListStatus(listKey, "Saving…");
+      setListStatus("Saving…");
       mutateRemote(d => {
-        const rec = d[listKey].find(x => x.id === p.id);
+        const rec = findPatient(d, p.id);
         if (rec) rec[field] = v;
         return d;
       }, "Update GW patient " + field).then(() => {
-        setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+        setListStatus("Saved ✓ " + timeNow(), true);
       }).catch(e => {
-        setListStatus(listKey, "");
-        showListError(listKey, "Save failed: " + (e.message || e));
+        setListStatus("");
+        showListError("Save failed: " + (e.message || e));
       });
     };
     input.addEventListener("keydown", (e) => {
@@ -1231,9 +1370,9 @@ function parseTimeMinutes(s) {
   return null;
 }
 
-function upcomingItems(listKey) {
+function upcomingItems() {
   const items = [];
-  for (const p of data[listKey]) {
+  for (const p of activeList().patients) {
     for (const line of (p.jobs || "").split("\n")) {
       const idx = line.indexOf("@");
       if (idx === -1 || !line.trim()) continue;
@@ -1251,9 +1390,9 @@ function upcomingItems(listKey) {
   return items;
 }
 
-function renderUpcoming(listKey) {
-  const el = $(LISTS[listKey].upcoming);
-  const items = upcomingItems(listKey);
+function renderUpcoming() {
+  const el = $("inUpcoming");
+  const items = upcomingItems();
   el.innerHTML = "";
   if (!items.length) { el.style.display = "none"; return; }
   el.style.display = "";
@@ -1299,8 +1438,8 @@ function wardKey(loc) {
   return m ? [-Number(m[2]), Number(m[1])] : [Infinity, Infinity];
 }
 
-function sortedList(listKey) {
-  return [...data[listKey]].sort((a, b) => {
+function sortedList() {
+  return [...activeList().patients].sort((a, b) => {
     if (!a.location && b.location) return 1;
     if (a.location && !b.location) return -1;
     if (sortMode === "ward") {
@@ -1320,42 +1459,49 @@ $("inSortBtn").addEventListener("click", () => {
   sortMode = sortMode === "ward" ? "location" : "ward";
   set("gwSortMode", sortMode);
   updateSortBtn();
-  renderList("inpatients");
+  renderList();
 });
 
-function renderList(listKey) {
-  const body = $(LISTS[listKey].body);
-  const all = sortedList(listKey);
-  const q = (searchTerms[listKey] || "").trim().toLowerCase();
+// Renders the active list's table plus the tab strip (so counts stay current).
+function renderList() {
+  renderTabs();
+  const body = $("inBody");
+  const all = sortedList();
+  const q = (searchTerms[activeList().id] || "").trim().toLowerCase();
   const list = q ? all.filter(p => matchesSearch(p, q)) : all;
   body.innerHTML = "";
-  const emptyEl = $(LISTS[listKey].empty);
+  const emptyEl = $("inEmpty");
   emptyEl.style.display = list.length ? "none" : "";
   emptyEl.textContent = (all.length && !list.length)
     ? "No patients match the search."
-    : LISTS[listKey].emptyText;
-  for (const p of list) buildRow(p, listKey, body);
-  renderUpcoming(listKey);
+    : "No patients in this list yet — use + Add patient above.";
+  for (const p of list) buildRow(p, body);
+  renderUpcoming();
   refreshPatNav();
 }
 
-$("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
+$("inSearch").addEventListener("input", () => { searchTerms[activeList().id] = $("inSearch").value; renderList(); });
 
 /* Delete all — one warning, then wipes the whole list on every device */
 $("inDeleteAllBtn").addEventListener("click", async () => {
-  const n = data.inpatients.length;
-  if (!n) { setListStatus("inpatients", "Nothing to delete."); return; }
-  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from the Inpatient List?\n\nThis permanently removes the entire list on all your devices and cannot be undone.")) return;
-  clearListError("inpatients");
+  const l = activeList();
+  const n = l.patients.length;
+  if (!n) { setListStatus("Nothing to delete."); return; }
+  if (!confirm("⚠ Delete ALL " + n + " patient" + (n === 1 ? "" : "s") + " from “" + l.name + "”?\n\nThis empties the list on all your devices and cannot be undone. Your other lists are untouched.")) return;
+  clearListError();
   $("inDeleteAllBtn").disabled = true;
-  setListStatus("inpatients", "Deleting all…");
+  setListStatus("Deleting all…");
   try {
-    await mutateRemote(d => { d.inpatients = []; return d; }, "Delete all GW inpatients");
-    renderList("inpatients");
-    setListStatus("inpatients", "All patients deleted ✓", true);
+    await mutateRemote(d => {
+      const rec = listById(d, l.id);
+      if (rec) rec.patients = [];
+      return d;
+    }, "Delete all GW patients in " + l.name);
+    renderList();
+    setListStatus("All patients deleted ✓", true);
   } catch (e) {
-    setListStatus("inpatients", "");
-    showListError("inpatients", "Delete all failed: " + (e.message || e));
+    setListStatus("");
+    showListError("Delete all failed: " + (e.message || e));
   } finally {
     $("inDeleteAllBtn").disabled = false;
   }
@@ -1364,7 +1510,7 @@ $("inDeleteAllBtn").addEventListener("click", async () => {
 // Double-click-to-edit for the summary / objective cells. Double-click swaps
 // in a textarea over the rendered view; Ctrl/Cmd+Enter or clicking away
 // commits and saves to GitHub, Escape cancels.
-function editableBlock(td, div, p, field, listKey, renderFn, template) {
+function editableBlock(td, div, p, field, renderFn, template) {
   td.title = "Double-click to edit";
   td.addEventListener("dblclick", () => {
     if (td.querySelector("textarea.block-edit")) return;
@@ -1386,16 +1532,16 @@ function editableBlock(td, div, p, field, listKey, renderFn, template) {
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
       div.innerHTML = renderFn(v);
-      setListStatus(listKey, "Saving…");
+      setListStatus("Saving…");
       mutateRemote(d => {
-        const rec = d[listKey].find(x => x.id === p.id);
+        const rec = findPatient(d, p.id);
         if (rec) rec[field] = v;
         return d;
       }, "Edit GW " + field + ": " + (p.name || p.location || p.id)).then(() => {
-        setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+        setListStatus("Saved ✓ " + timeNow(), true);
       }).catch(e => {
-        setListStatus(listKey, "");
-        showListError(listKey, "Save failed: " + (e.message || e));
+        setListStatus("");
+        showListError("Save failed: " + (e.message || e));
       });
     };
     box.addEventListener("keydown", (e) => {
@@ -1412,17 +1558,71 @@ function editableBlock(td, div, p, field, listKey, renderFn, template) {
   });
 }
 
-function buildRow(p, listKey, body) {
+// "Move to…" picker — pulls the patient out of whichever list holds it and puts
+// it at the top of the chosen one. A same-named patient already in the target
+// is replaced (after a warning), matching how re-adding a patient behaves.
+function moveSelect(p, targets) {
+  const sel = document.createElement("select");
+  sel.className = "ghost-btn move-sel";
+  sel.title = "Move this patient to another list";
+  const head = document.createElement("option");
+  head.value = "";
+  head.textContent = "Move to…";
+  sel.appendChild(head);
+  for (const l of targets) {
+    const o = document.createElement("option");
+    o.value = l.id;
+    o.textContent = l.name;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", async () => {
+    const target = listById(data, sel.value);
+    sel.value = "";
+    if (!target) return;
+    const who = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
+    const k = (p.name || "").trim().toLowerCase();
+    if (k && target.patients.some(x => (x.name || "").trim().toLowerCase() === k) &&
+        !confirm("“" + target.name + "” already has a patient named " + p.name + ". Moving " + who + " will replace them. Continue?")) return;
+    sel.disabled = true;
+    clearListError();
+    setListStatus("Moving…");
+    try {
+      // Land any pending job-list edit first so it travels with the patient.
+      await flushFieldSaves();
+      await mutateRemote(d => {
+        let rec = null;
+        for (const l of d.lists) {
+          const i = l.patients.findIndex(x => x.id === p.id);
+          if (i !== -1) { rec = l.patients.splice(i, 1)[0]; break; }
+        }
+        const T = listById(d, target.id);
+        if (!rec) throw new Error(who + " is no longer on any list — refresh.");
+        if (!T) throw new Error("The list “" + target.name + "” no longer exists — refresh.");
+        T.patients = upsertByName(T.patients, rec);
+        return d;
+      }, "Move GW patient to " + target.name + ": " + (p.name || p.location || p.id));
+      renderList();
+      setListStatus("Moved " + who + " to " + target.name + " ✓", true);
+    } catch (e) {
+      sel.disabled = false;
+      setListStatus("");
+      showListError("Move failed: " + (e.message || e));
+    }
+  });
+  return sel;
+}
+
+function buildRow(p, body) {
   const tr = document.createElement("tr");
 
   const tdLoc = document.createElement("td");
   tdLoc.className = "loc";
-  editableCell(tdLoc, p, "location", listKey);
+  editableCell(tdLoc, p, "location");
   tr.appendChild(tdLoc);
 
   const tdName = document.createElement("td");
   tdName.className = "name";
-  editableCell(tdName, p, "name", listKey);
+  editableCell(tdName, p, "name");
   const meta = document.createElement("div");
   meta.className = "rowmeta";
   meta.textContent = fmtDate(p.created);
@@ -1434,7 +1634,7 @@ function buildRow(p, listKey, body) {
   const sumDiv = document.createElement("div");
   sumDiv.innerHTML = summaryHtml(p.summary || "");
   tdSum.appendChild(sumDiv);
-  editableBlock(tdSum, sumDiv, p, "summary", listKey, v => summaryHtml(v || ""));
+  editableBlock(tdSum, sumDiv, p, "summary", v => summaryHtml(v || ""));
   tr.appendChild(tdSum);
 
   const tdObj = document.createElement("td");
@@ -1443,7 +1643,7 @@ function buildRow(p, listKey, body) {
   objText.className = "objtext";
   objText.innerHTML = objectiveHtml(p.objective);
   tdObj.appendChild(objText);
-  editableBlock(tdObj, objText, p, "objective", listKey, objectiveHtml, OBJECTIVE_TEMPLATE);
+  editableBlock(tdObj, objText, p, "objective", objectiveHtml, OBJECTIVE_TEMPLATE);
   tr.appendChild(tdObj);
 
   const tdJobs = document.createElement("td");
@@ -1453,8 +1653,8 @@ function buildRow(p, listKey, body) {
   jobBox.placeholder = "Jobs / to-dos…";
   jobBox.value = p.jobs || "";
   jobBox.addEventListener("input", () => {
-    queueFieldSave(listKey, p.id, "jobs", jobBox.value, "Update GW job list");
-    renderUpcoming(listKey); // queueFieldSave has already updated the local cache
+    queueFieldSave(p.id, "jobs", jobBox.value, "Update GW job list");
+    renderUpcoming(); // queueFieldSave has already updated the local cache
   });
   tdJobs.appendChild(jobBox);
   tr.appendChild(tdJobs);
@@ -1472,6 +1672,9 @@ function buildRow(p, listKey, body) {
   updBtn.type = "button";
   updBtn.textContent = "Update";
   tdAct.appendChild(updBtn);
+
+  const others = data.lists.filter(l => l.id !== activeList().id);
+  if (others.length) tdAct.appendChild(moveSelect(p, others));
 
   const delBtn = document.createElement("button");
   delBtn.className = "ghost-btn danger";
@@ -1633,7 +1836,7 @@ function buildRow(p, listKey, body) {
 
       stEl.textContent = "Saving…";
       await mutateRemote(d => {
-        const rec = d[listKey].find(x => x.id === p.id);
+        const rec = findPatient(d, p.id);
         if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = p.clinical; }
         return d;
       }, label + " GW patient: " + (p.name || p.location || p.id));
@@ -1878,18 +2081,18 @@ function buildRow(p, listKey, body) {
     const label = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
     if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
     delBtn.disabled = true;
-    setListStatus(listKey, "Deleting…");
+    setListStatus("Deleting…");
     try {
       await mutateRemote(d => {
-        d[listKey] = d[listKey].filter(x => x.id !== p.id);
+        for (const l of d.lists) l.patients = l.patients.filter(x => x.id !== p.id);
         return d;
       }, "Remove GW inpatient: " + (p.name || p.location || p.id));
-      renderList(listKey);
-      setListStatus(listKey, "Deleted ✓", true);
+      renderList();
+      setListStatus("Deleted ✓", true);
     } catch (e) {
       delBtn.disabled = false;
-      setListStatus(listKey, "");
-      showListError(listKey, "Delete failed: " + (e.message || e));
+      setListStatus("");
+      showListError("Delete failed: " + (e.message || e));
     }
   });
 }
@@ -1897,27 +2100,27 @@ function buildRow(p, listKey, body) {
 /* ============================================================== *
  *  Debounced field autosave (job list)                           *
  * ============================================================== */
-function queueFieldSave(listKey, id, field, value, message) {
+function queueFieldSave(id, field, value, message) {
   // keep local cache current so a re-render doesn't lose typing
-  const local = data[listKey].find(p => p.id === id);
+  const local = findPatient(data, id);
   if (local) local[field] = value;
-  const tkey = listKey + ":" + id + ":" + field;
+  const tkey = id + ":" + field;
   if (saveTimers.has(tkey)) clearTimeout(saveTimers.get(tkey).timer);
-  setListStatus(listKey, "Editing…");
+  setListStatus("Editing…");
   const run = async () => {
     saveTimers.delete(tkey);
-    setListStatus(listKey, "Saving…");
+    setListStatus("Saving…");
     try {
       await mutateRemote(d => {
-        const rec = d[listKey].find(p => p.id === id);
+        const rec = findPatient(d, id);
         if (rec) rec[field] = value;
         return d;
       }, message);
       // don't re-render here — it would replace the textarea mid-typing
-      setListStatus(listKey, "Saved ✓ " + timeNow(), true);
+      setListStatus("Saved ✓ " + timeNow(), true);
     } catch (e) {
-      setListStatus(listKey, "");
-      showListError(listKey, "Autosave failed: " + (e.message || e));
+      setListStatus("");
+      showListError("Autosave failed: " + (e.message || e));
     }
   };
   saveTimers.set(tkey, { run, timer: setTimeout(run, 1500) });
@@ -1937,8 +2140,9 @@ async function flushFieldSaves() {
  *  Print — clean landscape table of the inpatient list           *
  * ============================================================== */
 $("printBtn").addEventListener("click", () => {
-  const list = sortedList("inpatients");
-  if (!list.length) { setListStatus("inpatients", "Nothing to print."); return; }
+  const listName = activeList().name;
+  const list = sortedList();
+  if (!list.length) { setListStatus("Nothing to print."); return; }
   const rows = list.map(p => "<tr>" +
     '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
     "<td>" + escapeHtml(p.name || "") + "</td>" +
@@ -1947,7 +2151,7 @@ $("printBtn").addEventListener("click", () => {
     '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
     "</tr>").join("");
   const now = new Date();
-  const html = "<!doctype html><html><head><meta charset='utf-8'><title>General Ward Round List</title><style>" +
+  const html = "<!doctype html><html><head><meta charset='utf-8'><title>" + escapeHtml(listName) + "</title><style>" +
     "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
     "h1{font-size:9pt;margin:0 0 2px;}" +
     ".meta{color:#555;font-size:6pt;margin:0 0 6px;}" +
@@ -1961,7 +2165,7 @@ $("printBtn").addEventListener("click", () => {
     "tr{page-break-inside:avoid;}" +
     "@page{size:A4 landscape;margin:18mm;}" +
     "</style></head><body>" +
-    "<h1>General Ward Round List</h1>" +
+    "<h1>" + escapeHtml(listName) + "</h1>" +
     '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
     "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
@@ -1985,6 +2189,7 @@ $("printBtn").addEventListener("click", () => {
  *  Init                                                          *
  * ============================================================== */
 loadSettings();
+renderList();
 if (get(K.ghToken)) loadPatients(true);
 
 /* ============================================================== *
