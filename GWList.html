@@ -336,6 +336,8 @@
     background: var(--surface-2);
   }
   .patients .rowmeta { font-size: 11px; color: var(--faint); margin-top: 4px; white-space: nowrap; }
+  .patients .rowmeta.stale { color: var(--warn); margin-top: 1px; }
+  .ghost-btn.on { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .patients .actions .ghost-btn { display: block; width: 100%; margin-bottom: 6px; text-align: center; }
   .patients .actions .ghost-btn:last-child { margin-bottom: 0; }
 
@@ -691,6 +693,7 @@
         <button class="ghost-btn" id="printBtn" type="button">🖨 Print</button>
         <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
         <button class="ghost-btn" id="inSortBtn" type="button" title="Toggle sort order"></button>
+        <button class="ghost-btn" id="staleBtn" type="button" aria-pressed="false" title="Show only patients with no edits in the last 6 hours — possibly discharged"></button>
         <button class="ghost-btn" id="renameListBtn" type="button">✎ Rename list</button>
         <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all patients</button>
         <button class="ghost-btn danger" id="deleteListBtn" type="button">Delete list</button>
@@ -713,7 +716,7 @@
         </table>
         <div class="empty-note" id="inEmpty" style="display:none"></div>
       </div>
-      <div class="out-foot">Each tab is an independent list — use “+ New list” to add one, and a patient's “Move to…” to shift them between lists. Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest lists from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats / HR / RR / I/O / CBG) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
+      <div class="out-foot">Each tab is an independent list — use “+ New list” to add one, and a patient's “Move to…” to shift them between lists. ⏱ Not updated 6h+ shows only patients with no edits for 6 hours — a prompt to check for discharges. Press <span class="kbd">Ctrl/⌘ + R</span> anywhere on this page to pull the latest lists from GitHub (the page itself never reloads). Sorted by location. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective (BP / Temp / Sats / HR / RR / I/O / CBG) to edit them. Use Update to fold new events and vitals into the summarised history and objective, or its Regenerate tab to rebuild both from a fresh paste of the case.</div>
     </div>
 
   </div>
@@ -845,6 +848,21 @@ function findPatient(d, pid) {
   return null;
 }
 function activeList() { return listById(data, activeId) || data.lists[0]; }
+
+// "Stale" = no edit of any kind (location, name, summary, objective, jobs,
+// Update/Regenerate) for STALE_HOURS — likely discharged. Patients saved
+// before this existed fall back to their created time.
+const STALE_HOURS = 6;
+let staleOnly = false;
+function touch(rec) { rec.updated = new Date().toISOString(); }
+function lastUpdated(p) { return new Date(p.updated || p.created || 0).getTime() || 0; }
+function isStale(p) { return Date.now() - lastUpdated(p) >= STALE_HOURS * 3600e3; }
+function agoText(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 60) return m + "m ago";
+  if (m < 48 * 60) return Math.floor(m / 60) + "h ago";
+  return Math.floor(m / 1440) + "d ago";
+}
 
 /* ============================================================== *
  *  Settings                                                      *
@@ -1173,6 +1191,7 @@ $("saveBtn").addEventListener("click", async () => {
     const record = {
       id: newId(),
       created: new Date().toISOString(),
+      updated: new Date().toISOString(),
       location, name,
       pastMedical: past,
       clinical,
@@ -1323,11 +1342,12 @@ function editableCell(td, p, field) {
       td.replaceChild(span, input);
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
+      touch(p);
       span.textContent = v || "—";
       setListStatus("Saving…");
       mutateRemote(d => {
         const rec = findPatient(d, p.id);
-        if (rec) rec[field] = v;
+        if (rec) { rec[field] = v; touch(rec); }
         return d;
       }, "Update GW patient " + field).then(() => {
         setListStatus("Saved ✓ " + timeNow(), true);
@@ -1468,19 +1488,33 @@ function renderList() {
   const body = $("inBody");
   const all = sortedList();
   const q = (searchTerms[activeList().id] || "").trim().toLowerCase();
-  const list = q ? all.filter(p => matchesSearch(p, q)) : all;
+  let list = q ? all.filter(p => matchesSearch(p, q)) : all;
+  if (staleOnly) list = list.filter(isStale);
   body.innerHTML = "";
   const emptyEl = $("inEmpty");
   emptyEl.style.display = list.length ? "none" : "";
-  emptyEl.textContent = (all.length && !list.length)
-    ? "No patients match the search."
-    : "No patients in this list yet — use + Add patient above.";
+  emptyEl.textContent = !all.length
+    ? "No patients in this list yet — use + Add patient above."
+    : staleOnly ? "Every patient" + (q ? " matching the search" : "") + " has been updated in the last " + STALE_HOURS + " hours."
+    : "No patients match the search.";
   for (const p of list) buildRow(p, body);
+  updateStaleBtn();
   renderUpcoming();
   refreshPatNav();
 }
 
 $("inSearch").addEventListener("input", () => { searchTerms[activeList().id] = $("inSearch").value; renderList(); });
+
+// Stale toggle — the count shows even when off, so a glance tells you
+// whether anyone is due a discharge check.
+function updateStaleBtn() {
+  const n = activeList().patients.filter(isStale).length;
+  const btn = $("staleBtn");
+  btn.textContent = (staleOnly ? "✓ " : "") + "⏱ Not updated " + STALE_HOURS + "h+ (" + n + ")";
+  btn.classList.toggle("on", staleOnly);
+  btn.setAttribute("aria-pressed", String(staleOnly));
+}
+$("staleBtn").addEventListener("click", () => { staleOnly = !staleOnly; renderList(); });
 
 /* Delete all — one warning, then wipes the whole list on every device */
 $("inDeleteAllBtn").addEventListener("click", async () => {
@@ -1531,11 +1565,12 @@ function editableBlock(td, div, p, field, renderFn, template) {
       div.style.display = "";
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
+      touch(p);
       div.innerHTML = renderFn(v);
       setListStatus("Saving…");
       mutateRemote(d => {
         const rec = findPatient(d, p.id);
-        if (rec) rec[field] = v;
+        if (rec) { rec[field] = v; touch(rec); }
         return d;
       }, "Edit GW " + field + ": " + (p.name || p.location || p.id)).then(() => {
         setListStatus("Saved ✓ " + timeNow(), true);
@@ -1627,6 +1662,12 @@ function buildRow(p, body) {
   meta.className = "rowmeta";
   meta.textContent = fmtDate(p.created);
   tdName.appendChild(meta);
+  if (isStale(p)) {
+    const upd = document.createElement("div");
+    upd.className = "rowmeta stale";
+    upd.textContent = "⏱ updated " + agoText(lastUpdated(p));
+    tdName.appendChild(upd);
+  }
   tr.appendChild(tdName);
 
   const tdSum = document.createElement("td");
@@ -1655,6 +1696,7 @@ function buildRow(p, body) {
   jobBox.addEventListener("input", () => {
     queueFieldSave(p.id, "jobs", jobBox.value, "Update GW job list");
     renderUpcoming(); // queueFieldSave has already updated the local cache
+    updateStaleBtn();
   });
   tdJobs.appendChild(jobBox);
   tr.appendChild(tdJobs);
@@ -1829,6 +1871,7 @@ function buildRow(p, body) {
       if (!out) throw new Error("No text returned.");
       const parsed = parseSummaryObjective(out);
       p.summary = parsed.summary;
+      touch(p);
       if (parsed.objective !== null) p.objective = parsed.objective;
       applyLocal();
       sumDiv.innerHTML = summaryHtml(p.summary);
@@ -1837,7 +1880,7 @@ function buildRow(p, body) {
       stEl.textContent = "Saving…";
       await mutateRemote(d => {
         const rec = findPatient(d, p.id);
-        if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = p.clinical; }
+        if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = p.clinical; touch(rec); }
         return d;
       }, label + " GW patient: " + (p.name || p.location || p.id));
       onSaved();
@@ -2103,7 +2146,7 @@ function buildRow(p, body) {
 function queueFieldSave(id, field, value, message) {
   // keep local cache current so a re-render doesn't lose typing
   const local = findPatient(data, id);
-  if (local) local[field] = value;
+  if (local) { local[field] = value; touch(local); }
   const tkey = id + ":" + field;
   if (saveTimers.has(tkey)) clearTimeout(saveTimers.get(tkey).timer);
   setListStatus("Editing…");
@@ -2113,7 +2156,7 @@ function queueFieldSave(id, field, value, message) {
     try {
       await mutateRemote(d => {
         const rec = findPatient(d, id);
-        if (rec) rec[field] = value;
+        if (rec) { rec[field] = value; touch(rec); }
         return d;
       }, message);
       // don't re-render here — it would replace the textarea mid-typing
@@ -2190,6 +2233,8 @@ $("printBtn").addEventListener("click", () => {
  * ============================================================== */
 loadSettings();
 renderList();
+// keep the stale count honest as time passes (no row re-render, so typing is safe)
+setInterval(updateStaleBtn, 60e3);
 if (get(K.ghToken)) loadPatients(true);
 
 /* ============================================================== *
