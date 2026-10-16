@@ -1052,6 +1052,7 @@ let ptQuery = "";           // the current search text, kept across re-renders
 // the first, so its audio still gets transcribed rather than thrown away.
 let micOwner = null;
 let micBusy = false;        // true from the first press until the merge finishes
+const dictBusy = new Set(); // patient ids recording or merging right now, so a re-rendered row doesn't offer Retry on live audio
 // The case whose boxes were cleared after a successful generate. Keeps the
 // reading-topics and ask panels grounded once the input boxes are empty again.
 let activeCase = null;
@@ -1834,11 +1835,18 @@ function renderTable() {
     recBtn.title = "Records the consult, transcribes it through Whisper, and rewrites the Currently section of this patient's note with what the patient said, followed by what you explained or advised. Every other section is left untouched.";
     const recStat = document.createElement("div");
     recStat.className = "rowstat";
+    // Shown only while a failed consult recording is waiting on this device
+    const recDiscard = document.createElement("button");
+    recDiscard.className = "ghost-btn danger rec-discard";
+    recDiscard.type = "button";
+    recDiscard.textContent = "Discard recording";
+    recDiscard.style.display = "none";
     tdAct.appendChild(noteBtn);
     tdAct.appendChild(askBtn);
     tdAct.appendChild(delBtn);
     tdAct.appendChild(recBtn);
     tdAct.appendChild(recStat);
+    tdAct.appendChild(recDiscard);
     tr.appendChild(tdAct);
     body.appendChild(tr);
     autoGrow(box, 72);   // in the DOM now, so it can be sized to its content
@@ -2134,9 +2142,13 @@ function renderTable() {
     // transcribe/merge to cancel.
     let recCtl = null;
     let dictCtl = null;
+    // A recording whose transcribe/merge/save failed is kept on this device;
+    // while it is, the button resends it instead of starting a new recording.
+    let dictPending = false;
     const setDictIdle = () => {
       recBtn.classList.remove("recording");
-      recBtn.innerHTML = "🎙 Record";
+      recBtn.innerHTML = dictPending ? "↻ Retry" : "🎙 Record";
+      recDiscard.style.display = dictPending ? "" : "none";
     };
     setDictIdle();
     const sayRec = (m, ok) => {
@@ -2147,6 +2159,20 @@ function renderTable() {
     // The note panel may well be collapsed, so problems go to the list-level
     // error box where they can't be missed, with a short marker on the row.
     const showDictErr = (m) => { sayRec("Failed — see the error above", false); showListError(m); };
+    // A recording left over from an earlier attempt (even before a reload)
+    pendingAudio.getMeta(p.id).then(meta => {
+      if (!meta || recCtl || dictCtl || dictBusy.has(p.id)) return;
+      dictPending = true;
+      setDictIdle();
+      sayRec("Unsent recording saved — press Retry", false);
+    });
+    recDiscard.addEventListener("click", async () => {
+      if (!confirm("Discard the saved consult recording for " + (p.name || "this patient") + "? It can't be recovered.")) return;
+      await pendingAudio.clear(p.id);
+      dictPending = false;
+      sayRec("");
+      setDictIdle();
+    });
     // Update note writes the same field, so it is held back too rather than
     // racing the merge for it.
     const lockNote = (on) => {
@@ -2168,13 +2194,16 @@ function renderTable() {
         return showDictErr("Add your OpenAI API key in Settings — Whisper does the transcription.");
       }
       if (!noteBox.value.trim()) return showDictErr("This patient has no stored note to fold the consult into.");
+      if (dictPending) return processDictation(null); // resend the saved recording
       if (micOwner) micOwner.stop();                  // another row still holds the mic
 
+      const wake = await holdScreen();
       let ctl;
-      try { ctl = await startRecording(); }
-      catch (e) { return showDictErr("Microphone unavailable: " + (e.message || e)); }
+      try { ctl = await startRecording(p.id); }
+      catch (e) { if (wake) wake.release().catch(() => {}); return showDictErr("Microphone unavailable: " + (e.message || e)); }
 
       recCtl = ctl;
+      dictBusy.add(p.id);
       micOwner = ctl;
       micBusy = true;
       recBtn.classList.add("recording");
@@ -2192,61 +2221,95 @@ function renderTable() {
       recCtl = null;
       if (micOwner === ctl) micOwner = null;
       setDictIdle();
-      if (!blob) { sayRec(""); micBusy = false; return; }
+      if (!blob) { sayRec(""); micBusy = false; dictBusy.delete(p.id); await pendingAudio.clear(p.id); if (wake) wake.release().catch(() => {}); return; }
+      await processDictation(blob, wake);
+    });
 
+    // Transcribe → merge → save. `blob` is null on a retry, when the audio (or
+    // the transcript, if Whisper already succeeded) comes back from IndexedDB.
+    // The saved copy is only deleted once the merged note is on GitHub.
+    const processDictation = async (blob, wake) => {
+      micBusy = true;
+      dictBusy.add(p.id);
+      wake = wake || await holdScreen();
       dictCtl = new AbortController();
       recBtn.innerHTML = "Cancel";
+      recDiscard.style.display = "none";
+      clearListError();
       // From here the merge owns the note: it is about to rewrite the whole box,
       // so anything typed now would be thrown away. readOnly rather than disabled
       // keeps the text selectable, so you can still read and copy it.
       lockNote(true);
+      let stage = "Transcription";
+      const signal = dictCtl.signal;
+      const retrying = (what) => (n) => sayRec(what + " — connection dropped, retrying (" + n + ")…");
       try {
         // Anything typed in the seconds before Stop is still sitting on the
         // debounce. Get it up now, so it is part of what the merge reads instead
         // of landing on top of the merged note afterwards.
         sayRec("Saving your edits…");
-        await flushNoteSave(p.id);
-        sayRec("Transcribing…");
-        const transcript = await transcribeBlob(blob, dictCtl.signal);
-        if (!transcript) { sayRec("Nothing heard."); return; }
+        await flushNoteSave(p.id).catch(() => {});
+        const meta = (await pendingAudio.getMeta(p.id)) || {};
+        let transcript = meta.transcript;
+        if (!transcript) {
+          blob = blob || await pendingAudio.getBlob(p.id);
+          if (!blob) { dictPending = false; await pendingAudio.clear(p.id); throw new Error("The saved recording couldn't be found on this device."); }
+          sayRec("Transcribing…");
+          transcript = await withRetry(() => transcribeBlob(blob, signal), signal, retrying("Transcribing"));
+          if (!transcript) { dictPending = false; await pendingAudio.clear(p.id); sayRec("Nothing heard."); return; }
+          // Keep the transcript so a later failure doesn't mean paying Whisper twice
+          await pendingAudio.setMeta(p.id, { ...meta, transcript });
+        }
         // Polling is off while the mic is live, so this box may be holding a copy
         // that another device has edited since. Fold into the latest stored note
         // instead, or those edits would be overwritten by a note that predates them.
+        stage = "Merging into the note";
         sayRec("Folding into the note…");
         let base = await latestNote(p.id, noteBox.value);
-        let merged = await mergeConsult(base, transcript, p, dictCtl.signal);
-        if (!merged) { sayRec(""); return; }
+        let merged = await withRetry(() => mergeConsult(base, transcript, p, signal), signal, retrying("Merging"));
+        if (!merged) throw new Error("The model returned an empty note.");
         // Transcribing and merging take a while — if the note moved again in that
         // window, fold into that version rather than overwriting it.
         const newer = await latestNote(p.id, base);
         if (newer !== base) {
           sayRec("Changed elsewhere — folding in again…");
           base = newer;
-          merged = (await mergeConsult(base, transcript, p, dictCtl.signal)) || merged;
+          merged = (await withRetry(() => mergeConsult(base, transcript, p, signal), signal, retrying("Merging"))) || merged;
         }
         noteBox.value = merged;
         autoGrow(noteBox);
+        stage = "Saving to GitHub";
         sayRec("Saving…");
-        await mutateRemote(list => {
+        await withRetry(() => mutateRemote(list => {
           const rec = list.find(x => x.id === p.id);
           if (rec) rec.note = merged;
           return list;
-        }, "Consult dictation: " + (p.name || p.id));
+        }, "Consult dictation: " + (p.name || p.id)), signal, retrying("Saving"));
         sync.value = merged;
         p.note = merged;
+        dictPending = false;
+        await pendingAudio.clear(p.id);
         // The note panel may be collapsed — say where the merged text landed.
         sayRec("Merged ✓ " + timeNow() + (trNote.style.display === "none" ? " — open Note to read it" : ""), true);
         sayNote("Consult merged ✓ " + timeNow(), true);
       } catch (e) {
-        sayRec("");
-        if (e.name !== "AbortError") showDictErr("Dictation failed: " + (e.message || e));
+        dictPending = !!(await pendingAudio.getMeta(p.id));
+        if (e.name === "AbortError") {
+          sayRec(dictPending ? "Cancelled — recording kept, press Retry" : "", dictPending ? false : undefined);
+        } else {
+          const net = e instanceof TypeError ? " (the connection dropped)" : "";
+          showDictErr(stage + " failed" + net + ": " + (e.message || e) +
+            (dictPending ? " — the consult is saved on this device. Press ↻ Retry on the row once you're back online." : ""));
+        }
       } finally {
         dictCtl = null;
         micBusy = false;
+        dictBusy.delete(p.id);
+        if (wake) wake.release().catch(() => {});
         lockNote(false);
         setDictIdle();
       }
-    });
+    };
 
     trNote.appendChild(tdNote);
     body.appendChild(trNote);
@@ -2655,28 +2718,106 @@ function pickMime() {
   return "";
 }
 
+// Unsent consult audio is kept in this browser's IndexedDB (a small database the
+// browser keeps on the device) until the merged note is safely on GitHub. A
+// dropped connection, a closed tab or a crash then costs a retry, not the consult.
+// Audio is written in 5-second pieces while recording, so even a tab killed
+// mid-consult keeps everything up to the last few seconds.
+const pendingAudio = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open("resclinic-audio", 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("meta"); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const run = async (stores, mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction(stores, mode);
+      const req = fn(t);
+      t.oncomplete = () => res(req && req.result);
+      t.onerror = () => rej(t.error);
+    });
+  };
+  const range = (id) => IDBKeyRange.bound(id + ":", id + ":￿");
+  return {
+    addChunk: (id, seq, blob) => run("chunks", "readwrite", t => t.objectStore("chunks").put(blob, id + ":" + String(seq).padStart(6, "0"))).catch(() => {}),
+    getMeta: (id) => run("meta", "readonly", t => t.objectStore("meta").get(id)).catch(() => null),
+    setMeta: (id, meta) => run("meta", "readwrite", t => t.objectStore("meta").put(meta, id)).catch(() => {}),
+    async getBlob(id) {
+      const meta = await this.getMeta(id);
+      const parts = await run("chunks", "readonly", t => t.objectStore("chunks").getAll(range(id))).catch(() => null);
+      return parts && parts.length ? new Blob(parts, { type: (meta && meta.type) || "audio/webm" }) : null;
+    },
+    clear: (id) => run(["chunks", "meta"], "readwrite", t => {
+      t.objectStore("chunks").delete(range(id));
+      t.objectStore("meta").delete(id);
+    }).catch(() => {})
+  };
+})();
+
 // Opens the mic and starts recording. Returns { done, stop } — `done` resolves
 // with the recorded Blob once stop() is called, or null if nothing was captured.
-async function startRecording() {
+// 32 kbps Opus is plenty for speech and keeps an hour-long consult around 14 MB,
+// well inside Whisper's 25 MB upload limit (the browser default of ~128 kbps
+// passes that limit at about 27 minutes).
+async function startRecording(id) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error("This browser can't reach the microphone. Use Chrome or Safari, served over https.");
   }
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const mime = pickMime();
+  const opts = { audioBitsPerSecond: 32000 };
   let rec;
-  try { rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); }
+  try { rec = new MediaRecorder(stream, mime ? { ...opts, mimeType: mime } : opts); }
   catch (e) { rec = new MediaRecorder(stream); }
+  const type = (rec.mimeType || mime || "audio/webm").split(";")[0];
+  await pendingAudio.clear(id);
+  await pendingAudio.setMeta(id, { type, at: Date.now() });
   const chunks = [];
-  rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  let seq = 0;
+  rec.ondataavailable = (e) => {
+    if (!e.data || !e.data.size) return;
+    chunks.push(e.data);
+    pendingAudio.addChunk(id, seq++, e.data);
+  };
   const done = new Promise(resolve => {
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
-      const type = (rec.mimeType || mime || "audio/webm").split(";")[0];
       resolve(chunks.length ? new Blob(chunks, { type }) : null);
     };
   });
-  rec.start();
+  rec.start(5000);
   return { done, stop: () => { if (rec.state !== "inactive") rec.stop(); } };
+}
+
+// Retries a network call a few times with a growing pause. fetch() throws a
+// TypeError ("Failed to fetch" in Chrome, "Load failed" in Safari) when the
+// connection drops; busy (429) and server (5xx) errors are marked retryable.
+function waitMs(ms, signal) {
+  return new Promise((res, rej) => {
+    const t = setTimeout(res, ms);
+    if (signal) signal.addEventListener("abort", () => { clearTimeout(t); rej(new DOMException("Cancelled", "AbortError")); }, { once: true });
+  });
+}
+async function withRetry(fn, signal, onRetry, tries = 4) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      const retryable = e instanceof TypeError || e.retryable;
+      if (e.name === "AbortError" || !retryable || i >= tries) throw e;
+      if (onRetry) onRetry(i);
+      await waitMs(3000 * i, signal);
+    }
+  }
+}
+
+// Holds the screen awake while recording and uploading — a phone that dims and
+// locks mid-consult can suspend the tab and kill the upload.
+async function holdScreen() {
+  try { return navigator.wakeLock ? await navigator.wakeLock.request("screen") : null; }
+  catch (e) { return null; }
 }
 
 // Whisper. The translations endpoint auto-detects the spoken language and always
@@ -2685,6 +2826,7 @@ async function startRecording() {
 async function transcribeBlob(blob, signal) {
   const key = get(K.openai) || $("openaiKey").value.trim();
   if (!key) { $("settingsBox").open = true; throw new Error("Add your OpenAI API key in Settings to transcribe."); }
+  if (blob.size > 25 * 1024 * 1024) throw new Error("The recording is " + (blob.size / 1048576).toFixed(1) + " MB — over Whisper's 25 MB limit.");
   const type = blob.type || "audio/webm";
   const ext = type.indexOf("mp4") > -1 ? "mp4" : (type.indexOf("ogg") > -1 ? "ogg" : "webm");
   const fd = new FormData();
@@ -2702,7 +2844,9 @@ async function transcribeBlob(blob, signal) {
   if (!res.ok) {
     let msg = body;
     try { msg = JSON.parse(body).error.message; } catch (e) {}
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.retryable = res.status === 429 || res.status >= 500;
+    throw err;
   }
   return body.trim();
 }
