@@ -300,6 +300,18 @@ def open_vault():
     webbrowser.open(VAULT_HOME)
 
 
+DESK_EXE = os.path.expanduser(r"~\Github\rounds-desk\dist\RoundsDesk\RoundsDesk.exe")
+DESK_SRC = os.path.expanduser(r"~\Github\rounds-desk\desk.pyw")
+
+
+def open_desk():
+    """Opens Rounds Desk, the full-window app. If it's already open, it comes to the front instead."""
+    if os.path.exists(DESK_EXE):
+        subprocess.Popen([DESK_EXE], cwd=os.path.dirname(DESK_EXE))
+    elif os.path.exists(DESK_SRC):
+        subprocess.Popen([shutil.which("pythonw") or "pythonw", DESK_SRC], cwd=os.path.dirname(DESK_SRC))
+
+
 # ---------- chat ----------
 # Runs Claude Code inside the vault, so it has the vault, both CLAUDE.md files, skills and connectors.
 
@@ -876,6 +888,7 @@ class DropButton:
 
         self.build_panel()
         self.menu = tk.Menu(r, tearoff=0)
+        self.menu.add_command(label="Open Rounds Desk", command=open_desk)
         self.menu.add_command(label="Open Vault home", command=open_vault)
         self.menu.add_command(label="Open Drop page", command=lambda: webbrowser.open(PAGE_URL))
         self.menu.add_command(label="Quit", command=self.quit)
@@ -918,6 +931,7 @@ class DropButton:
         self.status = tk.Label(head, text="", bg=SURFACE, fg=MUTED, font=("Segoe UI", 9))
         self.status.pack(side="left", padx=(6, 0))
         for glyph, tip, command in (("\uE8BB", "Close", lambda: self.collapse(manual=True)),
+                                    ("\uE740", "Open Rounds Desk", open_desk),
                                     ("\uE8A7", "Open Drop page", lambda: webbrowser.open(PAGE_URL)),
                                     ("\uE80F", "Vault home", open_vault)):
             w = tk.Label(head, text=glyph, bg=SURFACE, fg=MUTED, font=(self.icon_font[0], 10), cursor="hand2")
