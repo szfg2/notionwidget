@@ -644,7 +644,7 @@
         <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
         <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>). ⚠ Google is a separate company with its own retention terms. All three keys can be stored at once, so you can switch between them freely.</div>
 
-        <label class="lbl">OpenAI API key — for Whisper transcription of the consult</label>
+        <label class="lbl">OpenAI API key — for transcription of the consult</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
         <div class="hint">Shared with dictation.html and RESblue.html (stored as <code>dictation_openai_key</code>). Only needed for the Record consult button.</div>
 
@@ -957,9 +957,11 @@ const CONFIG = {
   // The memo fills a fixed template in a few sentences and is read before it is sent.
   MEMO_MODEL: "claude-haiku-5-5",
   MEMO_MAX_TOKENS: 16000,
-  // Consult dictation — Whisper transcribes the recorded consult, then Claude
-  // rewrites only the "Currently" section of the stored note from it.
-  WHISPER_MODEL: "whisper-1",
+  // Consult dictation — gpt-4o-transcribe transcribes the recorded consult, then
+  // Claude rewrites only the "Currently" section of the stored note from it.
+  // whisper-1 is the fallback for consults past gpt-4o-transcribe's length limit.
+  TRANSCRIBE_MODEL: "gpt-4o-transcribe",
+  TRANSCRIBE_FALLBACK: "whisper-1",
   DICTATE_MODEL: "claude-sonnet-5-5",
   DICTATE_MAX_TOKENS: 16000,
   // How often an expanded note row checks GitHub for a version saved elsewhere,
@@ -1024,7 +1026,7 @@ AI.fallbackKey = () => {
 
 const K = {
   claude: "cdg_api_key",              // shared with index.html + dictation.html + RESblue.html
-  openai: "dictation_openai_key",     // shared with dictation.html + RESblue.html (Whisper)
+  openai: "dictation_openai_key",     // shared with dictation.html + RESblue.html (transcription)
   ghToken: "dictation_gh_token",      // shared with dictation.html + RESblue.html
   ghOwner: "dictation_gh_owner",
   ghRepo: "dictation_gh_repo",
@@ -1832,7 +1834,7 @@ function renderTable() {
     const recBtn = document.createElement("button");
     recBtn.className = "ghost-btn rec-btn";
     recBtn.type = "button";
-    recBtn.title = "Records the consult, transcribes it through Whisper, and rewrites the Currently section of this patient's note with what the patient said, followed by what you explained or advised. Every other section is left untouched.";
+    recBtn.title = "Records the consult, transcribes it, and rewrites the Currently section of this patient's note with what the patient said, followed by what you explained or advised. Every other section is left untouched.";
     const recStat = document.createElement("div");
     recStat.className = "rowstat";
     // Shown only while a failed consult recording is waiting on this device
@@ -2135,7 +2137,7 @@ function renderTable() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); memoBtn.click(); }
     });
 
-    // --- Dictate consult: record → Whisper → rewrite the "Currently" section ---
+    // --- Dictate consult: record → transcribe → rewrite the "Currently" section ---
     // The control is the Record button in the actions column (under Delete), so
     // the consult can be recorded without expanding the note. The whole flow is
     // one button: press to record, press to stop, press again during
@@ -2191,7 +2193,7 @@ function renderTable() {
       if (!key) { $("settingsBox").open = true; return showDictErr(AI.missingKeyMsg()); }
       if (!(get(K.openai) || $("openaiKey").value.trim())) {
         $("settingsBox").open = true;
-        return showDictErr("Add your OpenAI API key in Settings — Whisper does the transcription.");
+        return showDictErr("Add your OpenAI API key in Settings — OpenAI does the transcription.");
       }
       if (!noteBox.value.trim()) return showDictErr("This patient has no stored note to fold the consult into.");
       if (dictPending) return processDictation(null); // resend the saved recording
@@ -2226,7 +2228,7 @@ function renderTable() {
     });
 
     // Transcribe → merge → save. `blob` is null on a retry, when the audio (or
-    // the transcript, if Whisper already succeeded) comes back from IndexedDB.
+    // the transcript, if transcription already succeeded) comes back from IndexedDB.
     // The saved copy is only deleted once the merged note is on GitHub.
     const processDictation = async (blob, wake) => {
       micBusy = true;
@@ -2257,7 +2259,7 @@ function renderTable() {
           sayRec("Transcribing…");
           transcript = await withRetry(() => transcribeBlob(blob, signal), signal, retrying("Transcribing"));
           if (!transcript) { dictPending = false; await pendingAudio.clear(p.id); sayRec("Nothing heard."); return; }
-          // Keep the transcript so a later failure doesn't mean paying Whisper twice
+          // Keep the transcript so a later failure doesn't mean paying for transcription twice
           await pendingAudio.setMeta(p.id, { ...meta, transcript });
         }
         // Polling is off while the mic is live, so this box may be holding a copy
@@ -2710,7 +2712,7 @@ async function pollOpenNotes() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) pollOpenNotes(); });
 
 /* ============================================================== *
- *  Consult dictation — MediaRecorder → Whisper → Claude merge    *
+ *  Consult dictation — MediaRecorder → transcribe → Claude merge *
  * ============================================================== */
 function pickMime() {
   const opts = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
@@ -2760,7 +2762,7 @@ const pendingAudio = (() => {
 // Opens the mic and starts recording. Returns { done, stop } — `done` resolves
 // with the recorded Blob once stop() is called, or null if nothing was captured.
 // 32 kbps Opus is plenty for speech and keeps an hour-long consult around 14 MB,
-// well inside Whisper's 25 MB upload limit (the browser default of ~128 kbps
+// well inside OpenAI's 25 MB upload limit (the browser default of ~128 kbps
 // passes that limit at about 27 minutes).
 async function startRecording(id) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -2820,21 +2822,32 @@ async function holdScreen() {
   catch (e) { return null; }
 }
 
-// Whisper. The translations endpoint auto-detects the spoken language and always
-// returns English — the same choice as dictation.html and RESblue.html, which
-// also stops accented English being mis-detected as Malay.
+// gpt-4o-transcribe, as in dictation.html and RESblue.html — far fewer
+// hallucinations on silence than whisper-1. It transcribes in the language spoken;
+// the merge writes English. It rejects audio past roughly 25 minutes, so a long
+// consult is retried once on whisper-1 (translations endpoint, English out).
 async function transcribeBlob(blob, signal) {
+  try {
+    return await transcribeWith(CONFIG.TRANSCRIBE_MODEL, blob, signal);
+  } catch (e) {
+    if (e.retryable || !/second|duration|too long|longer than/i.test(e.message || "")) throw e;
+    return transcribeWith(CONFIG.TRANSCRIBE_FALLBACK, blob, signal);
+  }
+}
+async function transcribeWith(model, blob, signal) {
+  const whisper = model === "whisper-1";
   const key = get(K.openai) || $("openaiKey").value.trim();
   if (!key) { $("settingsBox").open = true; throw new Error("Add your OpenAI API key in Settings to transcribe."); }
-  if (blob.size > 25 * 1024 * 1024) throw new Error("The recording is " + (blob.size / 1048576).toFixed(1) + " MB — over Whisper's 25 MB limit.");
+  if (blob.size > 25 * 1024 * 1024) throw new Error("The recording is " + (blob.size / 1048576).toFixed(1) + " MB — over OpenAI's 25 MB limit.");
   const type = blob.type || "audio/webm";
   const ext = type.indexOf("mp4") > -1 ? "mp4" : (type.indexOf("ogg") > -1 ? "ogg" : "webm");
   const fd = new FormData();
   fd.append("file", blob, "consult." + ext);
-  fd.append("model", CONFIG.WHISPER_MODEL);
+  fd.append("model", model);
+  if (!whisper) fd.append("chunking_strategy", "auto");   // cuts at pauses; one unchunked block truncates long audio
   fd.append("prompt", "Respiratory outpatient clinic consultation between a doctor and a patient.");
   fd.append("response_format", "text");
-  const res = await fetch("https://api.openai.com/v1/audio/translations", {
+  const res = await fetch("https://api.openai.com/v1/audio/" + (whisper ? "translations" : "transcriptions"), {
     method: "POST",
     signal,
     headers: { "Authorization": "Bearer " + key },

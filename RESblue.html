@@ -883,7 +883,7 @@
         <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
         <div class="hint">Only used when the provider above is set to Gemini. Shared with the council on RES.html (stored as <code>cdg_gemini_key</code>). ⚠ Google is a separate company with its own retention terms. All three keys can be stored at once, so you can switch between them freely.</div>
 
-        <label class="lbl">OpenAI API key — for Whisper dictation in History taking mode</label>
+        <label class="lbl">OpenAI API key — for dictation in History taking mode</label>
         <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
         <div class="hint">Shared with dictation.html (stored as <code>dictation_openai_key</code>). Only needed for the Dictate button.</div>
 
@@ -1223,9 +1223,9 @@ const CONFIG = {
   HX_LINES_PROMPT: "prompts/respiratory-history-lines.txt",
   HX_LINES_MODEL: "claude-opus-5-5",
   HX_LINES_MAX_TOKENS: 16000,
-  // Bedside dictation — Whisper transcribes, then Claude folds the transcript
-  // into the history box. Same endpoint/model as dictation.html.
-  WHISPER_MODEL: "whisper-1",
+  // Bedside dictation — gpt-4o-transcribe transcribes, then Claude folds the
+  // transcript into the history box. Same endpoint/model as dictation.html.
+  TRANSCRIBE_MODEL: "gpt-4o-transcribe",
   HX_MERGE_MODEL: "claude-opus-5-5",
   HX_MERGE_MAX_TOKENS: 16000,
   LETTER_PROMPT: "prompts/respiratory-blue-letter-reply.txt",
@@ -1341,7 +1341,7 @@ const K = {
   ghToken: "dictation_gh_token",      // shared with dictation.html
   ghOwner: "dictation_gh_owner",
   ghRepo: "dictation_gh_repo",
-  openai: "dictation_openai_key",     // shared with dictation.html (Whisper)
+  openai: "dictation_openai_key",     // shared with dictation.html (transcription)
   ghBranch: "dictation_gh_branch",
   path: "resblue_gh_path",            // this page's own file
   listView: "resblue_list_view",      // "full" | "hx" — Patient List column layout
@@ -1391,8 +1391,8 @@ $("saveSettings").addEventListener("click", () => {
  *  Spend today                                                   *
  * ============================================================== */
 // provider.js tallies the token usage every model response reports, keyed by
-// date, and fires "ai-usage" after each call. This only renders it. Whisper is
-// billed by the minute rather than by token, so its row shows audio length.
+// date, and fires "ai-usage" after each call. This only renders it. Transcription
+// is billed by the minute rather than by token, so its row shows audio length.
 function fmtUSD(n) { return "$" + (n < 1 ? n.toFixed(3) : n.toFixed(2)); }
 function fmtTokens(n) { return n >= 1000 ? Math.round(n / 1000) + "k" : String(n); }
 
@@ -1813,7 +1813,7 @@ renderTexts();
  * ============================================================== */
 const LIST_FOOT = {
   full: "Job list edits autosave to GitHub a moment after you stop typing. Tick <b>Show in banner</b> to lift a patient's jobs into the banner at the top of the page, and <b>Pleural review</b> to file the patient into the Pleural Reviews tab. The list syncs across all your devices. Patients created before today are filed automatically into Previous Patients, under the date they were created.",
-  hx: "History taking mode — location, name and a clerking history for each patient. <b>Draft</b> rewrites what's already documented into bedside lines, with a <b>to ask</b> block at the bottom for what the notes don't answer; everything is then editable and autosaves to GitHub, so type over it as you clerk. <b>Dictate</b> records you at the bedside, transcribes it through Whisper and merges it into the lines above — answered <b>to ask</b> points move up into the history automatically. Drafts and merges use only documented or dictated information — check the negatives against the patient. The mic keeps running if you switch to <b>Common Condition Histories</b> — a bar at the bottom of the screen holds the timer and Stop button."
+  hx: "History taking mode — location, name and a clerking history for each patient. <b>Draft</b> rewrites what's already documented into bedside lines, with a <b>to ask</b> block at the bottom for what the notes don't answer; everything is then editable and autosaves to GitHub, so type over it as you clerk. <b>Dictate</b> records you at the bedside, transcribes it and merges it into the lines above — answered <b>to ask</b> points move up into the history automatically. Drafts and merges use only documented or dictated information — check the negatives against the patient. The mic keeps running if you switch to <b>Common Condition Histories</b> — a bar at the bottom of the screen holds the timer and Stop button."
 };
 function setListView(v) {
   listView = v === "hx" ? "hx" : "full";
@@ -3740,7 +3740,7 @@ function historyCell(td, p) {
   }
   draftBtn.addEventListener("click", () => { draft(false).catch(() => {}); });
 
-  // Dictate → stop → Whisper → Claude folds it into whatever is in the box.
+  // Dictate → stop → transcribe → Claude folds it into whatever is in the box.
   // The button is the whole control: press to record, press to stop, press
   // again during transcription/merge to cancel.
   let recCtl = null;
@@ -3848,7 +3848,7 @@ function queueHistorySave(id, value, stat) {
 }
 
 /* ============================================================== *
- *  Bedside dictation — MediaRecorder → Whisper → Claude merge    *
+ *  Bedside dictation — MediaRecorder → transcribe → Claude merge *
  * ============================================================== */
 // One microphone at a time across the whole list — starting a second row stops
 // the first, so its audio still gets transcribed rather than being thrown away.
@@ -3884,10 +3884,9 @@ async function startRecording() {
   return { done, stop: () => { if (rec.state !== "inactive") rec.stop(); } };
 }
 
-// Whisper. The translations endpoint auto-detects the spoken language and always
-// returns English — the same choice as dictation.html, which also stops accented
-// English being mis-detected as Malay.
-// `seconds` is only used to price the call — Whisper bills per minute of audio,
+// gpt-4o-transcribe, as in dictation.html — far fewer hallucinations on silence
+// than whisper-1. It transcribes in the language spoken; the merge writes English.
+// `seconds` is only used to price the call — it bills per minute of audio,
 // so the recording length is the only usage figure the response can't tell us.
 async function transcribeBlob(blob, signal, seconds) {
   const key = get(K.openai) || $("openaiKey").value.trim();
@@ -3896,10 +3895,11 @@ async function transcribeBlob(blob, signal, seconds) {
   const ext = type.indexOf("mp4") > -1 ? "mp4" : (type.indexOf("ogg") > -1 ? "ogg" : "webm");
   const fd = new FormData();
   fd.append("file", blob, "dictation." + ext);
-  fd.append("model", CONFIG.WHISPER_MODEL);
+  fd.append("model", CONFIG.TRANSCRIBE_MODEL);
+  fd.append("chunking_strategy", "auto");   // cuts at pauses; one unchunked block truncates long audio
   fd.append("prompt", "Clinical history taking at the bedside.");   // biases clinical vocabulary
   fd.append("response_format", "text");
-  const res = await fetch("https://api.openai.com/v1/audio/translations", {
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     signal,
     headers: { "Authorization": "Bearer " + key },
@@ -3911,7 +3911,7 @@ async function transcribeBlob(blob, signal, seconds) {
     try { msg = JSON.parse(body).error.message; } catch (e) {}
     throw new Error(msg);
   }
-  if (seconds) AI.usage.audio(CONFIG.WHISPER_MODEL, seconds);
+  if (seconds) AI.usage.audio(CONFIG.TRANSCRIBE_MODEL, seconds);
   return body.trim();
 }
 

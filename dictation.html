@@ -343,7 +343,7 @@
   <header class="app">
     <div class="head-text">
       <h1>Dictation → Note</h1>
-      <p class="sub">Record, and the note writes and saves itself: Whisper transcribes, the model formats it to your chosen template, and it syncs to GitHub. <a href="index.html">Go to Document Generator →</a></p>
+      <p class="sub">Record, and the note writes and saves itself: gpt-4o-transcribe transcribes, the model formats it to your chosen template, and it syncs to GitHub. <a href="index.html">Go to Document Generator →</a></p>
     </div>
     <button class="ghost-btn" id="installBtn" type="button" hidden>Install app</button>
   </header>
@@ -364,11 +364,11 @@
             </select>
           </div>
           <div class="field">
-            <label class="lbl" for="openaiKey">OpenAI API key — Whisper transcription</label>
+            <label class="lbl" for="openaiKey">OpenAI API key — transcription</label>
             <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" spellcheck="false" />
           </div>
         </div>
-        <p class="hint">The provider is shared across every page (<code>cdg_provider</code>). Transcription always uses OpenAI Whisper regardless of the provider.</p>
+        <p class="hint">The provider is shared across every page (<code>cdg_provider</code>). Transcription always uses OpenAI gpt-4o-transcribe regardless of the provider.</p>
 
         <label class="lbl" for="claudeKey">Anthropic (Claude) API key</label>
         <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
@@ -402,7 +402,7 @@
     </details>
     <div class="keymeta">
       <span class="model-tag">format&nbsp;<b id="modelTag">—</b></span>
-      <span class="model-tag" style="margin-left:0">transcribe&nbsp;<b>whisper-1</b></span>
+      <span class="model-tag" style="margin-left:0">transcribe&nbsp;<b>gpt-4o-transcribe</b></span>
     </div>
   </div>
 
@@ -492,7 +492,7 @@
  * ============================================================ */
 const CONFIG = {
   MAX_TOKENS: 16000,
-  WHISPER_MODEL: "whisper-1",
+  TRANSCRIBE_MODEL: "gpt-4o-transcribe",
   PROMPTS_INDEX: "dictation-prompts/index.json",
   PROMPTS_DIR: "dictation-prompts/",
   BASE_PROMPT: "dictation-prompts/base.txt"
@@ -639,7 +639,7 @@ function resetSteps() { ["rec", "txn", "fmt", "save"].forEach(n => setStep(n, nu
 function setMsg(m) { $("recMsg").textContent = m; }
 
 /* ============================================================ *
- *  Recording → Whisper                                         *
+ *  Recording → transcription                                   *
  * ============================================================ */
 let mediaRecorder = null, chunks = [], recTimer = null, recStart = 0, recSeconds = 0;
 let recording = false, busy = false;
@@ -740,15 +740,16 @@ async function transcribe(blob, type) {
   const ext = type.indexOf("mp4") > -1 ? "mp4" : (type.indexOf("ogg") > -1 ? "ogg" : "webm");
   const fd = new FormData();
   fd.append("file", blob, "recording." + ext);
-  fd.append("model", CONFIG.WHISPER_MODEL);
-  // Translations endpoint: auto-detects the source language (English / Malay / Chinese)
-  // and always returns English. Also stops accented English being read as Malay.
-  // Biases Whisper's vocabulary; a note type can override it (index.json audioPrompt)
+  fd.append("model", CONFIG.TRANSCRIBE_MODEL);
+  // Cuts the audio at pauses server-side; one unchunked block truncates long dictations.
+  fd.append("chunking_strategy", "auto");
+  // Transcribes in the language spoken — the formatting model writes the note in English.
+  // Biases the vocabulary; a note type can override it (index.json audioPrompt)
   const entryNow = currentEntry();
   fd.append("prompt", (entryNow && entryNow.audioPrompt) || "Clinical dictation.");
   fd.append("response_format", "text");
   try {
-    const res = await fetch("https://api.openai.com/v1/audio/translations", {
+    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key },
       body: fd
@@ -759,7 +760,7 @@ async function transcribe(blob, type) {
       try { msg = JSON.parse(body).error.message; } catch (e) {}
       throw new Error(msg);
     }
-    if (recSeconds) { try { AI.usage.audio(CONFIG.WHISPER_MODEL, recSeconds); } catch (e) {} }
+    if (recSeconds) { try { AI.usage.audio(CONFIG.TRANSCRIBE_MODEL, recSeconds); } catch (e) {} }
     const t = body.trim();
     const cur = $("transcript").value.trim();
     $("transcript").value = cur ? (cur + "\n" + t) : t;

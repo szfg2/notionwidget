@@ -78,7 +78,8 @@
     "claude-opus-5":     { in: 5, out: 25, cacheWrite: 6.25, cacheRead: 0.50 },
     "claude-sonnet-5":   { in: 2, out: 10, cacheWrite: 2.50, cacheRead: 0.20 },
     "claude-sonnet-4-6": { in: 3, out: 15, cacheWrite: 3.75, cacheRead: 0.30 },
-    // Whisper is billed per minute of audio, not per token.
+    // Transcription is billed per minute of audio, not per token.
+    "gpt-4o-transcribe": { perMinute: 0.006 },
     "whisper-1":         { perMinute: 0.006 }
     // DeepSeek v4 and Gemini 3.x rates are deliberately absent — add them here
     // to price those calls.
@@ -189,7 +190,7 @@
         bump(model, t, usd, !p);
       },
 
-      // Audio models are billed by the minute — Whisper dictation goes here.
+      // Audio models are billed by the minute — dictation goes here.
       audio(model, seconds) {
         const p = PRICES[model];
         const usd = p && p.perMinute ? (seconds / 60) * p.perMinute : 0;
