@@ -11,7 +11,7 @@ Output rules — follow exactly:
 - Output ONLY the note, as plain text so it can be pasted straight into the record. Begin directly with the one-line summary. No preamble, no explanation, no closing remarks, and NO code fences or backticks anywhere.
 - Text between # ... # are instructions to you: replace them with the requested content; NEVER print the # characters or the instruction wording.
 - Use ONLY values explicitly given in the inputs. Never invent a result.
-- Keep every field label in the Results block even when a value is missing: write the label and colon, and leave the value blank — EXCEPT the two rules noted below (culture, drain output).
+- Keep every field label in the Results block even when a value is missing: write the label and colon, and leave the value blank — EXCEPT the rules noted below (albumin/SAAG, ADA, culture, drain output).
 - Do not include laboratory units where a bare number reads cleanly, and no (H)/(L) flags.
 - Do not end lines with a full stop.
 
@@ -19,8 +19,11 @@ Calculations you must perform when the inputs allow:
 - Protein ratio = pleural fluid protein ÷ serum protein, to 2 decimal places. Leave blank if either value is missing.
 - LDH ratio = pleural fluid LDH ÷ serum LDH, to 2 decimal places. Leave blank if either value is missing.
 - The upper limit of normal (ULN) for serum LDH is 225, so two-thirds of the ULN is 150. Compare the PLEURAL FLUID LDH to 150: if fluid LDH is greater than 150 keep "LDH is more than 2/3 upper limit of normal"; if it is 150 or less keep "LDH is less than 2/3 upper limit of normal". Delete the option that does not apply. If fluid LDH is missing, leave that line blank.
+- SAAG (serum-effusion albumin gradient) = serum albumin − pleural fluid albumin, to 1 decimal place. A gradient above 12 g/L (1.2 g/dL if the albumins are given in g/dL) is "supportive of transudative process"; 12 g/L or less is "not supportive of transudative process".
 
 Field-specific rules:
+- Albumin / SAAG block: include it ONLY when BOTH pleural fluid albumin and serum albumin are given. If either is missing, omit all three lines (and the blank line before them) entirely.
+- ADA: include the "ADA:" line ONLY when an ADA (adenosine deaminase) value is given. Otherwise omit the line entirely.
 - Culture results: if no culture result is provided, write "pending".
 - Drain output: if no drain output is provided, leave the value blank.
 
@@ -38,6 +41,11 @@ LDH, serum:
 LDH ratio:
 #Keep exactly ONE of: "LDH is more than 2/3 upper limit of normal" OR "LDH is less than 2/3 upper limit of normal", decided by the rule above#
 
+#Only when both albumins are given (rule above) — otherwise omit these three lines:#
+Albumin, fluid:
+Albumin, serum:
+SAAG: #gradient# (#"supportive of transudative process" OR "not supportive of transudative process", decided by the rule above#)
+
 pH:
 Glucose:
 Cell count:
@@ -45,12 +53,14 @@ Lymphocytes _ Neutrophils _ Monocytes _
 
 Gram stain:
 AFB smear:
+#Only when an ADA value is given — otherwise omit this line:#
+ADA:
 Culture results:
 
 Drain output:
 
 Impression
-#A one-line impression of the effusion, reasoned from the results — apply Light's criteria (exudate if fluid/serum protein > 0.5, OR fluid/serum LDH > 0.6, OR fluid LDH > 150) and note the dominant cell type if relevant, e.g. "Lymphocyte-predominant exudate, TB and malignancy to exclude"#
+#A one-line impression of the effusion, reasoned from the results — apply Light's criteria (exudate if fluid/serum protein > 0.5, OR fluid/serum LDH > 0.6, OR fluid LDH > 150) and note the dominant cell type if relevant; if Light's criteria call it an exudate but the SAAG is supportive of a transudative process, say so (e.g. a diuresed transudate); e.g. "Lymphocyte-predominant exudate, TB and malignancy to exclude"#
 
 Suggest
 #The plans from SUGGESTED PLANS, written as "-" bullets, one plan per line. If no plans were entered, omit this whole section.#
