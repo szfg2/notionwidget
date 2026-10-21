@@ -327,6 +327,22 @@
     padding: 7px 9px;
     background: var(--surface-2);
   }
+  .patients td.lungs { width: 1%; white-space: nowrap; }
+  .lung-box { display: inline-flex; flex-direction: column; gap: 5px; }
+  .lung-svg {
+    display: block;
+    width: 168px;
+    height: auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: crosshair;
+    touch-action: none; /* finger/pen draws instead of scrolling the page */
+  }
+  .lung-svg .outline { fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .lung-svg .ink { fill: none; stroke: #ff6b5e; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .lung-tools { display: flex; gap: 5px; }
+  .patients .lung-tools .ghost-btn, .patients .ghost-btn.lung-add { padding: 3px 9px; font-size: 11.5px; }
   .patients td.jobs { min-width: 170px; }
   .patients td.actions { white-space: nowrap; }
   .patients textarea.jobbox {
@@ -447,10 +463,10 @@
       background: var(--surface-2);
       white-space: normal;
     }
-    .patients td.summary, .patients td.objective,
+    .patients td.summary, .patients td.objective, .patients td.lungs,
     .patients td.jobs, .patients td.actions { grid-column: 1 / -1; min-width: 0; }
 
-    .patients td.loc::before, .patients td.name::before,
+    .patients td.loc::before, .patients td.name::before, .patients td.lungs::before,
     .patients td.summary::before, .patients td.objective::before,
     .patients td.jobs::before {
       display: block;
@@ -463,6 +479,7 @@
     }
     .patients td.loc::before { content: "Location"; }
     .patients td.name::before { content: "Name"; }
+    .patients td.lungs::before { content: "Lungs"; }
     .patients td.summary::before { content: "Summarised history"; }
     .patients td.objective::before { content: "Objective"; }
     .patients td.jobs::before { content: "Job list"; }
@@ -706,6 +723,7 @@
             <tr>
               <th style="width:1%">Location</th>
               <th style="width:1%">Name</th>
+              <th style="width:1%">Lungs</th>
               <th>Summarised history</th>
               <th style="width:16%">Objective</th>
               <th style="width:16%">Job list</th>
@@ -1647,6 +1665,120 @@ function moveSelect(p, targets) {
   return sel;
 }
 
+/* ---- Lung diagram — sketch over a simple two-lung outline ---- */
+// Strokes are stored on the patient (p.lungs) as "x,y x,y …" strings in the
+// outline's own 220×142 coordinate space, so the same data redraws at any
+// size: desktop, phone card, and the printout. p.lungs absent = no diagram.
+const LUNG_VIEWBOX = "0 0 220 142";
+const LUNG_OUTLINE = [
+  "M71 17 Q70 11 64 11 C36 14 12 64 12 130 Q40 110 86 103",                 // right lung: apex, lateral wall, base
+  "M80 18 L85 114",                                                          // right medial border
+  "M106 20 Q108 11 116 11 C150 12 200 40 208 76 C208 98 192 116 176 132",    // left lung: apex, lateral wall
+  "M112 16 L114 75",                                                         // left medial border
+  "M114 71 C138 62 176 82 178 118"                                           // cardiac notch
+];
+function lungSvg(strokes) {
+  return '<svg class="lung-svg" viewBox="' + LUNG_VIEWBOX + '" xmlns="http://www.w3.org/2000/svg">' +
+    LUNG_OUTLINE.map(d => '<path class="outline" d="' + d + '"/>').join("") +
+    (strokes || []).map(s => '<polyline class="ink" points="' + escapeHtml(s) + '"/>').join("") +
+    "</svg>";
+}
+
+function lungCell(td, p) {
+  let strokes = Array.isArray(p.lungs) ? p.lungs.slice() : null;
+  const save = (msg) => queueFieldSave(p.id, "lungs", strokes ? strokes.slice() : null, msg);
+  const btn = (label, title, fn) => {
+    const b = document.createElement("button");
+    b.className = "ghost-btn";
+    b.type = "button";
+    b.textContent = label;
+    b.title = title;
+    b.addEventListener("click", fn);
+    return b;
+  };
+
+  function render() {
+    td.innerHTML = "";
+    if (!strokes) {
+      const add = btn("+ Lungs", "Add a lung diagram to sketch on", () => {
+        strokes = [];
+        save("Add GW lung diagram");
+        render();
+      });
+      add.classList.add("lung-add");
+      td.appendChild(add);
+      return;
+    }
+    const box = document.createElement("div");
+    box.className = "lung-box";
+    box.innerHTML = lungSvg(strokes);
+    const svg = box.firstChild;
+    svg.setAttribute("aria-label", "Lung diagram — draw with mouse, finger or pen");
+
+    // Screen position → outline coordinates, whatever size the SVG is drawn at.
+    const toLocal = (e) => {
+      const q = svg.createSVGPoint();
+      q.x = e.clientX; q.y = e.clientY;
+      return q.matrixTransform(svg.getScreenCTM().inverse());
+    };
+    const fmt = (q) => Math.round(q.x * 10) / 10 + "," + Math.round(q.y * 10) / 10;
+    let line = null, pts = [], last = null;
+    svg.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      svg.setPointerCapture(e.pointerId);
+      last = toLocal(e);
+      pts = [fmt(last), fmt(last)]; // doubled so a single tap leaves a dot
+      line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      line.setAttribute("class", "ink");
+      line.setAttribute("points", pts.join(" "));
+      svg.appendChild(line);
+    });
+    svg.addEventListener("pointermove", (e) => {
+      if (!line) return;
+      const q = toLocal(e);
+      if (Math.hypot(q.x - last.x, q.y - last.y) < 1) return; // keep the saved data small
+      last = q;
+      pts.push(fmt(q));
+      line.setAttribute("points", pts.join(" "));
+    });
+    const end = () => {
+      if (!line) return;
+      line = null;
+      strokes.push(pts.join(" "));
+      save("Sketch on GW lung diagram");
+      undo.disabled = false;
+    };
+    svg.addEventListener("pointerup", end);
+    svg.addEventListener("pointercancel", end);
+
+    const tools = document.createElement("div");
+    tools.className = "lung-tools";
+    const undo = btn("↶ Undo", "Remove the last stroke", () => {
+      strokes.pop();
+      save("Undo GW lung sketch");
+      render();
+    });
+    undo.disabled = !strokes.length;
+    tools.appendChild(undo);
+    tools.appendChild(btn("Clear", "Wipe the sketch, keep the diagram", () => {
+      if (!strokes.length || !confirm("Clear the sketch on this lung diagram?")) return;
+      strokes = [];
+      save("Clear GW lung sketch");
+      render();
+    }));
+    tools.appendChild(btn("✕", "Remove the lung diagram", () => {
+      if (strokes.length && !confirm("Remove the lung diagram and its sketch?")) return;
+      strokes = null;
+      save("Remove GW lung diagram");
+      render();
+    }));
+    box.appendChild(tools);
+    td.appendChild(box);
+  }
+  render();
+}
+
 function buildRow(p, body) {
   const tr = document.createElement("tr");
 
@@ -1669,6 +1801,11 @@ function buildRow(p, body) {
     tdName.appendChild(upd);
   }
   tr.appendChild(tdName);
+
+  const tdLungs = document.createElement("td");
+  tdLungs.className = "lungs";
+  lungCell(tdLungs, p);
+  tr.appendChild(tdLungs);
 
   const tdSum = document.createElement("td");
   tdSum.className = "summary";
@@ -1731,7 +1868,7 @@ function buildRow(p, body) {
   trUpd.className = "detail-row";
   trUpd.style.display = "none";
   const tdUpd = document.createElement("td");
-  tdUpd.colSpan = 6;
+  tdUpd.colSpan = 7;
   const wrap = document.createElement("div");
   wrap.className = "update-wrap";
   const lbl = document.createElement("span");
@@ -1961,7 +2098,7 @@ function buildRow(p, body) {
   trAsk.className = "detail-row";
   trAsk.style.display = "none";
   const tdAsk = document.createElement("td");
-  tdAsk.colSpan = 6;
+  tdAsk.colSpan = 7;
 
   const askHead = document.createElement("div");
   askHead.className = "letter-head";
@@ -2186,9 +2323,12 @@ $("printBtn").addEventListener("click", () => {
   const listName = activeList().name;
   const list = sortedList();
   if (!list.length) { setListStatus("Nothing to print."); return; }
+  // Lungs column only when someone on this list has a diagram.
+  const hasLungs = list.some(p => Array.isArray(p.lungs));
   const rows = list.map(p => "<tr>" +
     '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
     "<td>" + escapeHtml(p.name || "") + "</td>" +
+    (hasLungs ? '<td class="lung">' + (Array.isArray(p.lungs) ? lungSvg(p.lungs) : "") + "</td>" : "") +
     '<td class="sum">' + summaryHtml(p.summary || "") + "</td>" +
     '<td class="sum">' + objectiveHtml(p.objective) + "</td>" +
     '<td class="pre">' + escapeHtml(p.jobs || "") + "</td>" +
@@ -2203,6 +2343,10 @@ $("printBtn").addEventListener("click", () => {
     "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
     "td.loc{white-space:nowrap;font-weight:600;}" +
     "td.sum{line-height:1.35;}" +
+    "td.lung{width:26mm;padding:2px;}" +
+    ".lung-svg{display:block;width:26mm;height:auto;}" +
+    ".lung-svg .outline{fill:none;stroke:#666;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}" +
+    ".lung-svg .ink{fill:none;stroke:#d00;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}" +
     "td.pre{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.4;}" +
     "strong{font-weight:700;}" +
     "tr{page-break-inside:avoid;}" +
@@ -2211,7 +2355,7 @@ $("printBtn").addEventListener("click", () => {
     "<h1>" + escapeHtml(listName) + "</h1>" +
     '<p class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</p>" +
-    "<table><thead><tr><th>Location</th><th>Name</th><th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
+    "<table><thead><tr><th>Location</th><th>Name</th>" + (hasLungs ? "<th>Lungs</th>" : "") + "<th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
     "<tbody>" + rows + "</tbody></table></body></html>";
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
