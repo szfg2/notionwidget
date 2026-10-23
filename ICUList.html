@@ -699,7 +699,8 @@
 
     <div class="card">
       <span class="eyebrow">Latest clinical data — vitals, vent settings &amp; labs</span>
-      <textarea class="input-box" id="clinical" placeholder="Vitals, ventilator settings, inotropes, GCS/sedation, bloods, fluid balance, micro, antibiotics, imaging this admission…"></textarea>
+      <textarea class="input-box" id="clinical" placeholder="Vitals, ventilator settings, inotropes, GCS/sedation, bloods, fluid balance, micro, antibiotics, imaging this admission… (or paste / drop screenshots)"></textarea>
+      <div class="hint" id="shotHint">Paste (<span class="kbd">Ctrl/⌘ + V</span>) or drop screenshots here — Claude transcribes them into text at the cursor, leaving out names, NRIC, MRN and DOB. Check the text before generating.</div>
     </div>
 
     <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere.</span></p>
@@ -1277,6 +1278,7 @@ async function runGenerate(mode) {
   const clinical = $("clinical").value.trim();
   if (!name && !location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
   if (!past && !clinical) return showError("Add some past medical details or clinical data.");
+  if (shotsPending) return showError("Still reading pasted screenshots — wait for them to finish.");
 
   // Only the de-identified medical content is sent to Claude — never name/location.
   const userMessage = "PATIENT DETAILS:\n" + past + "\n\nLATEST CLINICAL DATA:\n" + clinical;
@@ -1370,6 +1372,120 @@ function setLoading(mode, on) {
     other.disabled = false;
   }
 }
+
+/* Screenshots pasted or dropped into Latest clinical data are transcribed to
+ * text straight away, so everything downstream (saved records, regenerations)
+ * stays plain text. A placeholder holds the cursor position while the model
+ * reads the image, so several pastes land in the order they were made. */
+const SHOT_SYS = `You transcribe screenshots of hospital EMR screens (vitals charts, ventilator settings, lab results, blood gases, drug charts, imaging reports, notes) into plain text for an ICU clinician.
+
+- Transcribe the clinical data faithfully: every value with its units, reference flags (H/L), and the date/time it was taken. Keep trends as time-ordered series (e.g. "Hb 98 → 91 → 87 (20/10 → 22/10)").
+- Leave out every patient identifier: names, NRIC/FIN, MRN, date of birth, address, phone numbers, and staff names.
+- Group by type (Vitals, Vent, Bloods, ABG, Micro, Drugs, Imaging, Notes) using short "Label: values" lines. No markdown, no commentary, no interpretation.
+- If part of the image is unreadable, write [unreadable] rather than guessing.`;
+
+const SHOT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const SHOT_MAX_B64 = 4.6e6;
+let shotSeq = 0, shotsPending = 0;
+
+function readAsDataURL(file) {
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fail(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+function reencode(dataUrl, maxEdge, quality) {
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      ok(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => fail(new Error("Could not read that image."));
+    img.src = dataUrl;
+  });
+}
+
+async function imageBlock(file) {
+  let url = await readAsDataURL(file);
+  if (!SHOT_TYPES.includes(file.type) || url.length > SHOT_MAX_B64) {
+    url = await reencode(url, 2400, 0.92);
+    if (url.length > SHOT_MAX_B64) url = await reencode(url, 1800, 0.85);
+  }
+  const m = /^data:([^;]+);base64,(.*)$/.exec(url);
+  return { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } };
+}
+
+function insertAtCursor(box, text) {
+  const s = box.selectionStart, e = box.selectionEnd, v = box.value;
+  const before = v.slice(0, s), after = v.slice(e);
+  const lead = before && !before.endsWith("\n") ? "\n" : "";
+  const trail = after && !after.startsWith("\n") ? "\n" : "";
+  box.value = before + lead + text + trail + after;
+  const pos = (before + lead + text).length;
+  box.setSelectionRange(pos, pos);
+}
+
+const SHOT_HINT = $("shotHint").innerHTML;
+function setShotHint() {
+  if (!shotsPending) { $("shotHint").innerHTML = SHOT_HINT; return; }
+  $("shotHint").textContent = "Reading " + shotsPending + " screenshot" + (shotsPending === 1 ? "" : "s") + "… you can keep typing.";
+}
+
+async function transcribeShots(files) {
+  clearError();
+  if (AI.id() === "deepseek") return showError("DeepSeek can't read images — switch the provider to Claude or Gemini in Settings to paste screenshots.");
+  const key = AI.key();
+  if (!key) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
+
+  const box = $("clinical");
+  await Promise.all(files.map(async (file) => {
+    const tag = "[Reading screenshot " + (++shotSeq) + "…]";
+    insertAtCursor(box, tag);
+    shotsPending++; setShotHint();
+    try {
+      const text = await AI.call({
+        key,
+        systems: [{ text: SHOT_SYS, cache: true }],
+        messages: [{ role: "user", content: [await imageBlock(file), { type: "text", text: "Transcribe the clinical data in this screenshot." }] }],
+        maxTokens: 4000
+      });
+      box.value = box.value.replace(tag, text || "[No clinical data found in screenshot]");
+    } catch (e) {
+      box.value = box.value.replace(tag + "\n", "").replace(tag, "");
+      showError("Screenshot not transcribed: " + (e.message || e));
+    } finally {
+      shotsPending--; setShotHint();
+    }
+  }));
+}
+
+$("clinical").addEventListener("paste", (e) => {
+  const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  e.preventDefault();
+  transcribeShots(files);
+});
+$("clinical").addEventListener("dragover", (e) => {
+  if (Array.from(e.dataTransfer.items || []).some(i => i.kind === "file")) e.preventDefault();
+});
+$("clinical").addEventListener("drop", (e) => {
+  const files = Array.from(e.dataTransfer.files || []).filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  e.preventDefault();
+  $("clinical").focus();
+  transcribeShots(files);
+});
 
 // Ctrl/Cmd+Enter generates the triage note
 [$("ptLocation"), $("ptName"), $("pastMedical"), $("clinical")].forEach(el => {

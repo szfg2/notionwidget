@@ -957,10 +957,11 @@ const CONFIG = {
   // The memo fills a fixed template in a few sentences and is read before it is sent.
   MEMO_MODEL: "claude-haiku-5-5",
   MEMO_MAX_TOKENS: 16000,
-  // Consult dictation — gpt-4o-transcribe transcribes the recorded consult, then
+  // Consult dictation — gpt-transcribe transcribes the recorded consult, then
   // Claude rewrites only the "Currently" section of the stored note from it.
-  // whisper-1 is the fallback for consults past gpt-4o-transcribe's length limit.
-  TRANSCRIBE_MODEL: "gpt-4o-transcribe",
+  // whisper-1 is the fallback for consults past gpt-transcribe's length limit
+  // (OpenAI shuts whisper-1 down on 26 Feb 2027).
+  TRANSCRIBE_MODEL: "gpt-transcribe",
   TRANSCRIBE_FALLBACK: "whisper-1",
   DICTATE_MODEL: "claude-sonnet-5-5",
   DICTATE_MAX_TOKENS: 16000,
@@ -2822,10 +2823,13 @@ async function holdScreen() {
   catch (e) { return null; }
 }
 
-// gpt-4o-transcribe, as in dictation.html and RESblue.html — far fewer
-// hallucinations on silence than whisper-1. It transcribes in the language spoken;
-// the merge writes English. It rejects audio past roughly 25 minutes, so a long
-// consult is retried once on whisper-1 (translations endpoint, English out).
+// gpt-transcribe — OpenAI's current file transcription model. gpt-4o-transcribe
+// dropped whole stretches of quieter speech (its "auto" chunking cuts the audio
+// at what it judges to be silence and skips those parts). gpt-transcribe needs no
+// chunking setting. It transcribes in the language spoken, with English, Mandarin
+// and Malay hinted for code-switching; the merge writes English. If it rejects a
+// recording as too long, the consult is retried once on whisper-1
+// (translations endpoint, English out).
 async function transcribeBlob(blob, signal) {
   try {
     return await transcribeWith(CONFIG.TRANSCRIBE_MODEL, blob, signal);
@@ -2844,9 +2848,9 @@ async function transcribeWith(model, blob, signal) {
   const fd = new FormData();
   fd.append("file", blob, "consult." + ext);
   fd.append("model", model);
-  if (!whisper) fd.append("chunking_strategy", "auto");   // cuts at pauses; one unchunked block truncates long audio
   fd.append("prompt", "Respiratory outpatient clinic consultation between a doctor and a patient.");
-  fd.append("response_format", "text");
+  if (whisper) fd.append("response_format", "text");
+  else ["en", "zh", "ms"].forEach(l => fd.append("languages[]", l));
   const res = await fetch("https://api.openai.com/v1/audio/" + (whisper ? "translations" : "transcriptions"), {
     method: "POST",
     signal,
@@ -2861,7 +2865,8 @@ async function transcribeWith(model, blob, signal) {
     err.retryable = res.status === 429 || res.status >= 500;
     throw err;
   }
-  return body.trim();
+  if (whisper) return body.trim();
+  try { return (JSON.parse(body).text || "").trim(); } catch (e) { return body.trim(); }
 }
 
 // The freshest stored note for a patient. Falls back to what the caller already
