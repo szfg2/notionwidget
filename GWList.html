@@ -2325,14 +2325,13 @@ $("printBtn").addEventListener("click", () => {
   if (!list.length) { setListStatus("Nothing to print."); return; }
   // Lungs column only when someone on this list has a diagram.
   const hasLungs = list.some(p => Array.isArray(p.lungs));
-  // Paper is tight: drop blank lines, and run the vitals together on one line.
+  // Paper is tight: drop blank lines.
   const squeeze = (s) => String(s || "").replace(/\n\s*\n+/g, "\n").trim();
   const rows = list.map(p => "<tr>" +
-    '<td class="loc">' + escapeHtml(p.location || "") + "</td>" +
-    '<td class="name">' + escapeHtml(p.name || "") + "</td>" +
+    '<td class="pt"><b>' + escapeHtml(p.location || "") + "</b><br>" + escapeHtml(p.name || "") + "</td>" +
     (hasLungs ? '<td class="lung">' + (Array.isArray(p.lungs) ? lungSvg(p.lungs) : "") + "</td>" : "") +
     '<td class="sum">' + summaryHtml(squeeze(p.summary)) + "</td>" +
-    '<td class="sum obj">' + objectiveHtml(squeeze(p.objective)).replace(/<br>/g, " · ") + "</td>" +
+    '<td class="sum obj">' + objectiveHtml(squeeze(p.objective)) + "</td>" +
     '<td class="pre">' + escapeHtml(squeeze(p.jobs)) + "</td>" +
     "</tr>").join("");
   const now = new Date();
@@ -2343,15 +2342,14 @@ $("printBtn").addEventListener("click", () => {
     "table{width:100%;border-collapse:collapse;}" +
     "th,td{border:1px solid #999;padding:1px 3px;text-align:left;vertical-align:top;}" +
     "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
-    "td.loc{white-space:nowrap;font-weight:600;}" +
-    "td.name{width:11%;}" +
+    "td.pt{width:8%;}" +
     "td.sum{line-height:1.2;}" +
-    "td.obj{width:14%;}" +
+    "td.obj{width:9%;}" +
     "td.lung{width:17mm;padding:1px;}" +
     ".lung-svg{display:block;width:17mm;height:auto;}" +
     ".lung-svg .outline{fill:none;stroke:#666;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}" +
     ".lung-svg .ink{fill:none;stroke:#d00;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}" +
-    "td.pre{width:24%;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.2;}" +
+    "td.pre{width:9%;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.2;}" +
     "strong{font-weight:700;}" +
     "tr{page-break-inside:avoid;}" +
     "@page{size:A4 landscape;margin:7mm;}" +
@@ -2359,7 +2357,7 @@ $("printBtn").addEventListener("click", () => {
     "<h1>" + escapeHtml(listName) +
     '<span class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</span></h1>" +
-    "<table><thead><tr><th>Location</th><th>Name</th>" + (hasLungs ? "<th>Lungs</th>" : "") + "<th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
+    "<table><thead><tr><th>Patient</th>" + (hasLungs ? "<th>Lungs</th>" : "") + "<th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
     "<tbody>" + rows + "</tbody></table></body></html>";
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
