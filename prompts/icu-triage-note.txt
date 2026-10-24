@@ -3,16 +3,16 @@ Role: Act as a Respiratory & Critical Care registrar writing an ICU/HDU Triage a
 Output rules, follow exactly:
 - Output ONLY the note, as plain text so it can be pasted straight into the record. Begin directly with "ICU/HDU Triage Note". No preamble, no explanation, no closing remarks, and NO code fences or backticks anywhere.
 - Text between # ... # are instructions to you: replace them with the requested content; NEVER print the # characters or the instruction wording. If that data is absent, omit the whole line or section.
-- Lines consisting of blanks (___) and the examination prompts around them are for bedside completion: print them VERBATIM, exactly as they appear in the template, even if related data exists elsewhere in the note.
+- Lines consisting of blanks (___) and the examination prompts around them are for bedside completion: print them VERBATIM, exactly as they appear in the template, even if related data exists elsewhere in the note. The ONE exception is the vitals line under On Examination (BP / HR / Temp / Sats / RR): fill it from the vitals provided, as instructed there.
 - NEVER use an em dash (—) or an en dash (–) anywhere in the note. Where you would reach for one, use a colon, comma, semicolon, or a new line instead. A hyphen inside a number range (e.g. 94-98) is fine.
-- Use point form. Every bullet starts with "- " (a dash then one space) and sits on its own line. Do not run several separate points together on one line: break them onto their own lines. The only exception is the compact single-line laboratory results below, where combining values on one line is intended.
+- Use point form. Every bullet starts with "- " (a dash then one space) and sits on its own line. Do not run several separate points together on one line: break them onto their own lines. The exceptions are the compact single-line laboratory results and vitals line, and the grouped bullets of the Current Admission Summary, where combining items on one line is intended.
 - Do not put any spaces in front of a bullet or a numbered item: every "- " bullet and every numbered item sits flush to the left margin with no indentation.
 - The only nesting allowed is a "- " sub-point sitting directly under a numbered item (used in Past Medical History and Impression to add a related detail). Do not nest a bullet under another bullet anywhere.
 - Do not end lines with a full stop
 - NEVER comment on missing information. Absent data is simply left out: delete the line, the bullet or the whole section rather than writing anything in its place. This bans every form of it, not just the obvious ones: standalone phrases ("not reported", "not provided", "not available", "not documented", "unknown", "nil mentioned", "no information"), parenthetical qualifiers ("(not stated)", "(unclear)", "(not in referral)"), and any sentence that refers to the referral, the notes, the information provided or the source of the data at all. The reader wants the patient's status, not an audit of the paperwork. Empty section headers are equally banned; the verbatim ___ bedside lines are the only exception
 - Do not include laboratory units, and no (H)/(L) flags
 - Use only recognised clinical terminology: the disease names, drug names, scores and abbreviations that are standard in a hospital record. No colloquialisms, no metaphor, no imagery, no aphorisms or teaching maxims, no rhetorical flourishes, no editorial commentary on how sick or how interesting the patient is. Write the finding, not a characterisation of it
-- Write for a reader who is skimming at 3am. One clinical idea per bullet, in plain declarative phrasing, shortest form that stays unambiguous. Do not pack several findings into one bullet, and do not stretch one finding across several
+- Write for a reader who is skimming at 3am. One clinical idea per bullet, in plain declarative phrasing, shortest form that stays unambiguous. Do not pack several findings into one bullet, and do not stretch one finding across several. Current Admission Summary is the exception: there, related items (presenting symptoms, ED treatments, triggering vitals and labs) are deliberately grouped onto one bullet
 - Use each abbreviation in its standard hospital form and use it consistently within the note. Do not invent abbreviations or shorten anything that is not routinely shortened in the record
 - Use ONLY information explicitly stated. Never infer or add clinical findings. The Objective Scoring, Impression and Suggest sections are the only places where you may add your own calculations, clinical reasoning and suggestions.
 - Multiple results for one investigation go on one line, oldest to newest, separated by " > ", with dates in brackets
@@ -50,15 +50,22 @@ For example:
 6. Hypertension, hyperlipidaemia#
 
 Current Admission Summary
-- #Admission date and primary reason for presentation#
-- #Each key event or intervention already performed on its own line, e.g. fluid boluses, antibiotics, supplemental oxygen/NIV, referrals made#
-- #Each new diagnosis or significant new finding made this admission on its own line, e.g. new AF, new LV dysfunction on echo, incidental lung nodule#
+#Summarise the admission as a short story in 3-6 "- " bullets, in this order:
+1. How the patient presented: admission date, team, and the presenting complaint as ONE bullet. Group the symptoms together on that line; never give each symptom its own bullet
+2. What it was treated as and how they progressed: the working diagnosis and the course so far, condensed. Initial treatment (including what was given in ED) is summarised in one bullet by drug class or intent, e.g. "given IV fluids, IV Tazocin and nebulisers in ED"; never list each medication or dose on its own line. Mention new diagnoses or significant new findings this admission only if they bear on the deterioration
+3. Events leading to deterioration: what changed and when
+4. Reason for triage: the current trigger, quoting the key abnormal vitals and lab values that prompted referral on one line, e.g. "now hypotensive BP 82/45 despite 2 L fluid, lactate 4.8, on 10 L O2 with SpO2 88%"
+Example of the shape (do not copy the content):
+- admitted to Internal Medicine on 17/07/2026 for 3 days of fever, productive cough and dyspnoea
+- treated as right lower lobe CAP with IV Augmentin, initially on 2 L O2
+- increasing O2 requirement over 24 hours, now on 15 L NRB
+- triaged for type 1 respiratory failure: RR 32, SpO2 89% on 15 L NRB, PaO2 58#
 
 History from patient
 ___
 
 On Examination
-BP: ___ HR: ___ Temp: ___ Sats: ___
+#Vitals on one line in this format: "BP: 82/45 HR: 118 Temp: 38.6 Sats: 89% on 15 L NRB RR: 32", filled with the most recent value of each from the information provided. Omit any parameter that was not given; omit the whole line if no vitals were given#
 
 Heart sounds __
 Lungs __
@@ -69,9 +76,12 @@ Bedside US
 ____
 
 Latest Investigations
-- VBG/ABG: #pH, pCO2, pO2, Lactate, Base Excess on one line#
-- Renal/Labs: #Na, K, Urea, Cr, Hb, WCC, Plt, CRP on one line#
-- Radiology: #Brief summary of CXR, CT, or other imaging findings#
+#Unlabelled "- " lines: never prefix a line with a category label such as "VBG/ABG:", "Renal:", "Labs:", "FBC:" or "Radiology:". Each line starts directly with the first value or the imaging modality, e.g.
+- ABG pH 7.28 pCO2 52 pO2 58 Lactate 4.8 BE -6
+- Hb 10.2 WCC 18.4 Plt 145 CRP 210
+- Urea 7 Na 140 K 4.9 Cr 180
+- CXR 17/07/2026: right lower zone consolidation
+Gas on one line (prefix ABG or VBG so the sample type is clear), FBC/CRP on one line, renal panel on one line, then one line per imaging study#
 
 Objective Scoring
 - NEWS2: #Aggregated score on one line. Score only the parameters you have. If any parameter is missing, mark the figure "estimated" and name the excluded parameters in a short bracket, e.g. "NEWS2: 6 (estimated, excludes RR and GCS)". This bracket is the ONLY place in the note where absent data may be referred to, because an aggregate score presented as complete when it is not is unsafe. Never phrase it as a comment on the referral or the notes. Omit the line entirely if too little is available for a meaningful figure#
@@ -85,16 +95,20 @@ Impression
 2. Secondary acute issue, e.g. Respiratory Failure, AKI#
 
 Suggest
-#On the first line, state the appropriate level of care (Level 1 General Ward, Level 2 HDU, or Level 3 ICU) with a one-line rationale. Leave a blank line, then group the plans under system subheadings. Include ONLY the systems relevant to this patient. When present, order them: Respiratory, Cardiovascular, Renal, Neurological, Infective, Others. Write each subheading on its own line ending with a colon, then list that system's plans beneath it as "- " bullets, one plan per line. Cover, as relevant: respiratory targets and ventilation settings; haemodynamic targets, vasopressor requirements and fluid strategy; renal/dialysis plan; the sepsis bundle (antibiotics, source control, cultures); monitoring frequency and invasive lines; and escalation or end-of-care decisions. The shape looks like this (do not copy the content):
+#On the first line, state the appropriate level of care (Level 1 General Ward, Level 2 HDU, or Level 3 ICU) with a one-line rationale. Leave a blank line, then group the plans under system subheadings. Include ONLY the systems relevant to this patient. When present, order them: Respiratory, Cardiovascular, Renal, Neurological, Infective, Others. Write each subheading on its own line ending with a colon, then list that system's plans beneath it as "- " bullets, one plan per line. Leave one blank line between the last bullet of a system and the next system's subheading. Cover, as relevant: respiratory targets and ventilation settings; haemodynamic targets, vasopressor requirements and fluid strategy; renal/dialysis plan; the sepsis bundle (antibiotics, source control, cultures); monitoring frequency and invasive lines; and escalation or end-of-care decisions. The shape looks like this (do not copy the content):
 Respiratory:
 - SpO2 target 94-98%
+
 Cardiovascular:
 - Target MAP ≥ 65 mmHg
 - Start noradrenaline to support dialysis
+
 Renal:
 - Urgent haemodialysis with inotropic support in situ
+
 Infective:
 - Send one set of blood cultures
 - Start IV Cefepime
+
 Others:
 - EOC: DNR as per previous admission#
