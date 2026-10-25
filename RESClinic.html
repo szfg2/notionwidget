@@ -1807,7 +1807,7 @@ $("refreshBtn").addEventListener("click", () => loadPatients(false));
  * ============================================================== */
 $("printBtn").addEventListener("click", () => {
   if (!patients.length) { setListStatus("Nothing to print."); return; }
-  const rows = patients.map(p => {
+  const rows = inEntryOrder().map(p => {
     return "<tr>" +
       '<td class="name">' + escapeHtml(p.name || "") +
         (p.created ? '<div class="rowmeta">' + escapeHtml(fmtDate(p.created)) + "</div>" : "") + "</td>" +
@@ -1915,6 +1915,11 @@ function make(tag, className, text) {
   return el;
 }
 function patientById(id) { return patients.find(x => x.id === id); }
+// The stored list is newest first; every view shows patients in the order they
+// were entered, so the first one added sits at the top.
+function inEntryOrder() {
+  return patients.slice().reverse().sort((a, b) => (a.created || "").localeCompare(b.created || ""));
+}
 
 /* ============================================================== *
  *  Note state shared by every view                               *
@@ -2049,7 +2054,7 @@ function renderTable() {
   const body = $("ptBody");
   body.innerHTML = "";
   ptRows = [];         // the row handles the search box filters on
-  for (const p of patients) {
+  for (const p of inEntryOrder()) {
     const tr = document.createElement("tr");
 
     const tdName = make("td", "name");
@@ -2174,7 +2179,7 @@ function setClinicStatus(msg, ok) {
 function renderClinicList() {
   const list = $("clinicList");
   list.innerHTML = "";
-  for (const p of patients) {
+  for (const p of inEntryOrder()) {
     const btn = make("button", "clinic-name", p.name || "—");
     btn.dataset.id = p.id;
     btn.title = p.name || "";
@@ -2569,7 +2574,7 @@ function renderRecordList() {
   const list = $("recList");
   list.innerHTML = "";
   $("recEmpty").style.display = patients.length ? "none" : "";
-  for (const p of patients) {
+  for (const p of inEntryOrder()) {
     const row = make("div", "rec-row");
     const who = make("div", "rec-who");
     who.appendChild(make("div", "rec-name", p.name || "—"));
