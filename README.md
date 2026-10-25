@@ -4,4 +4,5 @@
 
 - [Spell & Play](https://szfg2.github.io/notionwidget/spelling/) — an installable, offline-friendly spelling game for little learners.
 - [Count & Play](https://szfg2.github.io/notionwidget/maths/) — an installable first-maths game for children aged 2 to 3.
+- [Add & Play](https://szfg2.github.io/notionwidget/sums/) — an installable first-sums game: putting together, taking away, number trains, dice and ten-frames, and counting out a set.
 - [Sing & Play](https://szfg2.github.io/notionwidget/music/) — an installable music playground: coloured keys, drums, instruments, singalong songs and a copy-the-tune game.

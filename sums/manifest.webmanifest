@@ -1,0 +1,21 @@
+{
+  "name": "Add & Play — First Sums",
+  "short_name": "Add & Play",
+  "description": "A gentle first sums game: putting together, taking away and number order for little learners.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef8f0",
+  "theme_color": "#eef8f0",
+  "lang": "en",
+  "categories": ["education", "kids", "games"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

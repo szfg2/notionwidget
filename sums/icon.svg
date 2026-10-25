@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Add and Play app icon</title>
+  <desc id="desc">A plus block and an equals block on a soft mint background.</desc>
+  <rect width="512" height="512" rx="112" fill="#eef8f0"/>
+  <circle cx="414" cy="103" r="42" fill="#58adf6" opacity=".2"/>
+  <path d="M76 393h78l-39-70z" fill="#ffc928" opacity=".4"/>
+  <g transform="translate(70 118) rotate(-5 108 108)">
+    <rect width="216" height="216" rx="49" fill="#ff806f"/>
+    <path d="M0 165h216v51H0z" fill="#d9584a" opacity=".35"/>
+    <path d="M108 50v100M58 100h100" stroke="#12305b" stroke-width="30" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(228 176) rotate(6 104 104)">
+    <rect width="208" height="208" rx="47" fill="#43bd68"/>
+    <path d="M0 159h208v49H0z" fill="#208747" opacity=".4"/>
+    <path d="M56 78h96M56 124h96" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
+  </g>
+  <circle cx="385" cy="88" r="25" fill="#ffc928"/>
+</svg>
