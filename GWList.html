@@ -2339,25 +2339,26 @@ $("printBtn").addEventListener("click", () => {
     "body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:6pt;color:#111;margin:0;}" +
     "h1{font-size:8pt;margin:0 0 3px;}" +
     ".meta{color:#555;font-size:6pt;font-weight:400;margin-left:6px;}" +
-    "table{width:100%;border-collapse:collapse;}" +
-    "th,td{border:1px solid #999;padding:1px 3px;text-align:left;vertical-align:top;}" +
+    "table{width:100%;border-collapse:collapse;table-layout:fixed;}" +
+    "th,td{border:1px solid #999;padding:1px 3px;text-align:left;vertical-align:top;overflow-wrap:anywhere;}" +
     "th{background:#eee;font-size:5.5pt;text-transform:uppercase;letter-spacing:.05em;}" +
-    "td.pt{width:8%;}" +
+    ".pt{width:8%;}" +
     "td.sum{line-height:1.2;}" +
-    "td.obj{width:9%;}" +
-    "td.lung{width:17mm;padding:1px;}" +
+    ".obj{width:9%;}" +
+    ".pre{width:9%;}" +
+    ".lung{width:17mm;padding:1px;}" +
     ".lung-svg{display:block;width:17mm;height:auto;}" +
     ".lung-svg .outline{fill:none;stroke:#666;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}" +
     ".lung-svg .ink{fill:none;stroke:#d00;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}" +
     "td.pre{width:9%;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:5.5pt;line-height:1.2;}" +
     "strong{font-weight:700;}" +
     "tr{page-break-inside:avoid;}" +
-    "@page{size:A4 landscape;margin:7mm;}" +
+    "@page{size:A4 landscape;margin:12mm;}" +
     "</style></head><body>" +
     "<h1>" + escapeHtml(listName) +
     '<span class="meta">' + list.length + " patient" + (list.length === 1 ? "" : "s") + " · printed " +
       now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + timeNow() + "</span></h1>" +
-    "<table><thead><tr><th>Patient</th>" + (hasLungs ? "<th>Lungs</th>" : "") + "<th>Summarised history</th><th>Objective</th><th>Job list</th></tr></thead>" +
+    "<table><thead><tr><th class='pt'>Patient</th>" + (hasLungs ? "<th class='lung'>Lungs</th>" : "") + "<th>Summarised history</th><th class='obj'>Objective</th><th class='pre'>Job list</th></tr></thead>" +
     "<tbody>" + rows + "</tbody></table></body></html>";
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
