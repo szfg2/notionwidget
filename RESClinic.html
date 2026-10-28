@@ -2725,22 +2725,17 @@ function makeDictation(id) {
       // instead, or those edits would be overwritten by a note that predates them.
       stage = "Merging into the note";
       say("Folding into the note…");
-      let base = await latestNote(id, pt().note || "");
-      let merged = await withRetry(() => mergeConsult(base, transcript, pt(), signal), signal, retrying("Merging"));
-      if (!merged) throw new Error("The model returned an empty note.");
-      // Transcribing and merging take a while — if the note moved again in that
-      // window, fold into that version rather than overwriting it.
-      const newer = await latestNote(id, base);
-      if (newer !== base) {
-        say("Changed elsewhere — folding in again…");
-        base = newer;
-        merged = (await withRetry(() => mergeConsult(base, transcript, pt(), signal), signal, retrying("Merging"))) || merged;
-      }
+      const base = await latestNote(id, pt().note || "");
+      const lines = await withRetry(() => mergeConsult(base, transcript, pt(), signal), signal, retrying("Merging"));
+      if (!lines) throw new Error("The model returned no Currently lines.");
+      // Spliced into whatever note is stored at save time, so edits made
+      // elsewhere while this was transcribing are kept too.
       stage = "Saving to GitHub";
       say("Saving…");
+      let merged = spliceCurrently(base, lines);
       await withRetry(() => mutateRemote(list => {
         const rec = list.find(x => x.id === id);
-        if (rec) rec.note = merged;
+        if (rec) rec.note = merged = spliceCurrently(typeof rec.note === "string" ? rec.note : base, lines);
         return list;
       }, "Consult dictation: " + (pt().name || id)), signal, retrying("Saving"));
       pushNote(id, merged, "Consult merged ✓ " + timeNow());
@@ -3110,8 +3105,39 @@ async function latestNote(id, fallback) {
   } catch (e) { return fallback; }
 }
 
-// Rewrites the note's "Currently" section from the consult transcript, leaving
-// every other section byte for byte as drafted.
+// The model only ever writes the lines that go under "Currently"; the note
+// itself is reassembled here, so no reply can drop or reword another section.
+const CURRENTLY_HEAD = /^currently\s*:?$/i;
+const AFTER_CURRENTLY = /^(o\/e\b|impression\b|plans?\s*:?$)/i;
+
+// Pulls the Currently lines out of the reply — tolerating a stray heading,
+// code fences, or a model that echoes the whole note back anyway.
+function currentlyLines(reply) {
+  const rows = reply.replace(/```[a-z]*/gi, "").split("\n");
+  const head = rows.findIndex(l => CURRENTLY_HEAD.test(l.trim()));
+  const from = head >= 0 ? head + 1 : 0;
+  let to = rows.findIndex((l, i) => i >= from && AFTER_CURRENTLY.test(l.trim()));
+  if (to < 0) to = rows.length;
+  return rows.slice(from, to).join("\n").trim();
+}
+
+// Replaces what sits under the "Currently" heading (up to O/E, Impression or
+// Plan) and leaves every other line of the note exactly as it was.
+function spliceCurrently(note, lines) {
+  const rows = note.split("\n");
+  const head = rows.findIndex(l => CURRENTLY_HEAD.test(l.trim()));
+  if (head >= 0) {
+    let end = rows.findIndex((l, i) => i > head && AFTER_CURRENTLY.test(l.trim()));
+    if (end < 0) return [...rows.slice(0, head + 1), lines].join("\n");
+    return [...rows.slice(0, head + 1), lines, "", ...rows.slice(end)].join("\n");
+  }
+  let at = rows.findIndex(l => /^o\/e\b/i.test(l.trim()));
+  if (at < 0) at = rows.findIndex(l => /^impression\b/i.test(l.trim()));
+  if (at < 0) return note.replace(/\s*$/, "") + "\n\nCurrently\n" + lines;
+  return [...rows.slice(0, at), "Currently", lines, "", ...rows.slice(at)].join("\n");
+}
+
+// Writes the note's new "Currently" lines from the consult transcript.
 async function mergeConsult(note, transcript, p, signal) {
   const key = AI.key();
   if (!key) { $("settingsBox").open = true; throw new Error(AI.missingKeyMsg()); }
@@ -3119,12 +3145,13 @@ async function mergeConsult(note, transcript, p, signal) {
   if (!res.ok) throw new Error("Couldn't load prompt: " + CONFIG.DICTATE_PROMPT);
   const sys = await res.text();
   const userMessage =
-    "CURRENT CLINIC NOTE (drafted before the appointment — reproduce it exactly except for the Currently section):\n" +
+    "CURRENT CLINIC NOTE (drafted before the appointment — context only; write just the new lines for its Currently section):\n" +
     note.trim() +
     "\n\nCONSULT TRANSCRIPT (recorded in clinic just now, transcribed automatically):\n" + transcript +
     "\n\nBACKGROUND (context for interpreting the transcript and correcting mis-heard drug names — never draw new lines from it):\n" +
     ((p.pastMedical || "").trim() || "(none)");
-  return callClaude(key, CONFIG.DICTATE_MODEL, sys, userMessage, CONFIG.DICTATE_MAX_TOKENS, signal);
+  const reply = await callClaude(key, CONFIG.DICTATE_MODEL, sys, userMessage, CONFIG.DICTATE_MAX_TOKENS, signal);
+  return currentlyLines(reply || "");
 }
 
 // Grow a textarea to fit its content (used for the note, memo and to-do boxes)

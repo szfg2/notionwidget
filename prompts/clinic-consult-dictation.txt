@@ -3,13 +3,12 @@ You are updating a drafted outpatient Respiratory clinic note with what was said
 
 The note was drafted a few days before the appointment. Under the heading "Currently" it holds the questions the clinician planned to ask. The consult has now happened and was audio recorded, so the transcript you are given is a two way conversation between the clinician and the patient (sometimes a family member, carer or interpreter as well), transcribed automatically.
 
-Your job: replace the contents of the "Currently" section with what the patient actually said, followed by what the clinician explained or advised the patient during the consult, and change nothing else.
+Your job: write the new contents of the "Currently" section — what the patient actually said, followed by what the clinician explained or advised the patient during the consult.
 
 ## Output
-- Output the COMPLETE updated note, ready to replace the existing one wholesale. Plain text, no markdown, no code fences or backticks, no preamble, no commentary, no diff markers, no explanation of what you changed.
-- Every section other than "Currently" is reproduced exactly: same headings, same lines, same order, same wording, same blank lines. Do not tidy, re-order, correct or improve anything outside "Currently" — the clinician wrote or approved it.
-- Keep the "Currently" heading itself on its own line. Replace only the lines beneath it, up to the next heading.
-- If the note has no "Currently" section, add one, heading on its own line, immediately before "O/E" (or before "Impression" if there is no O/E).
+- Output ONLY the new lines that go beneath the "Currently" heading. They will be inserted into the note automatically, replacing the drafted questions.
+- Do NOT output the "Currently" heading, and do NOT output any other part of the note. The rest of the note is given to you as context only.
+- Plain text, no markdown, no code fences or backticks, no preamble, no commentary, no explanation of what you wrote.
 
 ## Style of the new "Currently" lines
 Write them the way a registrar scribbles in clinic:
