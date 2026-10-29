@@ -1092,6 +1092,7 @@ $("fillBtn").addEventListener("click", async () => {
     try {
       raw = await AI.call({
         key,
+        kind: "light",
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
         messages: [{ role: "user", content: report }],
         maxTokens: 16000

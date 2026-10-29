@@ -1632,6 +1632,7 @@ async function extract() {
     try {
       raw = await AI.call({
         key,
+        kind: "light",
         systems: [{ text: EXTRACT_SYSTEM, cache: true }],
         messages: [{ role: "user", content }],
         maxTokens: 16000
