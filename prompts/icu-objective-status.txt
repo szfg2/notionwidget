@@ -5,11 +5,11 @@ Extract a structured ICU objective status block from the clinical data provided.
 - Output as PLAIN TEXT only — no markdown, no bold, no code fences or backticks, no preamble, no closing remarks.
 - Produce one line per letter, in this order: B, C, D, E, F, G, H, I. Each line starts with the letter, a colon and a space.
 - What goes on each line:
-  B: breathing — latest SpO2 with the oxygen device, or ventilator mode and settings (e.g. "B: Sats 99% on ACPC Fi 0.5 PEEP 10", "B: Sats 95% on HFNC 50/0.4")
+  B: breathing — latest SpO2 with the oxygen device, or ventilator mode and settings, then the latest ABG as pH, pCO2 and PaO2 only — no other ABG values, latest single ABG only, no trend (e.g. "B: Sats 99% on ACPC Fi 0.5 PEEP 10; pH 7.4 CO2 62.5 PaO2 71.3", "B: Sats 95% on HFNC 50/0.4")
   C: circulation — latest BP and heart rate, plus any vasopressor/inotrope and dose (e.g. "C: 120/80 HR 88 on Norad 0.02"). If off vasopressors state "off Norad" only if a recent wean is documented
   D: disability — GCS in E V M form, plus sedative/analgesic infusions and doses (e.g. "D: GCS E1VTM5, Propofol 120mg/h + Fentanyl 25mcg/h")
   E: electrolytes — latest urea, sodium, potassium, then glucose/CBG readings (e.g. "E: Urea 7 Na 130 K 4.9; CBG 6 > 6 > 7")
-  F: fluids — latest intake, output and net balance, and whether on CRRT/HD (e.g. "F: Intake 570 Output 780 Net -210; on CRRT")
+  F: fluids — latest intake, output and net balance, and whether on CRRT/HD, then the latest lactate and latest creatinine only, no trend (e.g. "F: Intake 570 Output 780 Net -210; on CRRT; Lact 1.7 Cr 79")
   G: gastro/liver — state the latest documented oral intake status succinctly as "NBM" or "Eating", then the latest ALP, ALT, AST, plus bilirubin only if abnormal (e.g. "G: Eating; ALP 120 ALT 30 AST 32" or "G: NBM")
   H: haematology — latest Hb; add platelets or WBC only if clearly abnormal (e.g. "H: Hb 8.9, Plt 60")
   I: infection — current temperature and overnight maximum as "Temp" and "Tmax O/N" when documented, followed by current and recent antibiotics/antifungals with start and stop dates or day counts (e.g. "I: Temp 37.2, Tmax O/N 38.5; Tazocin 6/7 — current; Augmentin 1/7–5/7")
