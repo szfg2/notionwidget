@@ -693,9 +693,14 @@
     <div class="card">
       <div class="gen-row">
         <button class="generate" id="saveBtn" type="button">Save to list</button>
+        <select id="addModel" title="Model used to write the summary" style="width:auto">
+          <option value="light" selected>Haiku 5.5</option>
+          <option value="default">Sonnet 5.5</option>
+          <option value="ask">Opus 5.5</option>
+        </select>
         <span class="status" id="genStatus"></span>
       </div>
-      <div class="kbd-hint" style="margin-top:8px">Generates the ward-round summary and saves the patient to the list you're on, then clears and closes the form. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box.</div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the ward-round summary and saves the patient to the list you're on, then clears and closes the form. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box. The model picker resets to Haiku on each load; on DeepSeek / Gemini it picks that provider's light / default / reasoning model instead.</div>
     </div>
 
     <div class="error" id="error"></div>
@@ -1066,11 +1071,13 @@ function parseSummaryObjective(text) {
  *  Model calls — see provider.js for the Anthropic/DeepSeek split *
  * ============================================================== */
 // Single-turn summary call, used when saving a patient and when updating one.
-function callSummary(system, userMessage, signal) {
+// kind: "light" | "ask" | undefined (default tier) — see AI.model().
+function callSummary(system, userMessage, signal, kind) {
   return AI.call({
     systems: [{ text: system, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens: CONFIG.SUMMARY_MAX_TOKENS,
+    kind,
     signal
   });
 }
@@ -1203,7 +1210,7 @@ $("saveBtn").addEventListener("click", async () => {
     const summarySys = await sysRes.text();
     // One call returns both the summary and the objective (latest obs only,
     // blank template when none were pasted) — see SUMMARY_FRESH_SUFFIX.
-    const out = await callSummary(summarySys + SUMMARY_FRESH_SUFFIX, userMessage, genController.signal);
+    const out = await callSummary(summarySys + SUMMARY_FRESH_SUFFIX, userMessage, genController.signal, $("addModel").value);
     const parsed = parseSummaryObjective(out || "");
 
     const record = {
