@@ -1609,6 +1609,30 @@ function setState(state) {
   document.title = "PFT Reporter" + (state ? " - " + state : "");
 }
 
+/* One model read → parsed object with at least one value, or a thrown error
+   carrying the message to show. */
+async function readOnce(key, content, kind) {
+  let raw = await AI.call({
+    key,
+    kind,
+    systems: [{ text: EXTRACT_SYSTEM, cache: true }],
+    messages: [{ role: "user", content }],
+    maxTokens: 16000
+  });
+  raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("Could not read a result from the model.");
+  let obj;
+  try { obj = JSON.parse(raw.slice(start, end + 1)); }
+  catch (_) { throw new Error("Model returned invalid JSON — try again."); }
+  if (!Object.values(obj).some(v => v !== null && v !== undefined && v !== "")) throw new Error("No recognisable values found.");
+  return obj;
+}
+
+/* The light model occasionally returns nothing usable, so a failed read is
+   retried on its own: light twice, then the default model once. */
+const READ_TRIES = ["light", "light", undefined];
+
 let extracting = false;
 async function extract() {
   if (extracting) return;
@@ -1628,26 +1652,14 @@ async function extract() {
   $("fillBtn").disabled = true;
   setFillMsg("Reading " + shots.length + " screenshot" + (shots.length === 1 ? "" : "s") + "…", false);
   try {
-    let raw;
-    try {
-      raw = await AI.call({
-        key,
-        kind: "light",
-        systems: [{ text: EXTRACT_SYSTEM, cache: true }],
-        messages: [{ role: "user", content }],
-        maxTokens: 16000
-      });
-    } catch (apiErr) {
-      setFillMsg("API error: " + (apiErr.message || apiErr), true);
-      return;
+    let obj, lastErr;
+    for (let i = 0; i < READ_TRIES.length && !obj; i++) {
+      if (i) setFillMsg("Reading again (attempt " + (i + 1) + " of " + READ_TRIES.length + ")…", false);
+      try { obj = await readOnce(key, content, READ_TRIES[i]); }
+      catch (e) { lastErr = e; }
+      if (gen !== reportGen) return;
     }
-    if (gen !== reportGen) return;
-    raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-    const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
-    if (start === -1 || end === -1) { setFillMsg("Could not read a result from the model.", true); return; }
-    let obj;
-    try { obj = JSON.parse(raw.slice(start, end + 1)); }
-    catch (_) { setFillMsg("Model returned invalid JSON — try again.", true); return; }
+    if (!obj) { setFillMsg(lastErr.message || String(lastErr), true); return; }
     const n = applyExtracted(obj);
     reportDone = true;
     ok = n > 0;
