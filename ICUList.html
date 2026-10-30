@@ -427,6 +427,69 @@
   .up-who { font-weight: 650; white-space: nowrap; }
   .up-task { color: var(--text); }
 
+  /* ---------- Inpatient List: names | summary | tools ---------- */
+  .ip-grid {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 400px);
+    gap: 16px;
+    align-items: start;
+  }
+  /* The side columns stay in view and scroll on their own while the page moves */
+  .ip-col { min-width: 0; }
+  .ip-left, .ip-right {
+    position: sticky; top: 12px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+  .ip-left input[type="search"] { padding: 7px 10px; font-size: 13px; margin-bottom: 6px; }
+  .ip-names { display: flex; flex-direction: column; gap: 2px; }
+  button.ip-name {
+    display: flex; gap: 8px; align-items: baseline;
+    width: 100%; text-align: left;
+    background: transparent; color: var(--text);
+    border: 1px solid transparent; border-radius: 7px;
+    padding: 7px 10px;
+    font-family: var(--sans); font-size: 13.5px; font-weight: 550;
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  button.ip-name:hover { background: var(--surface-2); }
+  button.ip-name.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+  button.ip-name .ip-loc { flex: none; font-size: 11.5px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  button.ip-name .ip-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .ip-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ip-head .loc { font-size: 17px; font-weight: 650; }
+  .ip-head .name { font-size: 17px; font-weight: 550; }
+  .ip-head .rowmeta { font-size: 11.5px; color: var(--faint); }
+  .ip-head .editable, .ip-sec .editable { cursor: pointer; border-bottom: 1px dashed transparent; }
+  .ip-head .editable:hover { border-bottom-color: var(--muted); }
+  .ip-head input.cell-edit { width: 160px; padding: 4px 7px; font-size: 14px; }
+  .ip-sec { margin-bottom: 14px; }
+  .ip-block { font-size: 13.5px; line-height: 1.5; }
+  .ip-block strong { color: var(--accent-strong); font-weight: 650; }
+  .ip-block textarea.block-edit { min-height: 160px; font-size: 13px; padding: 7px 9px; background: var(--surface-2); }
+  .ip-sec textarea.jobbox { min-height: 120px; font-size: 13px; padding: 7px 9px; background: var(--surface-2); }
+  .ip-blank {
+    color: var(--faint); font-size: 13.5px;
+    border: 1px dashed var(--border-strong); border-radius: 10px;
+    padding: 40px 20px; text-align: center;
+  }
+  .card.tool-card { margin: 0 0 12px; padding: 14px; }
+  .tool-card .thread { max-height: 52vh; overflow-y: auto; }
+  .tool-del { width: 100%; padding: 8px 10px; }
+
+  @media (max-width: 900px) {
+    .ip-grid { grid-template-columns: minmax(0, 1fr); }
+    .ip-left, .ip-right { position: static; max-height: none; overflow: visible; }
+    .ip-names { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    button.ip-name { width: auto; border-color: var(--border); }
+  }
+
   /* =====================================================================
      Narrow screens — phone held vertically.
      Six columns can't shrink usefully, so below 760px each patient row is
@@ -668,8 +731,8 @@
   <!-- TABS -->
   <div class="mode-tabs">
     <button class="mode-tab active" id="tabCreate" type="button">Create New Patient</button>
-    <button class="mode-tab" id="tabCs" type="button">Case Summary</button>
     <button class="mode-tab" id="tabIn" type="button">Inpatient List</button>
+    <button class="mode-tab" id="tabCs" type="button">Case Summary</button>
     <button class="mode-tab" id="tabTri" type="button">Triaged Patient List</button>
     <button class="mode-tab" id="tabCsl" type="button">Case Summary Patients</button>
     <button class="mode-tab" id="tabTexts" type="button">Commonly Used Texts</button>
@@ -796,28 +859,21 @@
           <button class="ghost-btn seg" type="button" data-loc="icu">ICU</button>
           <button class="ghost-btn seg" type="button" data-loc="hd">HD</button>
         </span>
-        <input type="search" id="inSearch" class="search-input" placeholder="Search patients…" autocomplete="off">
         <button class="ghost-btn danger" id="inDeleteAllBtn" type="button">Delete all</button>
         <span class="status" id="inStatus"></span>
       </div>
       <div class="error" id="inError" style="margin:10px 0 0"></div>
-      <div class="table-scroll" style="margin-top:12px">
-        <table class="patients">
-          <thead>
-            <tr>
-              <th style="width:1%">Location</th>
-              <th style="width:1%">Name</th>
-              <th>Summarised history</th>
-              <th style="width:24%">Objective</th>
-              <th style="width:16%">Job list</th>
-              <th style="width:1%"></th>
-            </tr>
-          </thead>
-          <tbody id="inBody"></tbody>
-        </table>
+      <div class="out-foot">Sorted by location. <b>All / ICU / HD</b> filters the list by the ward in the Location field (and is what Print outputs); ⏰ Upcoming always shows timed jobs for every patient. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
+    </div>
+
+    <div class="ip-grid">
+      <aside class="ip-col ip-left">
+        <input type="search" id="inSearch" placeholder="Search patients…" autocomplete="off" spellcheck="false">
+        <div class="ip-names" id="inBody"></div>
         <div class="empty-note" id="inEmpty" style="display:none">No inpatients yet — add a patient in the Create New Patient tab with Save to Inpatient List.</div>
-      </div>
-      <div class="out-foot">Sorted by location. <b>All / ICU / HD</b> filters the table by the ward in the Location field (and is what Print outputs); ⏰ Upcoming always shows timed jobs for every patient. Job list edits autosave to GitHub a moment after you stop typing. Add “@ time” to a job (e.g. trace troponin @ 10pm) to pin it under ⏰ Upcoming. Click a location or name to edit it; double-click the summarised history or objective to edit them. Use Update to fold new reviews and results into the summarised history and B–I objective.</div>
+      </aside>
+      <section class="ip-col ip-mid" id="inMid"></section>
+      <aside class="ip-col ip-right" id="inTools"></aside>
     </div>
 
   </div>
@@ -1643,8 +1699,9 @@ function fmtDate(iso) {
 }
 
 // Click-to-edit cell for location / name. Click swaps in an input; Enter or
-// clicking away commits and saves to GitHub, Escape cancels.
-function editableCell(td, p, field, listKey) {
+// clicking away commits and saves to GitHub, Escape cancels. onChange runs
+// after a committed change.
+function editableCell(td, p, field, listKey, onChange) {
   const span = document.createElement("span");
   span.className = "editable";
   span.title = "Click to edit";
@@ -1666,6 +1723,7 @@ function editableCell(td, p, field, listKey) {
       if (!commit || v === (p[field] || "")) return;
       p[field] = v;
       span.textContent = v || "—";
+      if (onChange) onChange();
       setListStatus(listKey, "Saving…");
       mutateRemote(d => {
         const rec = d[listKey].find(x => x.id === p.id);
@@ -1868,12 +1926,18 @@ function renderList(listKey) {
     : (all.length && !list.length)
       ? "No patients match the search."
       : LISTS[listKey].emptyText;
-  for (const p of list) (listKey === "cases" ? buildCaseRow : buildRow)(p, listKey, body);
+  if (listKey === "inpatients") renderInpatients(list);
+  else for (const p of list) (listKey === "cases" ? buildCaseRow : buildRow)(p, listKey, body);
   if (LISTS[listKey].upcoming) renderUpcoming(listKey);
   refreshPatNav();
 }
 
 $("inSearch").addEventListener("input", () => { searchTerms.inpatients = $("inSearch").value; renderList("inpatients"); });
+$("inSearch").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { e.preventDefault(); $("inSearch").value = ""; searchTerms.inpatients = ""; renderList("inpatients"); }
+  // Enter opens the first patient still showing
+  if (e.key === "Enter") { const first = $("inBody").firstElementChild; if (first) first.click(); }
+});
 $("inLocFilter").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-loc]");
   if (!btn) return;
@@ -2121,15 +2185,6 @@ function buildRow(p, listKey, body) {
   askBtn.textContent = "Ask";
   tdAct.appendChild(askBtn);
 
-  let updBtn = null;
-  if (listKey === "inpatients") {
-    updBtn = document.createElement("button");
-    updBtn.className = "ghost-btn";
-    updBtn.type = "button";
-    updBtn.textContent = "Update";
-    tdAct.appendChild(updBtn);
-  }
-
   let noteBtn = null;
   let review = null;
   if (listKey === "triaged") {
@@ -2177,119 +2232,6 @@ function buildRow(p, listKey, body) {
   tr.appendChild(tdAct);
   body.appendChild(tr);
   if (review) body.appendChild(review.row);
-
-  // --- expandable "Update summary + objective" row (inpatient list only) ---
-  if (updBtn) {
-    const trUpd = document.createElement("tr");
-    trUpd.className = "detail-row";
-    trUpd.style.display = "none";
-    const tdUpd = document.createElement("td");
-    tdUpd.colSpan = 6;
-    const wrap = document.createElement("div");
-    wrap.className = "update-wrap";
-    const lbl = document.createElement("span");
-    lbl.className = "eyebrow";
-    lbl.style.margin = "0";
-    lbl.textContent = "Update summarised history & objective";
-    const hint = document.createElement("p");
-    hint.className = "ask-note";
-    hint.textContent = "Paste today's reviews, vitals, vent settings and results — Claude folds them into the summarised history and B–I objective. Nothing identifying is sent.";
-    const box = document.createElement("textarea");
-    box.className = "update-box";
-    box.placeholder = "e.g. Weaned Norad to 0.01, extubated to HFNC 50/0.4, Urea 9 Na 134 K 4.2, CRP 80 > 60, Tazocin D7… (de-identified)";
-    const row = document.createElement("div");
-    row.className = "gen-row";
-    const runBtn = document.createElement("button");
-    runBtn.className = "generate";
-    runBtn.type = "button";
-    runBtn.textContent = "Update";
-    const st = document.createElement("span");
-    st.className = "status";
-    row.appendChild(runBtn);
-    row.appendChild(st);
-    const err = document.createElement("div");
-    err.className = "err";
-    wrap.appendChild(lbl);
-    wrap.appendChild(hint);
-    wrap.appendChild(box);
-    wrap.appendChild(row);
-    wrap.appendChild(err);
-    tdUpd.appendChild(wrap);
-    trUpd.appendChild(tdUpd);
-    body.appendChild(trUpd);
-
-    updBtn.addEventListener("click", () => {
-      const open = trUpd.style.display !== "none";
-      trUpd.style.display = open ? "none" : "";
-      updBtn.textContent = open ? "Update" : "Hide update";
-      if (!open) box.focus();
-    });
-
-    let updController = null;
-    const showUpdErr = (m) => { err.textContent = m; err.style.display = "block"; };
-    runBtn.addEventListener("click", async () => {
-      if (updController) { updController.abort(); return; }
-      err.style.display = "none"; err.textContent = "";
-      const key = AI.key();
-      if (!key) { $("settingsBox").open = true; return showUpdErr(AI.missingKeyMsg()); }
-      const updates = box.value.trim();
-      if (!updates) return showUpdErr("Paste the new reviews, vitals or results first.");
-
-      updController = new AbortController();
-      runBtn.classList.add("is-cancel");
-      runBtn.innerHTML = '<span class="spinner"></span>Cancel';
-      st.textContent = "Updating summary + objective…";
-      try {
-        const [summarySys, objectiveSys] = await Promise.all([
-          loadPrompt(CONFIG.SUMMARY_PROMPT, updController.signal),
-          loadPrompt(CONFIG.OBJECTIVE_PROMPT, updController.signal)
-        ]);
-        // De-identified stored content only — name/location are never sent.
-        const [newSummary, newObjective] = await Promise.all([
-          callClaude(key, CONFIG.MODEL, summarySys + SUMMARY_UPDATE_SUFFIX,
-            "EXISTING SUMMARY:\n" + ((p.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
-            CONFIG.SUMMARY_MAX_TOKENS, updController.signal),
-          callClaude(key, CONFIG.MODEL, objectiveSys + OBJECTIVE_UPDATE_SUFFIX,
-            "EXISTING OBJECTIVE:\n" + ((p.objective || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
-            CONFIG.OBJECTIVE_MAX_TOKENS, updController.signal)
-        ]);
-        if (!newSummary && !newObjective) throw new Error("No text returned.");
-
-        // Append the pasted updates to the stored clinical data so the
-        // "Ask about this patient" context stays current.
-        const t = new Date();
-        const stampedClinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
-          "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + updates;
-        p.summary = newSummary || p.summary;
-        p.objective = newObjective || p.objective;
-        p.clinical = stampedClinical;
-        sumDiv.innerHTML = summaryHtml(p.summary || "");
-        objText.innerHTML = objectiveHtml(p.objective);
-
-        st.textContent = "Saving…";
-        await mutateRemote(d => {
-          const rec = d[listKey].find(x => x.id === p.id);
-          if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = stampedClinical; }
-          return d;
-        }, "Update ICU summary/objective: " + (p.name || p.location || p.id));
-        box.value = "";
-        st.textContent = "Updated ✓ " + timeNow();
-        st.classList.add("ok");
-        setTimeout(() => { st.textContent = ""; st.classList.remove("ok"); }, 4000);
-      } catch (e) {
-        st.textContent = "";
-        if (e.name !== "AbortError") showUpdErr("Update failed: " + (e.message || e));
-      } finally {
-        updController = null;
-        runBtn.classList.remove("is-cancel");
-        runBtn.innerHTML = "Update";
-      }
-    });
-    // Ctrl/Cmd+Enter in the update box runs the update
-    box.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBtn.click(); }
-    });
-  }
 
   // --- expandable triage note row (triaged list only) ---
   if (noteBtn) {
@@ -2342,7 +2284,25 @@ function buildRow(p, listKey, body) {
   trAsk.style.display = "none";
   const tdAsk = document.createElement("td");
   tdAsk.colSpan = 6;
+  const ask = askPanel(() => p, listKey);
+  tdAsk.appendChild(ask.el);
+  trAsk.appendChild(tdAsk);
+  body.appendChild(trAsk);
 
+  askBtn.addEventListener("click", () => {
+    const open = trAsk.style.display !== "none";
+    trAsk.style.display = open ? "none" : "";
+    askBtn.textContent = open ? "Ask" : "Hide ask";
+    if (!open) ask.input.focus();
+  });
+
+  delBtn.addEventListener("click", () => deletePatient(p, listKey, delBtn));
+}
+
+// "Ask about this patient": a running conversation with the stored
+// (de-identified) record as context. getP is read at each send, so the
+// context is the record as it stands at that moment.
+function askPanel(getP, listKey) {
   const askHead = document.createElement("div");
   askHead.className = "letter-head";
   const askEyebrow = document.createElement("span");
@@ -2384,21 +2344,8 @@ function buildRow(p, listKey, body) {
   askHint.className = "kbd-hint";
   askHint.innerHTML = 'Press <span class="kbd">Ctrl/⌘ + Enter</span> to ask.';
 
-  tdAsk.appendChild(askHead);
-  tdAsk.appendChild(askNote);
-  tdAsk.appendChild(thread);
-  tdAsk.appendChild(askErr);
-  tdAsk.appendChild(askRow);
-  tdAsk.appendChild(askHint);
-  trAsk.appendChild(tdAsk);
-  body.appendChild(trAsk);
-
-  askBtn.addEventListener("click", () => {
-    const open = trAsk.style.display !== "none";
-    trAsk.style.display = open ? "none" : "";
-    askBtn.textContent = open ? "Ask" : "Hide ask";
-    if (!open) askInput.focus();
-  });
+  const wrap = document.createElement("div");
+  [askHead, askNote, thread, askErr, askRow, askHint].forEach(el => wrap.appendChild(el));
 
   let askMessages = [];
   let askController = null;
@@ -2455,7 +2402,7 @@ function buildRow(p, listKey, body) {
     askController = new AbortController();
     setAskLoading(true);
 
-    const caseContext = caseContextOf(p);
+    const caseContext = caseContextOf(getP());
 
     try {
       const text = await AI.call({
@@ -2491,24 +2438,244 @@ function buildRow(p, listKey, body) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); askSend.click(); }
   });
 
-  delBtn.addEventListener("click", async () => {
-    const label = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
-    if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
-    delBtn.disabled = true;
-    setListStatus(listKey, "Deleting…");
+  return { el: wrap, input: askInput };
+}
+
+async function deletePatient(p, listKey, btn) {
+  const label = [p.location, p.name].filter(Boolean).join(" · ") || "this patient";
+  if (!confirm("Delete " + label + " from the list? This removes it on all devices.")) return;
+  btn.disabled = true;
+  setListStatus(listKey, "Deleting…");
+  try {
+    await mutateRemote(d => {
+      d[listKey] = d[listKey].filter(x => x.id !== p.id);
+      return d;
+    }, "Remove ICU " + LISTS[listKey].label + ": " + (p.name || p.location || p.id));
+    renderTables();
+    setListStatus(listKey, "Deleted ✓", true);
+  } catch (e) {
+    btn.disabled = false;
+    setListStatus(listKey, "");
+    showListError(listKey, "Delete failed: " + (e.message || e));
+  }
+}
+
+/* ============================================================== *
+ *  Inpatient List — names | summarised history | tools          *
+ * ============================================================== */
+function make(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text != null) el.textContent = text;
+  if (tag === "button") el.type = "button";
+  return el;
+}
+
+let inSelId = null;
+const inPanels = new Map();
+
+function renderInpatients(list) {
+  const names = $("inBody");
+  names.innerHTML = "";
+  for (const p of list) {
+    const btn = make("button", "ip-name");
+    btn.dataset.id = p.id;
+    btn.title = [p.location, p.name].filter(Boolean).join(" · ");
+    btn.appendChild(make("span", "ip-loc", p.location || "—"));
+    btn.appendChild(make("span", "ip-nm", p.name || "—"));
+    btn.addEventListener("click", () => showInpatient(p.id));
+    names.appendChild(btn);
+  }
+  for (const id of [...inPanels.keys()]) {
+    if (!data.inpatients.some(x => x.id === id)) inPanels.delete(id);
+  }
+  // Keep the open patient while they're still in view; otherwise open the first one showing
+  if (!list.some(p => p.id === inSelId)) inSelId = list.length ? list[0].id : null;
+  showInpatient(inSelId);
+}
+
+function showInpatient(id) {
+  const p = id && data.inpatients.find(x => x.id === id);
+  inSelId = p ? p.id : null;
+  for (const btn of $("inBody").children) btn.classList.toggle("active", btn.dataset.id === inSelId);
+  const mid = $("inMid"), right = $("inTools");
+  if (!p) {
+    mid.innerHTML = "";
+    right.innerHTML = "";
+    if (data.inpatients.length) mid.appendChild(make("div", "ip-blank", "No patient selected."));
+    return;
+  }
+  const c = inPanel(p.id);
+  c.sync();
+  // Already showing (a re-render): leave it mounted so focus and the caret stay put.
+  if (c.notePane.parentNode !== mid) {
+    mid.innerHTML = "";
+    right.innerHTML = "";
+    mid.appendChild(c.notePane);
+    right.appendChild(c.toolsPane);
+  }
+}
+
+// Each patient's panels are built the first time they are opened and kept, so
+// switching patients keeps an Ask conversation or a half-typed update, and a
+// request still running for one patient finishes into that patient's panel.
+// A reload replaces the record objects, so everything reads the live record
+// through pt() and sync() redraws the middle from it.
+function inPanel(id) {
+  let c = inPanels.get(id);
+  if (c) return c;
+  const listKey = "inpatients";
+  const pt = () => data.inpatients.find(x => x.id === id) || { id };
+
+  // --- middle: who, summarised history, objective, job list ---
+  const notePane = make("div");
+  const head = make("div", "ip-head");
+  const locEl = make("span", "loc");
+  const nameEl = make("span", "name");
+  const dateEl = make("span", "rowmeta");
+  [locEl, nameEl, dateEl].forEach(el => head.appendChild(el));
+  notePane.appendChild(head);
+  const section = (label, content) => {
+    const sec = make("div", "card ip-sec");
+    sec.appendChild(make("span", "eyebrow", label));
+    sec.appendChild(content);
+    notePane.appendChild(sec);
+  };
+  const sumHost = make("div");
+  const objHost = make("div");
+  const jobBox = make("textarea", "jobbox");
+  jobBox.placeholder = "Jobs / to-dos…";
+  jobBox.addEventListener("input", () => {
+    queueFieldSave(listKey, id, "jobs", jobBox.value, "Update ICU job list");
+    renderUpcoming(listKey); // queueFieldSave has already updated the local cache
+  });
+  section("Summarised history", sumHost);
+  section("Objective", objHost);
+  section("Job list", jobBox);
+
+  const sumRender = v => summaryHtml(v || "") || "—";
+  const editing = host => !!host.querySelector("input, textarea");
+  // A location/name edit re-sorts the list and relabels its button
+  const cell = (host, field) => {
+    if (editing(host)) return;
+    host.innerHTML = "";
+    editableCell(host, pt(), field, listKey, () => renderList(listKey));
+  };
+  const block = (host, field, renderFn) => {
+    if (editing(host)) return;
+    const box = make("div", "ip-block");
+    const div = make("div");
+    div.innerHTML = renderFn(pt()[field]);
+    box.appendChild(div);
+    editableBlock(box, div, pt(), field, listKey, renderFn);
+    host.replaceChildren(box);
+  };
+  const sync = () => {
+    const p = pt();
+    cell(locEl, "location");
+    cell(nameEl, "name");
+    dateEl.textContent = fmtDate(p.created);
+    block(sumHost, "summary", sumRender);
+    block(objHost, "objective", objectiveHtml);
+    if (document.activeElement !== jobBox) jobBox.value = p.jobs || "";
+  };
+
+  // --- right: the tools ---
+  const toolsPane = make("div");
+
+  const askCard = make("div", "card tool-card");
+  askCard.appendChild(askPanel(pt, listKey).el);
+  toolsPane.appendChild(askCard);
+
+  // Update summarised history + objective from pasted reviews/results
+  const updCard = make("div", "card tool-card update-wrap");
+  const lbl = make("span", "eyebrow", "Update summarised history & objective");
+  lbl.style.margin = "0";
+  const hint = make("p", "ask-note", "Paste today's reviews, vitals, vent settings and results — Claude folds them into the summarised history and B–I objective. Nothing identifying is sent.");
+  const box = make("textarea", "update-box");
+  box.placeholder = "e.g. Weaned Norad to 0.01, extubated to HFNC 50/0.4, Urea 9 Na 134 K 4.2, CRP 80 > 60, Tazocin D7… (de-identified)";
+  const row = make("div", "gen-row");
+  const runBtn = make("button", "generate", "Update");
+  const st = make("span", "status");
+  row.appendChild(runBtn);
+  row.appendChild(st);
+  const err = make("div", "err");
+  [lbl, hint, box, row, err].forEach(el => updCard.appendChild(el));
+  toolsPane.appendChild(updCard);
+
+  let updController = null;
+  const showUpdErr = (m) => { err.textContent = m; err.style.display = "block"; };
+  runBtn.addEventListener("click", async () => {
+    if (updController) { updController.abort(); return; }
+    err.style.display = "none"; err.textContent = "";
+    const key = AI.key();
+    if (!key) { $("settingsBox").open = true; return showUpdErr(AI.missingKeyMsg()); }
+    const updates = box.value.trim();
+    if (!updates) return showUpdErr("Paste the new reviews, vitals or results first.");
+
+    updController = new AbortController();
+    runBtn.classList.add("is-cancel");
+    runBtn.innerHTML = '<span class="spinner"></span>Cancel';
+    st.textContent = "Updating summary + objective…";
     try {
+      const [summarySys, objectiveSys] = await Promise.all([
+        loadPrompt(CONFIG.SUMMARY_PROMPT, updController.signal),
+        loadPrompt(CONFIG.OBJECTIVE_PROMPT, updController.signal)
+      ]);
+      const before = pt();
+      // De-identified stored content only — name/location are never sent.
+      const [newSummary, newObjective] = await Promise.all([
+        callClaude(key, CONFIG.MODEL, summarySys + SUMMARY_UPDATE_SUFFIX,
+          "EXISTING SUMMARY:\n" + ((before.summary || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
+          CONFIG.SUMMARY_MAX_TOKENS, updController.signal),
+        callClaude(key, CONFIG.MODEL, objectiveSys + OBJECTIVE_UPDATE_SUFFIX,
+          "EXISTING OBJECTIVE:\n" + ((before.objective || "").trim() || "(none)") + "\n\nLATEST UPDATES:\n" + updates,
+          CONFIG.OBJECTIVE_MAX_TOKENS, updController.signal)
+      ]);
+      if (!newSummary && !newObjective) throw new Error("No text returned.");
+
+      // Append the pasted updates to the stored clinical data so the
+      // "Ask about this patient" context stays current.
+      const p = pt();
+      const t = new Date();
+      const stampedClinical = ((p.clinical || "").trim() ? p.clinical.trim() + "\n\n" : "") +
+        "UPDATE " + t.getDate() + "/" + (t.getMonth() + 1) + ":\n" + updates;
+      p.summary = newSummary || p.summary;
+      p.objective = newObjective || p.objective;
+      p.clinical = stampedClinical;
+      sync();
+
+      st.textContent = "Saving…";
       await mutateRemote(d => {
-        d[listKey] = d[listKey].filter(x => x.id !== p.id);
+        const rec = d[listKey].find(x => x.id === id);
+        if (rec) { rec.summary = p.summary; rec.objective = p.objective; rec.clinical = stampedClinical; }
         return d;
-      }, "Remove ICU " + LISTS[listKey].label + ": " + (p.name || p.location || p.id));
-      renderTables();
-      setListStatus(listKey, "Deleted ✓", true);
+      }, "Update ICU summary/objective: " + (p.name || p.location || id));
+      box.value = "";
+      st.textContent = "Updated ✓ " + timeNow();
+      st.classList.add("ok");
+      setTimeout(() => { st.textContent = ""; st.classList.remove("ok"); }, 4000);
     } catch (e) {
-      delBtn.disabled = false;
-      setListStatus(listKey, "");
-      showListError(listKey, "Delete failed: " + (e.message || e));
+      st.textContent = "";
+      if (e.name !== "AbortError") showUpdErr("Update failed: " + (e.message || e));
+    } finally {
+      updController = null;
+      runBtn.classList.remove("is-cancel");
+      runBtn.innerHTML = "Update";
     }
   });
+  // Ctrl/Cmd+Enter in the update box runs the update
+  box.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBtn.click(); }
+  });
+
+  const delBtn = make("button", "ghost-btn danger tool-del", "Delete patient");
+  delBtn.addEventListener("click", () => deletePatient(pt(), listKey, delBtn));
+  toolsPane.appendChild(delBtn);
+
+  c = { notePane, toolsPane, sync };
+  inPanels.set(id, c);
+  return c;
 }
 
 /* ============================================================== *

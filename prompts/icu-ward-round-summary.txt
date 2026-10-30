@@ -21,7 +21,11 @@ Create a SHORT, dense summary of an ICU inpatient for an ICU rounding table. Max
 - **RFAI:** Reason For Admission to ICU — ONE line stating the acute problem that brought the patient to ICU and the organ support that triggered admission, with the admission date if available (e.g. "26/6 septic shock 2° HAP — intubated, Norad" or "type 2 resp failure post-extubation stridor > reintubated"). One line only; details of the ongoing course belong in Course, not here.
 - **Active:** up to THREE current issues being worked up, most important first, all on ONE line separated by " | " (e.g. "HAP D5 | ?PE — CTPA pending | AKI on CKD, resolving"). The label **Active:** appears ONCE at the start of the line; the issues themselves are not bold.
 - **Counters:** running tallies of therapy and location durations on ONE line, separated by " | ". Include: antibiotics started and stopped with dates, steroids started and stopped with dates (incl. taper), sedation/vasopressor days where stated, and durations intubated, on CRRT, or in ICU/HD/GW. Chain switches/escalations with ">", separate distinct items with " | ". Dates as d/m. BOLD any treatment that is currently ongoing (e.g. **Tazo**, **Pred 30mg**). Include antifungal/antiviral prophylaxis where relevant (e.g. "**Tazo** 2/7 (D4); Augmentin 26/6–1/7 | intubated 26/6 (D5) | **CRRT** 28/6 (D3) | ICU D5").
-- **Course:** ALL significant dated events on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
+- **Course:** the patient's journey so far — what they have been through and the significant things that happened each day — on ONE wrapped line, separated by " | ". Each entry: "d/m <event>". Concise but complete enough that a reader gets the full picture of the course.
+  - The FIRST entry is the day of hospital admission and names one or two presenting symptoms (e.g. "24/10 adm headache, vomiting + fever").
+  - Include only significant events: deteriorations, new diagnoses, procedures, intubation/extubation, escalation or de-escalation of support, abx changes, transfers, and ABNORMAL or diagnostic results (e.g. +ve cultures, imaging findings).
+  - OMIT normal results and normal vitals entirely — do not list them, even as negatives, unless a negative result changed management (e.g. "CTPA −ve PE > stopped heparin").
+  - Use shortforms wherever possible (adm, intub, extub, NIV, HFNC, abx, BC, ETA, CTPA, CTB, OT, d/c, ↑/↓). Use ">" for transitions, "+"/"−" for positive/negative findings, "?" prefix for query/suspected. Include relevant counts (ANC, plt) without units.
 
 ## Compression rules (apply to the whole summary)
 - Maximum character economy — aim well under 150 words; density over prose. Drop articles (a/the), filler ("admitted for", "this is complicated by", "no clinical features of"), and redundant words.
@@ -34,4 +38,4 @@ Create a SHORT, dense summary of an ICU inpatient for an ICU rounding table. Max
 **RFAI:** 26/6 septic shock 2° HAP — intubated, Norad + Vaso
 **Active:** HAP D5, improving | AKI on CKD > CRRT | slow vent wean
 **Counters:** **Tazo** 2/7 (D4); Augmentin 26/6–1/7 (failed) | intubated 26/6 (D5) | **CRRT** 28/6 (D3) | **Norad 0.05** weaning | ICU D5
-**Course:** 26/6 intubated ED, ICU | 28/6 BC −ve, ETA +Pseudomonas > CRRT started | 2/7 escalated Tazo | 4/7 Norad weaning, SBT planned
+**Course:** 25/6 adm SOB + fever | 26/6 ↑O2 req > intub ED, ICU, Norad + Vaso | 28/6 ETA +Pseudomonas, AKI > CRRT | 2/7 Augmentin > Tazo | 4/7 Norad weaning, SBT planned
