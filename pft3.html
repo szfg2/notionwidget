@@ -1522,9 +1522,17 @@ For each row r in {fev1 (FEV1, L), fvc (FVC, L), ratio (FEV1/FVC, %)}:
 fvc_sit, fvc_sup  sitting and supine FVC (L) if a positional study is shown
 bmi, height_cm, weight_kg  if printed anywhere on the screenshots
 
+Lung volumes and diffusion tables use these columns:
+  r_act  the measured value — the column headed Act, Actual, Meas, Measured, Best, Result or Pre
+  r_lln  lower limit of normal (LLN)
+  r_uln  upper limit of normal (ULN) — often not printed; then leave it out
+  r_z    Z-score
+  Ignore the Pred and %Pred columns here. Row names may carry a method suffix (TLC_SB, DLCO_SB, KCO_SB, VA_SB) — it is the same row.
+  A table that has only Pred/LLN/Z-score/%Pred plus one measured column is still read normally.
+
 Lung volumes. For each row r in {tlc (TLC), rv (RV), rvtlc (RV/TLC, %)}: r_act, r_lln, r_uln, r_z
 
-Diffusion. For each row r: r_act, r_lln, r_uln, r_z
+Diffusion. For each row r: r_act, r_lln, r_uln, r_z (VIN / IVC inspired volume rows are not wanted)
   dlco   the UNCORRECTED DLCO / TLCO row
   dlcoc  the haemoglobin-CORRECTED/adjusted DLCO row (DLCOc, DLCO Hb, TLCOc) — only if printed separately
   va     alveolar volume (VA)
@@ -1542,7 +1550,7 @@ Six-minute walk: smwt_dist (maximum distance, m), smwt_nadir (lowest SpO2, %), s
 TEXT FIELDS (omit if absent):
   spiro_grade  spirometry QC grade letters exactly as printed (e.g. "AA", "AB"); if pre and post grades are both printed, give both separated by a space (e.g. "AA EF")
   lv_grade     lung volume QC grade letter(s) if printed
-  dlco_grade   DLCO QC grade letter(s) if printed
+  dlco_grade   DLCO QC grade letter(s) if printed (e.g. a "Grade" row under the diffusion table)
   smwt_notes   early termination, rest stops or other events written on a 6MWT report, copied briefly as stated
   smwt_o2      "with" if supplemental oxygen was used during the walk(s), "without" if room air
 
@@ -1625,7 +1633,8 @@ async function readOnce(key, content, kind) {
   let obj;
   try { obj = JSON.parse(raw.slice(start, end + 1)); }
   catch (_) { throw new Error("Model returned invalid JSON — try again."); }
-  if (!Object.values(obj).some(v => v !== null && v !== undefined && v !== "")) throw new Error("No recognisable values found.");
+  const known = Object.entries(obj).some(([id, v]) => $(id) && v !== null && v !== undefined && v !== "");
+  if (!known) throw new Error("No recognisable values found.");
   return obj;
 }
 
