@@ -99,7 +99,7 @@
   }
   .slot:hover, .slot:focus-visible { border-color: var(--accent); }
   .slot.filled { border-style: solid; }
-  .slot.armed { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .slot:focus, .slot.armed { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   .slot.dup { border-color: var(--warn); }
   .slot.open { grid-column: 1 / -1; cursor: default; user-select: text; border-style: solid; }
   .slot-head { display: flex; align-items: center; gap: 8px; }
@@ -978,7 +978,7 @@
     <div class="card">
       <span class="eyebrow">Case details</span>
       <div class="slots" id="slotGrid"></div>
-      <div class="hint">Copy something, then click a box to paste it in (click again to add more). Double-click a box to see and edit everything in it. Fill whichever boxes you have, in any order; none are required.</div>
+      <div class="hint">Copy something, click a box, then press Ctrl/⌘ + V to paste it in (paste again to add more). Double-click a box to see and edit everything in it. Fill whichever boxes you have, in any order; none are required.</div>
     </div>
 
     <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere. Screenshots can be pasted the same way, or dropped onto a box — crop out the patient header first. They are sent to the model but never saved.</span></p>
@@ -2748,17 +2748,15 @@ function clearCaseInputs() {
     openSlot(s, false);
     paintSlot(s);
   });
-  disarmSlot();
 }
 
 /* ============================================================== *
- *  Case boxes — click to paste, double-click to open             *
+ *  Case boxes — click + Ctrl+V to paste, double-click to open    *
  * ============================================================== */
-// Each box is a tile with a textarea behind it. A click reads the clipboard
-// straight into the box; where the browser won't allow that, the click arms the
-// box and the next Ctrl+V lands there. Screenshots (shots.js) are sent with the
-// letter and summary request but never saved; the record keeps the text alone.
-let armedSlot = null;
+// Each box is a tile with a textarea behind it. A click selects (focuses) the
+// tile and an ordinary Ctrl+V pastes into it; the page never reads the
+// clipboard on its own. Screenshots (shots.js) are sent with the letter and
+// summary request but never saved; the record keeps the text alone.
 const slotDup = {};   // box id -> label of another box already holding the pasted text
 const DUP_MIN = 40;   // shorter pastes ("Nil") match too easily to flag
 const tileOf = id => document.querySelector('#slotGrid .slot[data-slot="' + id + '"]');
@@ -2772,32 +2770,20 @@ function paintSlot(s) {
   const filled = !!(text || n);
   tile.classList.toggle("filled", filled);
   tile.classList.toggle("dup", !!slotDup[s.id]);
-  tile.classList.toggle("armed", armedSlot === s);
+  tile.classList.remove("armed");
   tile.querySelector(".slot-clear").hidden = !filled;
   const size = text.length >= 1000 ? (text.length / 1000).toFixed(1) + "k chars" : text.length + " chars";
   tile.querySelector(".slot-stat").textContent =
-    armedSlot === s ? "Press Ctrl/⌘ + V to paste here" :
     slotDup[s.id] ? "Same text as " + slotDup[s.id] + "?" :
     filled ? "✓ " + [text && size, n && n + " screenshot" + (n === 1 ? "" : "s")].filter(Boolean).join(" · ") :
-    "Click to paste";
+    document.activeElement === tile ? "Press Ctrl/⌘ + V to paste here" :
+    "Click, then Ctrl/⌘ + V";
   tile.querySelector(".slot-peek").textContent = text ? squash(text).slice(0, 140) : "";
 }
 
 function flashSlot(s, msg) {
   tileOf(s.id).querySelector(".slot-stat").textContent = msg;
   setTimeout(() => paintSlot(s), 1800);
-}
-
-function armSlot(s) {
-  const prev = armedSlot;
-  armedSlot = s;
-  if (prev && prev !== s) paintSlot(prev);
-  paintSlot(s);
-}
-function disarmSlot() {
-  const prev = armedSlot;
-  armedSlot = null;
-  if (prev) paintSlot(prev);
 }
 
 function openSlot(s, open) {
@@ -2829,22 +2815,6 @@ async function addToSlot(s, text, files) {
   }
   currentCase = null;
   paintSlot(s);
-}
-
-async function pasteIntoSlot(s) {
-  if (!navigator.clipboard || !navigator.clipboard.read) return armSlot(s);
-  let items;
-  try { items = await navigator.clipboard.read(); }
-  catch (e) { return armSlot(s); }   // permission refused or not supported: fall back to Ctrl+V
-  disarmSlot();
-  let text = "";
-  const files = [];
-  for (const it of items) {
-    if (it.types.includes("text/plain")) text += await (await it.getType("text/plain")).text();
-    const img = it.types.find(t => /^image\//.test(t));
-    if (img) files.push(new File([await it.getType(img)], "clipboard", { type: img }));
-  }
-  addToSlot(s, text, files);
 }
 
 function slotTile(s) {
@@ -2895,24 +2865,23 @@ function slotTile(s) {
   tile.appendChild(edit);
   enableShots(box, () => paintSlot(s));
 
-  // A double-click starts with two clicks, so the paste waits a beat to see
-  // whether a second click is coming.
-  let clickTimer = null;
-  tile.addEventListener("click", (e) => {
-    if (tile.classList.contains("open") || e.target.closest(".slot-clear")) return;
-    clearTimeout(clickTimer);
-    clickTimer = setTimeout(() => pasteIntoSlot(s), 250);
+  tile.addEventListener("focus", () => paintSlot(s));
+  tile.addEventListener("blur", () => paintSlot(s));
+  // A paste into the open textarea is the textarea's own; anything else lands here.
+  tile.addEventListener("paste", (e) => {
+    if (e.target !== tile || !e.clipboardData) return;
+    e.preventDefault();
+    const cd = e.clipboardData;
+    addToSlot(s, cd.getData("text/plain"), Array.from(cd.files || []).filter(f => /^image\//.test(f.type)));
   });
   tile.addEventListener("dblclick", (e) => {
     if (e.target.closest(".slot-edit, .slot-clear")) return;
-    clearTimeout(clickTimer);
-    disarmSlot();
     openSlot(s, !tile.classList.contains("open"));
   });
   tile.addEventListener("keydown", (e) => {
-    if (e.target !== tile || e.key !== "Enter" || e.ctrlKey || e.metaKey) return;
-    e.preventDefault();
-    pasteIntoSlot(s);
+    if (e.target !== tile) return;
+    if (e.key === "Escape") tile.blur();
+    if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) { e.preventDefault(); openSlot(s, true); }
   });
   clear.addEventListener("click", () => {
     box.value = "";
@@ -2945,19 +2914,7 @@ function slotTile(s) {
 
 SLOTS.forEach(s => { $("slotGrid").appendChild(slotTile(s)); paintSlot(s); });
 
-// The Ctrl+V fallback for an armed box. A paste into a real field is left alone.
-document.addEventListener("paste", (e) => {
-  if (!armedSlot || $("createTab").style.display === "none") return;
-  if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
-  const cd = e.clipboardData;
-  if (!cd) return;
-  e.preventDefault();
-  const s = armedSlot;
-  disarmSlot();
-  addToSlot(s, cd.getData("text/plain"), Array.from(cd.files || []).filter(f => /^image\//.test(f.type)));
-});
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && armedSlot) disarmSlot();
   // Ctrl/Cmd+Enter generates from a tile or with nothing focused, as from the boxes
   if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
   if ($("createTab").style.display === "none") return;
