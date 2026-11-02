@@ -157,7 +157,13 @@
       addFiles(files);
     });
 
-    boxes.set(box, { list, render });
+    boxes.set(box, { list, render, addFiles });
+  }
+  // Screenshots from somewhere other than a paste/drop on the box itself,
+  // e.g. a click that reads the clipboard.
+  function addShotFiles(box, files) {
+    const s = boxes.get(box);
+    return s ? s.addFiles(files) : Promise.resolve();
   }
   function shotsOf(box) {
     const s = boxes.get(box);
@@ -205,5 +211,5 @@
       : "";
   }
 
-  Object.assign(global, { enableShots, shotsOf, setShots, clearShots, shotThumbs, withShots, askApiMessages, shotsBlocked });
+  Object.assign(global, { enableShots, addShotFiles, shotsOf, setShots, clearShots, shotThumbs, withShots, askApiMessages, shotsBlocked });
 })(window);

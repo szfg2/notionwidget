@@ -88,6 +88,34 @@
   textarea { resize: vertical; line-height: 1.5; }
   textarea.input-box { min-height: 92px; }
 
+  /* Create New Patient case boxes: click to paste, double-click to open */
+  .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 760px) { .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 420px) { .slots { grid-template-columns: minmax(0, 1fr); } }
+  .slot {
+    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 8px;
+    padding: 10px 12px; min-height: 76px; min-width: 0; cursor: pointer; user-select: none;
+    touch-action: manipulation; outline: none; transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .slot:hover, .slot:focus-visible { border-color: var(--accent); }
+  .slot.filled { border-style: solid; }
+  .slot.armed { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .slot.dup { border-color: var(--warn); }
+  .slot.open { grid-column: 1 / -1; cursor: default; user-select: text; border-style: solid; }
+  .slot-head { display: flex; align-items: center; gap: 8px; }
+  .slot-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .slot.filled .slot-name { color: var(--text); }
+  .slot-clear { padding: 0 6px; font-size: 14px; line-height: 18px; border: 0; border-radius: 4px; background: transparent; color: var(--faint); cursor: pointer; }
+  .slot-clear:hover { color: var(--danger); }
+  .slot-stat { margin-top: 4px; font-size: 11px; color: var(--faint); }
+  .slot.filled .slot-stat { color: var(--accent-strong); }
+  .slot.dup .slot-stat { color: var(--warn); }
+  .slot-peek { margin-top: 3px; font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot.open .slot-peek { display: none; }
+  .slot-edit { margin-top: 8px; }
+  .slot-edit textarea { min-height: 180px; height: 40vh; }
+  .slot-edit .gen-row { margin-top: 8px; }
+
   .row2 { display: flex; gap: 12px; flex-wrap: wrap; }
   .row2 .field { flex: 1 1 220px; min-width: 0; }
 
@@ -948,29 +976,25 @@
     </div>
 
     <div class="card">
-      <span class="eyebrow">Referral letter to Respiratory</span>
-      <textarea class="input-box" id="referralLetter" placeholder="Paste the referral letter from the primary team — reason for referral, their question, relevant course so far…"></textarea>
+      <span class="eyebrow">Case details</span>
+      <div class="slots" id="slotGrid"></div>
+      <div class="hint">Copy something, then click a box to paste it in (click again to add more). Double-click a box to see and edit everything in it. Fill whichever boxes you have, in any order; none are required.</div>
     </div>
 
-    <div class="card">
-      <span class="eyebrow">Past medical details</span>
-      <textarea class="input-box" id="pastMedical" placeholder="Background, respiratory history, PFTs, imaging, other PMH, referral reason…"></textarea>
-    </div>
-
-    <div class="card">
-      <span class="eyebrow">Latest clinical data — vitals &amp; labs</span>
-      <textarea class="input-box" id="clinical" placeholder="Vitals, oxygen requirements, bloods, micro, imaging this admission…"></textarea>
-    </div>
-
-    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere. Screenshots can be pasted (Ctrl/⌘ + V) or dropped into any box — crop out the patient header first. They are sent to the model but never saved.</span></p>
+    <p class="deid"><span class="dot"></span><span>De-identify the medical boxes before sending — no full names, NRIC, MRN, address, or date of birth. Use initials or bed numbers only, everywhere. Screenshots can be pasted the same way, or dropped onto a box — crop out the patient header first. They are sent to the model but never saved.</span></p>
 
     <div class="card">
       <div class="gen-row">
         <button class="generate" id="generateBtn" type="button">Generate</button>
+        <select id="summaryModel" title="Model used for the summary + starter job list (the letter always uses Opus)" style="width:auto">
+          <option value="light" selected>Summary: Haiku 5.5</option>
+          <option value="default">Summary: Sonnet 5.5</option>
+          <option value="ask">Summary: Opus 5.5</option>
+        </select>
         <span class="status" id="genStatus"></span>
       </div>
       <div class="gen-jobs" id="genJobs"></div>
-      <div class="kbd-hint" style="margin-top:8px">Generates the blue letter reply + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box. The boxes clear straight away, so you can start the next patient while earlier ones are still generating.</div>
+      <div class="kbd-hint" style="margin-top:8px">Generates the blue letter reply + a ward-round summary, then saves the patient to your list. Press <span class="kbd">Ctrl/⌘ + Enter</span> from any box. The boxes clear straight away, so you can start the next patient while earlier ones are still generating. The letter always uses Opus; the picker sets the model for the summary + starter job list and resets to Haiku on each load.</div>
     </div>
 
     <div class="error" id="error"></div>
@@ -1214,8 +1238,6 @@ const CONFIG = {
   TOPICS_MAX_TOKENS: 16000,
   ASK_MODEL: "claude-opus-5-5",
   ASK_MAX_TOKENS: 16000,
-  // Starter job list written alongside the letter: what to find out about the case.
-  JOBS_MAX_TOKENS: 8000,
   // Update — folds new information into an existing letter + summary.
   UPDATE_MAX_TOKENS: 32000,
   // History-taking mode — the documented history rewritten as bedside clerking
@@ -1274,16 +1296,29 @@ const TOPICS_SYSTEM =
   "guidelines, GOLD, specific trials) — no fabricated references, and no URLs.\n" +
   "- Output ONLY the bullets — no preamble, no closing remarks.";
 
-/* Instruction that shapes the starter job list saved with each new patient. */
-const JOBS_SYSTEM =
-  "You are a respiratory registrar who has just read a referral and is about to see the patient. " +
-  "From the case provided, list the 2-4 most useful things to FIND OUT about this case before or at the review: " +
+/* Appended to the summary prompt on Generate, so one call returns both the
+   summary and the starter job list saved with each new patient. */
+const SUMMARY_JOBS_SUFFIX =
+  "\n\n## STARTER JOB LIST — applies to this run only\n" +
+  "After the summary, also write a starter job list, as a respiratory registrar who has just read the referral " +
+  "and is about to see the patient. From the case provided, list the 2-4 most useful things to FIND OUT about this case before or at the review: " +
   "missing history, results to chase, imaging to look at, collateral to get, or questions for the primary team. " +
   "Only include what would change the diagnosis or management. Skip anything the notes already answer.\n\n" +
   "FORMAT: 2-4 lines, each starting with \"- \". Write each as a terse ward job-list entry of 2-6 words, " +
   "using standard abbreviations (e.g. \"- Chase PF cytology\", \"- Review CTPA\", \"- Smoking hx, pack-yrs\", \"- ?Prior PFTs\"). " +
   "No explanations, no reasons, no brackets, no full sentences. " +
-  "Plain text only, no headings, no bold, no preamble, no closing remarks.";
+  "Plain text only, no headings, no bold, no preamble, no closing remarks.\n\n" +
+  "Output BOTH sections in full, using exactly these markers and nothing else:\n" +
+  "===SUMMARY===\n" +
+  "(the full summary)\n" +
+  "===JOBS===\n" +
+  "(the job list lines)";
+
+function parseSummaryJobs(text) {
+  const m = String(text).match(/===\s*SUMMARY\s*===\s*([\s\S]*?)\s*===\s*JOBS\s*===\s*([\s\S]*)$/i);
+  if (m) return { summary: m[1].trim(), jobs: m[2].trim() };
+  return { summary: String(text).replace(/^\s*===\s*SUMMARY\s*===\s*/i, "").trim(), jobs: "" };
+}
 
 /* Appended to the letter / summary prompts when Update folds new information
    into an existing record. The prompt files are shared with GWList.html, so the
@@ -1344,6 +1379,7 @@ const K = {
   openai: "dictation_openai_key",     // shared with dictation.html (transcription)
   ghBranch: "dictation_gh_branch",
   path: "resblue_gh_path",            // this page's own file
+  updSummaryOnly: "resblue_upd_summary_only", // "1" = Update skips the letter
   listView: "resblue_list_view",      // "full" | "hx" — Patient List column layout
   refCond: "resblue_ref_condition"    // last condition opened in the reference tab
 };
@@ -1879,10 +1915,11 @@ function stripEmDashes(text) {
  * tier hint: pages pass Opus for the reasoning-heavy calls and Sonnet for the
  * rest, which maps onto whichever pair the selected provider uses. The em-dash
  * ban and the post-hoc strip are applied whichever provider answers. */
+// model: a model id (its tier is used) or a tier itself, "light" | "default" | "ask".
 async function callClaude(key, model, system, userMessage, maxTokens, signal, effort) {
   const text = await AI.call({
     key,
-    kind: /opus|v4-pro/.test(model) ? "ask" : "default",
+    kind: ["light", "default", "ask"].includes(model) ? model : /opus|v4-pro/.test(model) ? "ask" : "default",
     systems: [{ text: system + NO_EMDASH, cache: true }],
     messages: [{ role: "user", content: userMessage }],
     maxTokens,
@@ -2379,7 +2416,35 @@ function queueSave(fn) {
   return p;
 }
 
-const CASE_BOXES = ["referralLetter", "pastMedical", "clinical"];
+/* The six case boxes on Create New Patient. `field` is the record field each is
+   filed under, so Ask, Update and the review notes read the record as before. */
+const SLOTS = [
+  { id: "slotMedical",  label: "Patient medical details",              field: "past" },
+  { id: "slotReferral", label: "Referral letter to Respi",             field: "referral" },
+  { id: "slotVitals",   label: "Latest vitals / I-O / investigations", field: "clinical" },
+  { id: "slotResNote",  label: "Last RES consult note",                field: "past" },
+  { id: "slotImaging",  label: "Last relevant chest imaging",          field: "clinical" },
+  { id: "slotOther",    label: "Other relevant info / general plans",  field: "clinical" }
+];
+const CASE_BOXES = SLOTS.map(s => s.id);
+
+function readSlots() {
+  const o = {};
+  SLOTS.forEach(s => { o[s.id] = { text: $(s.id).value.trim(), shots: shotsOf($(s.id)) }; });
+  return o;
+}
+
+// The boxes as the record's three text fields, each box under its own heading.
+function slotFields(slots) {
+  const out = { referral: "", past: "", clinical: "" };
+  SLOTS.forEach(s => {
+    const text = slots[s.id].text;
+    if (!text) return;
+    out[s.field] += (out[s.field] ? "\n\n" : "") + (s.field === "referral" ? text : s.label.toUpperCase() + ":\n" + text);
+  });
+  return out;
+}
+
 function caseBoxesEmpty() {
   return ["ptLocation", "ptName", ...CASE_BOXES].every(id => !$(id).value.trim()) &&
     CASE_BOXES.every(id => !shotsOf($(id)).length);
@@ -2390,19 +2455,17 @@ $("generateBtn").addEventListener("click", () => {
 
   if (!AI.key()) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
 
+  const slots = readSlots();
   const input = {
     location: $("ptLocation").value.trim(),
     name: $("ptName").value.trim(),
-    referral: $("referralLetter").value.trim(),
-    past: $("pastMedical").value.trim(),
-    clinical: $("clinical").value.trim(),
-    refShots: shotsOf($("referralLetter")),
-    pastShots: shotsOf($("pastMedical")),
-    clinShots: shotsOf($("clinical"))
+    ...slotFields(slots),
+    slots,
+    summaryKind: $("summaryModel").value
   };
-  const allShots = input.refShots.concat(input.pastShots, input.clinShots);
+  const allShots = SLOTS.flatMap(s => slots[s.id].shots);
   if (!input.name && !input.location) return showError("Add a location or name (bed/initials) so the patient can be identified in the list.");
-  if (!input.referral && !input.past && !input.clinical && !allShots.length) return showError("Add a referral letter, past medical details or clinical data.");
+  if (!input.referral && !input.past && !input.clinical && !allShots.length) return showError("Paste at least one of the case details.");
   const blocked = shotsBlocked(allShots);
   if (blocked) return showError(blocked);
 
@@ -2424,7 +2487,7 @@ $("generateBtn").addEventListener("click", () => {
 
 async function runGenJob(job) {
   const key = AI.key();
-  const { location, name, referral, past, clinical, refShots, pastShots, clinShots } = job.input;
+  const { location, name, referral, past, clinical, slots, summaryKind } = job.input;
   job.state = "running";
   job.error = "";
   job.controller = new AbortController();
@@ -2434,27 +2497,26 @@ async function runGenJob(job) {
     if (!key) throw new Error(AI.missingKeyMsg());
     if (!job.record) {
       // Only the de-identified medical content is sent to Claude — never name/location.
-      const seeShots = (text, shots) => text || (shots.length ? "(see attached screenshots)" : "");
-      const userMessage = withShots([
-        ...(referral || refShots.length
-          ? [{ text: "REFERRAL LETTER FROM PRIMARY TEAM:\n" + seeShots(referral, refShots), shots: refShots }]
-          : []),
-        { text: "PATIENT DETAILS:\n" + seeShots(past, pastShots), shots: pastShots },
-        { text: "LATEST CLINICAL DATA:\n" + seeShots(clinical, clinShots), shots: clinShots }
-      ]);
+      const userMessage = withShots(SLOTS
+        .filter(s => slots[s.id].text || slots[s.id].shots.length)
+        .map(s => ({
+          text: s.label.toUpperCase() + ":\n" + (slots[s.id].text || "(see attached screenshots)"),
+          shots: slots[s.id].shots
+        })));
 
       const [letterSys, summarySys] = await Promise.all([
         fetch(CONFIG.LETTER_PROMPT, { cache: "no-store", signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.LETTER_PROMPT); return r.text(); }),
         fetch(CONFIG.SUMMARY_PROMPT, { cache: "no-store", signal }).then(r => { if (!r.ok) throw new Error("Couldn't load prompt: " + CONFIG.SUMMARY_PROMPT); return r.text(); })
       ]);
 
-      const [letter, summary, jobs] = await Promise.all([
+      // effort is only sent to Opus; the lighter tiers run on their defaults
+      const [letter, summaryOut] = await Promise.all([
         callClaude(key, CONFIG.MODEL, letterSys, userMessage, CONFIG.LETTER_MAX_TOKENS, signal, CONFIG.LETTER_EFFORT),
-        callClaude(key, CONFIG.MODEL, summarySys, userMessage, CONFIG.SUMMARY_MAX_TOKENS, signal, CONFIG.LOW_EFFORT),
-        // a starter job list is a nice-to-have — never let it sink the letter
-        callClaude(key, CONFIG.MODEL, JOBS_SYSTEM, userMessage, CONFIG.JOBS_MAX_TOKENS, signal, CONFIG.LOW_EFFORT)
-          .catch(e => { if (e.name === "AbortError") throw e; return ""; })
+        callClaude(key, summaryKind, summarySys + SUMMARY_JOBS_SUFFIX, userMessage, CONFIG.SUMMARY_MAX_TOKENS, signal,
+          summaryKind === "ask" ? CONFIG.LOW_EFFORT : undefined)
       ]);
+      // the starter job list is a nice-to-have — without its marker the whole reply is the summary
+      const { summary, jobs } = parseSummaryJobs(summaryOut || "");
 
       job.record = {
         id: job.id,
@@ -2512,12 +2574,12 @@ function restoreGenJob(job) {
   const i = job.input;
   $("ptLocation").value = i.location;
   $("ptName").value = i.name;
-  $("referralLetter").value = i.referral;
-  $("pastMedical").value = i.past;
-  $("clinical").value = i.clinical;
-  setShots($("referralLetter"), i.refShots);
-  setShots($("pastMedical"), i.pastShots);
-  setShots($("clinical"), i.clinShots);
+  SLOTS.forEach(s => {
+    $(s.id).value = i.slots[s.id].text;
+    setShots($(s.id), i.slots[s.id].shots);
+    slotDup[s.id] = "";
+    paintSlot(s);
+  });
   currentCase = null;
   genJobs.delete(job.id);
   renderGenJobs();
@@ -2679,26 +2741,244 @@ async function saveLetter(id, value) {
 let currentCase = null;
 
 function clearCaseInputs() {
-  ["ptLocation", "ptName", "referralLetter", "pastMedical", "clinical"].forEach(id => { $(id).value = ""; });
-  ["referralLetter", "pastMedical", "clinical"].forEach(id => clearShots($(id)));
+  ["ptLocation", "ptName", ...CASE_BOXES].forEach(id => { $(id).value = ""; });
+  SLOTS.forEach(s => {
+    clearShots($(s.id));
+    slotDup[s.id] = "";
+    openSlot(s, false);
+    paintSlot(s);
+  });
+  disarmSlot();
 }
 
-/* Screenshots in the case boxes — see shots.js. They are sent with the letter
- * and summary request but never saved; the GitHub record keeps the text alone. */
-["referralLetter", "pastMedical", "clinical"].forEach(id => enableShots($(id)));
+/* ============================================================== *
+ *  Case boxes — click to paste, double-click to open             *
+ * ============================================================== */
+// Each box is a tile with a textarea behind it. A click reads the clipboard
+// straight into the box; where the browser won't allow that, the click arms the
+// box and the next Ctrl+V lands there. Screenshots (shots.js) are sent with the
+// letter and summary request but never saved; the record keeps the text alone.
+let armedSlot = null;
+const slotDup = {};   // box id -> label of another box already holding the pasted text
+const DUP_MIN = 40;   // shorter pastes ("Nil") match too easily to flag
+const tileOf = id => document.querySelector('#slotGrid .slot[data-slot="' + id + '"]');
+const squash = v => v.replace(/\s+/g, " ").trim();
+
+function paintSlot(s) {
+  const tile = tileOf(s.id);
+  const box = $(s.id);
+  const text = box.value.trim();
+  const n = shotsOf(box).length;
+  const filled = !!(text || n);
+  tile.classList.toggle("filled", filled);
+  tile.classList.toggle("dup", !!slotDup[s.id]);
+  tile.classList.toggle("armed", armedSlot === s);
+  tile.querySelector(".slot-clear").hidden = !filled;
+  const size = text.length >= 1000 ? (text.length / 1000).toFixed(1) + "k chars" : text.length + " chars";
+  tile.querySelector(".slot-stat").textContent =
+    armedSlot === s ? "Press Ctrl/⌘ + V to paste here" :
+    slotDup[s.id] ? "Same text as " + slotDup[s.id] + "?" :
+    filled ? "✓ " + [text && size, n && n + " screenshot" + (n === 1 ? "" : "s")].filter(Boolean).join(" · ") :
+    "Click to paste";
+  tile.querySelector(".slot-peek").textContent = text ? squash(text).slice(0, 140) : "";
+}
+
+function flashSlot(s, msg) {
+  tileOf(s.id).querySelector(".slot-stat").textContent = msg;
+  setTimeout(() => paintSlot(s), 1800);
+}
+
+function armSlot(s) {
+  const prev = armedSlot;
+  armedSlot = s;
+  if (prev && prev !== s) paintSlot(prev);
+  paintSlot(s);
+}
+function disarmSlot() {
+  const prev = armedSlot;
+  armedSlot = null;
+  if (prev) paintSlot(prev);
+}
+
+function openSlot(s, open) {
+  const tile = tileOf(s.id);
+  tile.classList.toggle("open", open);
+  tile.querySelector(".slot-edit").hidden = !open;
+  if (open) $(s.id).focus();
+}
+
+// Text wins over a picture when the clipboard holds both (an EMR table copies as
+// both), matching shots.js. Repeat pastes add to the box rather than replace it.
+async function addToSlot(s, text, files) {
+  const box = $(s.id);
+  text = (text || "").trim();
+  if (text) files = [];
+  if (!text && !files.length) return flashSlot(s, "Clipboard is empty");
+  if (text) {
+    const t = squash(text);
+    const long = t.length >= DUP_MIN;
+    if (long && squash(box.value).includes(t)) return flashSlot(s, "Already in this box");
+    const other = long ? SLOTS.find(o => o !== s && squash($(o.id).value).includes(t)) : null;
+    box.value = box.value.trim() ? box.value.trim() + "\n\n" + text : text;
+    slotDup[s.id] = other ? other.label : "";
+  } else {
+    await addShotFiles(box, files);
+    const list = shotsOf(box);
+    const uniq = list.filter((x, i) => list.findIndex(y => y.data === x.data) === i);
+    if (uniq.length < list.length) { setShots(box, uniq); flashSlot(s, "Already in this box"); }
+  }
+  currentCase = null;
+  paintSlot(s);
+}
+
+async function pasteIntoSlot(s) {
+  if (!navigator.clipboard || !navigator.clipboard.read) return armSlot(s);
+  let items;
+  try { items = await navigator.clipboard.read(); }
+  catch (e) { return armSlot(s); }   // permission refused or not supported: fall back to Ctrl+V
+  disarmSlot();
+  let text = "";
+  const files = [];
+  for (const it of items) {
+    if (it.types.includes("text/plain")) text += await (await it.getType("text/plain")).text();
+    const img = it.types.find(t => /^image\//.test(t));
+    if (img) files.push(new File([await it.getType(img)], "clipboard", { type: img }));
+  }
+  addToSlot(s, text, files);
+}
+
+function slotTile(s) {
+  const tile = document.createElement("div");
+  tile.className = "slot";
+  tile.tabIndex = 0;
+  tile.dataset.slot = s.id;
+
+  const head = document.createElement("div");
+  head.className = "slot-head";
+  const name = document.createElement("span");
+  name.className = "slot-name";
+  name.textContent = s.label;
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "slot-clear";
+  clear.title = "Empty this box";
+  clear.textContent = "×";
+  head.appendChild(name);
+  head.appendChild(clear);
+
+  const stat = document.createElement("div");
+  stat.className = "slot-stat";
+  const peek = document.createElement("div");
+  peek.className = "slot-peek";
+
+  const edit = document.createElement("div");
+  edit.className = "slot-edit";
+  edit.hidden = true;
+  const box = document.createElement("textarea");
+  box.className = "input-box";
+  box.id = s.id;
+  box.spellcheck = false;
+  box.placeholder = s.label + "…";
+  const row = document.createElement("div");
+  row.className = "gen-row";
+  const done = document.createElement("button");
+  done.type = "button";
+  done.className = "ghost-btn";
+  done.textContent = "Done";
+  row.appendChild(done);
+  edit.appendChild(box);
+  edit.appendChild(row);
+
+  tile.appendChild(head);
+  tile.appendChild(stat);
+  tile.appendChild(peek);
+  tile.appendChild(edit);
+  enableShots(box, () => paintSlot(s));
+
+  // A double-click starts with two clicks, so the paste waits a beat to see
+  // whether a second click is coming.
+  let clickTimer = null;
+  tile.addEventListener("click", (e) => {
+    if (tile.classList.contains("open") || e.target.closest(".slot-clear")) return;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => pasteIntoSlot(s), 250);
+  });
+  tile.addEventListener("dblclick", (e) => {
+    if (e.target.closest(".slot-edit, .slot-clear")) return;
+    clearTimeout(clickTimer);
+    disarmSlot();
+    openSlot(s, !tile.classList.contains("open"));
+  });
+  tile.addEventListener("keydown", (e) => {
+    if (e.target !== tile || e.key !== "Enter" || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    pasteIntoSlot(s);
+  });
+  clear.addEventListener("click", () => {
+    box.value = "";
+    clearShots(box);
+    slotDup[s.id] = "";
+    currentCase = null;
+    paintSlot(s);
+  });
+  done.addEventListener("click", () => { openSlot(s, false); tile.focus(); });
+  box.addEventListener("input", () => { slotDup[s.id] = ""; paintSlot(s); });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { openSlot(s, false); tile.focus(); }
+  });
+
+  ["dragenter", "dragover"].forEach(t => tile.addEventListener(t, (e) => {
+    if (tile.classList.contains("open") || !e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+    e.preventDefault();
+    tile.classList.add("armed");
+  }));
+  tile.addEventListener("dragleave", () => paintSlot(s));
+  tile.addEventListener("drop", (e) => {
+    if (tile.classList.contains("open")) return;
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => /^image\//.test(f.type));
+    if (!files.length) return;
+    e.preventDefault();
+    addToSlot(s, "", files);
+  });
+  return tile;
+}
+
+SLOTS.forEach(s => { $("slotGrid").appendChild(slotTile(s)); paintSlot(s); });
+
+// The Ctrl+V fallback for an armed box. A paste into a real field is left alone.
+document.addEventListener("paste", (e) => {
+  if (!armedSlot || $("createTab").style.display === "none") return;
+  if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
+  const cd = e.clipboardData;
+  if (!cd) return;
+  e.preventDefault();
+  const s = armedSlot;
+  disarmSlot();
+  addToSlot(s, cd.getData("text/plain"), Array.from(cd.files || []).filter(f => /^image\//.test(f.type)));
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && armedSlot) disarmSlot();
+  // Ctrl/Cmd+Enter generates from a tile or with nothing focused, as from the boxes
+  if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+  if ($("createTab").style.display === "none") return;
+  if (e.target === document.body || (e.target.classList && e.target.classList.contains("slot"))) {
+    e.preventDefault();
+    $("generateBtn").click();
+  }
+});
 
 // What Ask / reading topics should treat as the case: whatever is in the boxes,
-// falling back per box to the case the on-screen letter was generated from.
+// falling back per field to the case the on-screen letter was generated from.
 function caseInputs() {
-  const box = id => $(id).value.trim();
+  const now = slotFields(readSlots());
   return {
-    referral: box("referralLetter") || (currentCase ? currentCase.referral : ""),
-    past: box("pastMedical") || (currentCase ? currentCase.past : ""),
-    clinical: box("clinical") || (currentCase ? currentCase.clinical : "")
+    referral: now.referral || (currentCase ? currentCase.referral : ""),
+    past: now.past || (currentCase ? currentCase.past : ""),
+    clinical: now.clinical || (currentCase ? currentCase.clinical : "")
   };
 }
 
-[$("ptLocation"), $("ptName"), $("referralLetter"), $("pastMedical"), $("clinical")].forEach(el => {
+[$("ptLocation"), $("ptName"), ...CASE_BOXES.map($)].forEach(el => {
   // Ctrl/Cmd+Enter generates
   el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("generateBtn").click(); }
@@ -2902,12 +3182,19 @@ async function loadPrompt(url, signal) {
   return t;
 }
 
-// Builds a "Create … Note" button plus its expandable editor row. The row has
-// two inputs — latest results/vitals and suggested plans — which Claude merges
-// with the stored (de-identified) case context to fill the note template at
-// promptUrl. Returns { btn, row } for the caller to slot into the actions cell
-// and the tbody. Purely on-demand; nothing here is saved to GitHub.
-function noteControl(p, label, promptUrl, colSpan) {
+// The Pleural review tick picks the template, read live at open and generate.
+function reviewIsPleural(p) { return !!(recordById(p.id) || p).pleural; }
+function reviewLabel(pleural) { return pleural ? "Pleural review note" : "Review note"; }
+
+// Builds the "Create Review Note" button plus its expandable editor row. The row
+// has two inputs — latest results/vitals (text or screenshots) and suggested
+// plans — which Claude merges with the stored (de-identified) case context to
+// fill the review or pleural review template. Returns { btn, row } for the caller
+// to slot into the actions cell and the tbody. Purely on-demand; nothing here is
+// saved to GitHub.
+
+function noteControl(p, colSpan) {
+  const label = "Create Review Note";
   const btn = document.createElement("button");
   btn.className = "ghost-btn";
   btn.type = "button";
@@ -2925,7 +3212,8 @@ function noteControl(p, label, promptUrl, colSpan) {
   const eyebrow = document.createElement("span");
   eyebrow.className = "eyebrow";
   eyebrow.style.margin = "0";
-  eyebrow.textContent = label.replace(/^Create /, "");
+  eyebrow.dataset.reviewFor = p.id;
+  eyebrow.textContent = reviewLabel(reviewIsPleural(p));
   const copyBtn = document.createElement("button");
   copyBtn.className = "ghost-btn";
   copyBtn.type = "button";
@@ -2936,7 +3224,7 @@ function noteControl(p, label, promptUrl, colSpan) {
 
   const note = document.createElement("p");
   note.className = "ask-note";
-  note.textContent = "Enter this review's results/vitals and your suggested plans; Claude merges them with the stored case context to write the note. Nothing identifying is sent.";
+  note.textContent = "Enter this review's results/vitals (or paste screenshots of the obs chart / results) and your suggested plans; Claude merges them with the stored case context to write the note. The Pleural review tick picks the pleural template. Nothing identifying is sent.";
 
   const mkField = (labelText, placeholder) => {
     const field = document.createElement("div");
@@ -2970,6 +3258,7 @@ function noteControl(p, label, promptUrl, colSpan) {
   td.appendChild(head);
   td.appendChild(note);
   td.appendChild(results.field);
+  enableShots(results.box);   // needs the box in the DOM — the thumbnail strip goes after it
   td.appendChild(suggest.field);
   td.appendChild(genBtn);
   td.appendChild(err);
@@ -2998,13 +3287,22 @@ function noteControl(p, label, promptUrl, colSpan) {
       err.style.display = "block";
       return;
     }
+    const shots = shotsOf(results.box);
+    const blocked = shotsBlocked(shots);
+    if (blocked) { err.textContent = blocked; err.style.display = "block"; return; }
+    const pleural = reviewIsPleural(p);
+    eyebrow.textContent = reviewLabel(pleural);
     controller = new AbortController();
     setLoading(true);
     try {
-      const sys = await loadPrompt(promptUrl, controller.signal);
-      const userMessage = caseContextOf(p) +
-        "\n\nLATEST RESULTS & VITALS (entered at this review):\n" + (results.box.value.trim() || "(none entered)") +
-        "\n\nSUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || "(none entered)");
+      const sys = await loadPrompt(pleural ? CONFIG.PLEURAL_REVIEW_PROMPT : CONFIG.REVIEW_PROMPT, controller.signal);
+      const typed = results.box.value.trim();
+      const userMessage = withShots([
+        { text: caseContextOf(p) +
+          "\n\nLATEST RESULTS & VITALS (entered at this review):\n" + (typed || (shots.length ? "(see attached screenshots)" : "(none entered)")),
+          shots },
+        { text: "SUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || "(none entered)"), shots: [] }
+      ]);
       const text = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.REVIEW_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT);
       noteText = text || "";
       out.textContent = noteText || "(No text returned.)";
@@ -3027,7 +3325,7 @@ function noteControl(p, label, promptUrl, colSpan) {
     const open = row.style.display !== "none";
     row.style.display = open ? "none" : "";
     btn.textContent = open ? label : "Hide";
-    if (!open) results.box.focus();
+    if (!open) { eyebrow.textContent = reviewLabel(reviewIsPleural(p)); results.box.focus(); }
   });
 
   return { btn, row };
@@ -3073,6 +3371,20 @@ function updateControl(p, btn, tdSum, colSpan) {
   td.appendChild(note);
   td.appendChild(field);
   enableShots(box);   // needs the box in the DOM — the thumbnail strip goes after it
+
+  const onlyLab = document.createElement("label");
+  onlyLab.className = "kbd-hint";
+  onlyLab.style.cssText = "display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer";
+  const onlyCb = document.createElement("input");
+  onlyCb.type = "checkbox";
+  onlyCb.style.cssText = "width:auto;margin:0;accent-color:var(--accent)";
+  onlyCb.checked = get(K.updSummaryOnly) === "1";
+  onlyLab.appendChild(onlyCb);
+  onlyLab.appendChild(document.createTextNode("Summary only: leave the letter as it is (faster)"));
+  td.appendChild(onlyLab);
+  const setEyebrow = () => { eyebrow.textContent = onlyCb.checked ? "Update summary" : "Update letter & summary"; };
+  setEyebrow();
+  onlyCb.addEventListener("change", () => { set(K.updSummaryOnly, onlyCb.checked ? "1" : ""); setEyebrow(); });
 
   const goBtn = document.createElement("button");
   goBtn.className = "generate";
@@ -3131,23 +3443,26 @@ function updateControl(p, btn, tdSum, colSpan) {
       newInfo
     ]);
 
+    const summaryOnly = onlyCb.checked;
     controller = new AbortController();
     setLoading(true);
-    status.textContent = "Updating letter + summary…";
+    status.textContent = summaryOnly ? "Updating summary…" : "Updating letter + summary…";
     try {
-      const [letterSys, summarySys] = await Promise.all([
-        loadPrompt(CONFIG.LETTER_PROMPT, controller.signal),
-        loadPrompt(CONFIG.SUMMARY_PROMPT, controller.signal)
-      ]);
-      const [letter, summary] = await Promise.all([
-        callClaude(key, CONFIG.MODEL, letterSys + UPDATE_INSTRUCTIONS, msgFor("CURRENT BLUE LETTER REPLY", rec.letter), CONFIG.UPDATE_MAX_TOKENS, controller.signal, CONFIG.LETTER_EFFORT),
-        callClaude(key, CONFIG.MODEL, summarySys + UPDATE_INSTRUCTIONS, msgFor("CURRENT SUMMARY", rec.summary), CONFIG.UPDATE_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT)
-      ]);
+      const signal = controller.signal;
+      const updateLetter = async () => {
+        const letterSys = await loadPrompt(CONFIG.LETTER_PROMPT, signal);
+        return callClaude(key, CONFIG.MODEL, letterSys + UPDATE_INSTRUCTIONS, msgFor("CURRENT BLUE LETTER REPLY", rec.letter), CONFIG.UPDATE_MAX_TOKENS, signal, CONFIG.LETTER_EFFORT);
+      };
+      const updateSummary = async () => {
+        const summarySys = await loadPrompt(CONFIG.SUMMARY_PROMPT, signal);
+        return callClaude(key, CONFIG.MODEL, summarySys + UPDATE_INSTRUCTIONS, msgFor("CURRENT SUMMARY", rec.summary), CONFIG.UPDATE_MAX_TOKENS, signal, CONFIG.LOW_EFFORT);
+      };
+      const [letter, summary] = await Promise.all([summaryOnly ? null : updateLetter(), updateSummary()]);
       const fields = {
-        letter: letter || rec.letter || "",
         summary: summary || rec.summary || "",
         clinical: ((rec.clinical || "").trim() + "\n\nUPDATE " + stamp + ":\n" + (added || "(screenshots only)")).trim()
       };
+      if (!summaryOnly) fields.letter = letter || rec.letter || "";
       status.textContent = "Saving…";
       await saveRecordFields(p.id, fields, "Update blue letter patient: " + (p.name || p.location || p.id));
       Object.assign(p, fields);
@@ -3156,8 +3471,10 @@ function updateControl(p, btn, tdSum, colSpan) {
       tdSum.innerHTML =
         (ref ? '<div class="refline"><strong>Referral:</strong> ' + escapeHtml(ref) + "</div>" : "") +
         summaryHtml(p.summary);
-      refreshLetterViews(p.id, fields.letter);
-      if (currentLetterId === p.id) { $("output").value = fields.letter; updateCount(); }
+      if (!summaryOnly) {
+        refreshLetterViews(p.id, fields.letter);
+        if (currentLetterId === p.id) { $("output").value = fields.letter; updateCount(); }
+      }
 
       box.value = "";
       clearShots(box);
@@ -3379,8 +3696,7 @@ function renderFullRow(body, p) {
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
     letterBtn.textContent = "Letter";
-    const review = noteControl(p, "Create Review Note", CONFIG.REVIEW_PROMPT, 5);
-    const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
+    const review = noteControl(p, 5);
     const delBtn = document.createElement("button");
     delBtn.className = "ghost-btn danger";
     delBtn.type = "button";
@@ -3389,13 +3705,11 @@ function renderFullRow(body, p) {
     tdAct.appendChild(letterBtn);
     tdAct.appendChild(updBtn);
     tdAct.appendChild(review.btn);
-    tdAct.appendChild(pleural.btn);
     tdAct.appendChild(delBtn);
     tdAct.appendChild(pleuralCheck(p, "list", dateKey(p.created)));
     tr.appendChild(tdAct);
     body.appendChild(tr);
     body.appendChild(review.row);
-    body.appendChild(pleural.row);
 
     // expandable letter row
     const trLetter = document.createElement("tr");
@@ -4288,16 +4602,13 @@ function renderArchiveDay(container, list, day) {
     letterBtn.className = "ghost-btn";
     letterBtn.type = "button";
     letterBtn.textContent = "Letter";
-    const review = noteControl(p, "Create Review Note", CONFIG.REVIEW_PROMPT, 5);
-    const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
+    const review = noteControl(p, 5);
     tdAct.appendChild(letterBtn);
     tdAct.appendChild(review.btn);
-    tdAct.appendChild(pleural.btn);
     tdAct.appendChild(pleuralCheck(p, "archive", day));
     tr.appendChild(tdAct);
     body.appendChild(tr);
     body.appendChild(review.row);
-    body.appendChild(pleural.row);
 
     const trLetter = document.createElement("tr");
     trLetter.className = "letter-row";
@@ -4376,6 +4687,7 @@ function syncPleuralChecks(id, value) {
     const lab = cb.closest("label");
     if (lab) lab.classList.toggle("on", value);
   });
+  document.querySelectorAll('[data-review-for="' + id + '"]').forEach(el => { el.textContent = reviewLabel(value); });
 }
 
 // The tick box shown in Patient List and in Previous Patients.
@@ -4525,7 +4837,7 @@ function renderPleuralRow(body, it) {
   letterBtn.className = "ghost-btn";
   letterBtn.type = "button";
   letterBtn.textContent = "Letter";
-  const pleural = noteControl(p, "Create Pleural Review Note", CONFIG.PLEURAL_REVIEW_PROMPT, 5);
+  const pleural = noteControl(p, 5);
   const removeBtn = document.createElement("button");
   removeBtn.className = "ghost-btn";
   removeBtn.type = "button";
