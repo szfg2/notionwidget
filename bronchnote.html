@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bronch note - Notepad</title>
+<style>
+  :root{
+    --chrome:#f3f3f3; --line:#e3e3e3; --ink:#000; --dim:#6e6e6e; --faint:#a8a8a8;
+    --accent:#0067c0; --hl:#cce4f7; --warn:#b7791f; --ok:#2e7d32;
+    --mono:Consolas,"Cascadia Mono","Lucida Console","Courier New",monospace;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#fff}
+  body{display:flex;flex-direction:column;color:var(--ink);font-family:var(--ui)}
+
+  .titlebar{height:32px;flex:none;display:flex;align-items:center;gap:10px;padding-left:12px;
+    background:var(--chrome);font-size:12px;user-select:none}
+  .titlebar .ctl{margin-left:auto;display:flex}
+  .titlebar .ctl span{width:46px;height:32px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#333}
+  .titlebar .ctl span:hover{background:#e5e5e5}
+  .titlebar .ctl span:last-child:hover{background:#c42b1c;color:#fff}
+
+  .menubar{flex:none;display:flex;align-items:center;gap:2px;padding:2px 6px;background:var(--chrome);
+    border-bottom:1px solid var(--line);font-size:13px;user-select:none}
+  .menubar button{font:inherit;color:#000;background:none;border:0;padding:5px 10px;border-radius:4px;cursor:default}
+  .menubar button:hover{background:#e3e3e3}
+  .menubar button.hot{font-weight:600;color:var(--accent)}
+  .menubar button.armed{background:#fde7e9;color:#a4262c}
+  #toast{margin-left:10px;color:var(--ok);font-size:12px;opacity:0;transition:opacity .2s}
+  #toast.show{opacity:1}
+
+  .page{flex:1;overflow:auto;padding:8px 12px 48px;font:15px/1.65 var(--mono)}
+  .c{color:var(--dim);white-space:pre-wrap}
+  .row{display:flex;flex-wrap:wrap;align-items:baseline;min-height:1.65em}
+  .l{white-space:pre}
+  .gap{white-space:pre}
+
+  input.f,textarea.f{font:inherit;color:var(--ink);background:transparent;border:0;outline:0;padding:0 2px;
+    border-bottom:1px dotted #9a9a9a;border-radius:0;max-width:100%}
+  input.f:focus,textarea.f:focus{border-bottom:1px solid var(--accent);background:#eef5fc}
+  input.f::placeholder,textarea.f::placeholder{color:#bdbdbd}
+  input.num{width:5ch;text-align:right}
+  textarea.f{display:block;width:min(100%,72ch);resize:none;overflow:hidden;border:1px dotted #b5b5b5;
+    padding:0 4px;margin:2px 0 4px 2ch;min-height:1.65em}
+  textarea.f:focus{border:1px solid var(--accent)}
+
+  .combo{display:inline-flex;align-items:baseline;max-width:100%}
+  .combo .dd{font:inherit;font-size:11px;color:#8a8a8a;background:none;border:0;padding:0 5px;cursor:pointer}
+  .combo .dd:hover{color:var(--accent)}
+
+  .tbtn{font:inherit;color:var(--ink);background:none;border:0;padding:0;cursor:pointer;white-space:pre}
+  .tbtn:hover,.tbtn:focus-visible{color:var(--accent);outline:0}
+  .link{font:inherit;color:var(--dim);background:none;border:0;padding:0;cursor:pointer;white-space:pre}
+  .link:hover,.link:focus-visible{color:var(--accent);outline:0;text-decoration:underline}
+  .chips{display:flex;flex-wrap:wrap;gap:0 2ch;margin-left:2ch}
+
+  .off{opacity:.38}
+  .sep{margin:18px 0 4px;color:var(--dim);white-space:pre-wrap;display:flex;flex-wrap:wrap;gap:0 2ch}
+  .sep .rule{white-space:pre}
+  .sep.edited .state{color:var(--warn)}
+  #note{display:block;width:100%;font:inherit;color:var(--ink);border:0;outline:0;resize:none;overflow:hidden;
+    padding:0;background:transparent;min-height:12em;caret-color:#000}
+  #note::selection,input.f::selection{background:#0078d7;color:#fff}
+
+  .statusbar{flex:none;display:flex;font-size:12px;background:var(--chrome);border-top:1px solid var(--line);color:#333;user-select:none}
+  .statusbar span{padding:4px 14px;border-left:1px solid var(--line);white-space:nowrap}
+  .statusbar #mode{border-left:0;margin-right:auto;overflow:hidden;text-overflow:ellipsis}
+  #mode.auto::before{content:"● ";color:var(--ok)}
+  #mode.edited::before{content:"✎ ";color:var(--warn)}
+
+  #dropdown{position:fixed;z-index:50;background:#fff;border:1px solid #cfcfcf;border-radius:6px;padding:4px;
+    box-shadow:0 6px 18px rgba(0,0,0,.14);font:14px/1.5 var(--mono);max-height:280px;overflow:auto;max-width:calc(100vw - 16px)}
+  .opt{display:flex;justify-content:space-between;gap:18px;padding:2px 8px;border-radius:4px;white-space:nowrap;cursor:default}
+  .opt:hover{background:#f0f0f0}
+  .opt.on{background:var(--hl)}
+  .opt small{color:var(--faint);font-size:12px}
+
+  @media (max-width:640px){
+    .page{padding:8px 16px 48px;font-size:14px}
+    .statusbar span:not(#mode){display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="#fff" stroke="#3b82c4"/><path d="M5 5h6M5 7.5h6M5 10h4" stroke="#3b82c4" stroke-width="1.1"/></svg>
+  <span>Bronch note - Notepad</span>
+  <div class="ctl" aria-hidden="true"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div>
+</div>
+
+<div class="menubar">
+  <button id="mNew" type="button">New</button>
+  <button id="mCopy" type="button">Copy note</button>
+  <button id="mRegen" type="button">Regenerate</button>
+  <button id="mUndo" type="button" hidden>Undo regenerate</button>
+  <span id="toast"></span>
+</div>
+
+<div class="page" id="page">
+  <div class="c">; Fill in during the scope. The note at the bottom writes itself.
+; Typing in the note pauses auto-updates; Regenerate rebuilds it from the form.
+</div>
+
+  <div id="form">
+    <div class="row"><span class="l" data-l="Route"></span><input class="f" data-k="route" data-opts="route" style="width:28ch"></div>
+    <div class="row"><span class="l" data-l="Vocal cords"></span><input class="f" data-k="vc" data-opts="vc" style="width:42ch"></div>
+    <div class="row"><span class="l" data-l="Airways"></span><input class="f" data-k="airways" data-opts="airways" style="width:56ch"></div>
+
+    <div class="row" style="margin-top:.6em"><span class="l" data-l="BAL"></span><button class="tbtn" id="balToggle" type="button" aria-pressed="true"></button></div>
+    <div id="balWrap">
+      <div id="balRows"></div>
+      <div class="row"><span class="l">  </span><button class="link" id="addSite" type="button">[+ another site]</button></div>
+    </div>
+
+    <div class="row" style="margin-top:.6em"><span class="l" data-l="Other findings"></span><span class="c">(optional, one per line)</span></div>
+    <textarea class="f" data-k="other" rows="1" placeholder="e.g. Bronchial washings from RLL sent"></textarea>
+
+    <div class="row" style="margin-top:.6em"><span class="l" data-l="Complications"></span><input class="f" data-k="comp" data-opts="comp" style="width:50ch"></div>
+
+    <div class="row" style="margin-top:.6em"><span class="l" data-l="Post procedure"></span><span class="gap">patient </span><input class="f" data-k="status" data-opts="status" style="width:12ch"></div>
+    <div class="row"><span class="l" data-l="  GCS"></span><input class="f" data-k="gcs" data-opts="gcs" style="width:12ch"></div>
+    <div class="row"><span class="l" data-l="  Maintaining"></span><span class="gap">sats &gt;</span><input class="f num" data-k="sats" data-opts="sats" inputmode="numeric"><span class="gap">% on </span><input class="f" data-k="o2" data-opts="o2" style="width:22ch"></div>
+
+    <div class="row" style="margin-top:.6em"><span class="l" data-l="Plan"></span><span class="c">(one per line, or tap to add)</span></div>
+    <div class="chips" id="chips"></div>
+    <textarea class="f" data-k="plan" rows="1" placeholder="e.g. CXR post procedure"></textarea>
+  </div>
+
+  <div class="sep" id="sep">
+    <span class="rule">---------- </span><span class="state" id="sepState">Note (edit freely)</span>
+    <button class="link" id="sepRegen" type="button" hidden>[regenerate]</button>
+    <button class="link" id="sepCopy" type="button">[copy]</button>
+  </div>
+  <textarea id="note" spellcheck="false" aria-label="Generated note"></textarea>
+</div>
+
+<div class="statusbar">
+  <span id="mode"></span>
+  <span id="pos">Ln 1, Col 1</span>
+  <span>100%</span>
+  <span>Windows (CRLF)</span>
+  <span>UTF-8</span>
+</div>
+
+<div id="dropdown" role="listbox" hidden></div>
+
+<script>
+const SEGMENTS = [
+  ['R UL apical segment','B1'], ['R UL posterior segment','B2'], ['R UL anterior segment','B3'],
+  ['R ML lateral segment','B4'], ['R ML medial segment','B5'],
+  ['R LL superior segment','B6'], ['R LL medial basal segment','B7'], ['R LL anterior basal segment','B8'],
+  ['R LL lateral basal segment','B9'], ['R LL posterior basal segment','B10'],
+  ['L UL apicoposterior segment','B1+2'], ['L UL anterior segment','B3'],
+  ['L UL superior lingular segment','B4'], ['L UL inferior lingular segment','B5'],
+  ['L LL superior segment','B6'], ['L LL anteromedial basal segment','B7+8'],
+  ['L LL lateral basal segment','B9'], ['L LL posterior basal segment','B10'],
+  ['R ML','lobe'], ['Lingula','lobe']
+];
+
+const OPTS = {
+  route: ['Oral intubation', 'Nasal intubation', 'Via ETT', 'Via tracheostomy', 'Via LMA'],
+  vc: ['Vocal cords moving normally', 'Vocal cords not visualised (intubated)', 'L vocal cord palsy',
+       'R vocal cord palsy', 'Vocal cords oedematous'],
+  airways: [
+    'Airways examined. No endobronchial lesions.',
+    'Airways examined. Copious purulent secretions, suctioned. No endobronchial lesions.',
+    'Airways examined. Mucus plugging, cleared. No endobronchial lesions.',
+    'Airways examined. Erythematous, oedematous mucosa. No endobronchial lesions.',
+    'Airways examined. Blood in airways, no active bleeding source seen.',
+    'Airways examined. Endobronchial lesion at '
+  ],
+  site: SEGMENTS,
+  app: ['clear', 'turbid', 'cloudy', 'blood-stained', 'progressively haemorrhagic', 'milky', 'purulent'],
+  comp: ['No immediate complications', 'Minor bleeding, settled with cold saline',
+         'Minor bleeding, settled with topical adrenaline', 'Transient desaturation, resolved with increased O2',
+         'Bronchospasm, treated with nebulised salbutamol', 'Procedure terminated early due to desaturation'],
+  status: ['well', 'comfortable', 'drowsy but rousable'],
+  gcs: ['full', 'E4V5M6', 'E4VTM6'],
+  sats: ['88', '90', '92', '94'],
+  o2: ['RA', '2L NP', '3L NP', '4L NP', '5L FM', 'HFNC', 'NIV', 'ventilator']
+};
+
+const DEFAULTS = {
+  route: 'Oral intubation', vc: 'Vocal cords moving normally',
+  airways: 'Airways examined. No endobronchial lesions.',
+  comp: 'No immediate complications', status: 'well', gcs: 'full', sats: '90', o2: '2L NP',
+  other: '', plan: ''
+};
+const BAL_DEFAULT = {site: '', given: '', ret: '', app: 'clear'};
+const PLAN_CHIPS = ['CXR post procedure', 'NBM 1h post procedure', 'Trace BAL results',
+                    'Monitor for fever / haemoptysis'];
+
+const $ = s => document.querySelector(s);
+const form = $('#form'), note = $('#note'), balRows = $('#balRows'), dd = $('#dropdown');
+let balOn = true, edited = false, undoStash = null;
+
+const LABEL_W = 18;
+document.querySelectorAll('.l[data-l]').forEach(el => {
+  const t = el.dataset.l;
+  el.textContent = t + ' ' + '.'.repeat(Math.max(2, LABEL_W - t.length - 2)) + ' ';
+});
+
+function decorate(root) {
+  root.querySelectorAll('input[data-opts]').forEach(inp => {
+    if (inp.parentNode.classList.contains('combo')) return;
+    const wrap = document.createElement('span');
+    wrap.className = 'combo';
+    inp.replaceWith(wrap);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dd'; btn.tabIndex = -1; btn.textContent = '▾';
+    btn.setAttribute('aria-label', 'Show options');
+    wrap.append(inp, btn);
+  });
+}
+
+function field(k) { return form.querySelector('[data-k="' + k + '"]:not(.bal)'); }
+
+function addRow(v) {
+  v = Object.assign({}, BAL_DEFAULT, v || {});
+  const row = document.createElement('div');
+  row.className = 'balrow';
+  row.innerHTML =
+    '<div class="row"><span class="l"></span><input class="f bal" data-b="site" data-opts="site" style="width:34ch" placeholder="R UL anterior segment">' +
+    '<span class="gap">  </span><button class="link rm" type="button">[remove]</button></div>' +
+    '<div class="row"><span class="l"></span><input class="f num bal" data-b="given" inputmode="numeric" placeholder="80">' +
+    '<span class="gap">ml given, returns </span><input class="f num bal" data-b="ret" inputmode="numeric" placeholder="25">' +
+    '<span class="gap">ml </span><input class="f bal" data-b="app" data-opts="app" style="width:26ch"></div>';
+  const ls = row.querySelectorAll('.l');
+  ls[0].textContent = pad('  Site');
+  ls[1].textContent = pad('  Instilled');
+  row.querySelectorAll('[data-b]').forEach(i => i.value = v[i.dataset.b]);
+  row.querySelector('.rm').onclick = () => { row.remove(); syncRows(); render(); };
+  balRows.appendChild(row);
+  decorate(row);
+  syncRows();
+  return row;
+}
+function pad(t) { return t + ' ' + '.'.repeat(Math.max(2, LABEL_W - t.length - 2)) + ' '; }
+function syncRows() {
+  const rows = balRows.querySelectorAll('.balrow');
+  rows.forEach(r => r.querySelector('.rm').hidden = rows.length < 2);
+}
+
+function setBal(on) {
+  balOn = on;
+  const t = $('#balToggle');
+  t.textContent = on ? '[x] performed' : '[ ] not performed';
+  t.setAttribute('aria-pressed', on);
+  $('#balWrap').classList.toggle('off', !on);
+  $('#balWrap').querySelectorAll('input,button').forEach(el => el.disabled = !on);
+}
+
+PLAN_CHIPS.forEach(txt => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'link'; b.textContent = '+ ' + txt;
+  b.onclick = () => {
+    const p = field('plan');
+    const lines = p.value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!lines.includes(txt)) lines.push(txt);
+    p.value = lines.join('\n');
+    grow(p); render();
+  };
+  $('#chips').appendChild(b);
+});
+
+function sentence(s) {
+  s = s.trim();
+  return s && !/[.!?]$/.test(s) ? s + '.' : s;
+}
+function lines(s) { return s.split('\n').map(x => x.trim()).filter(Boolean); }
+
+function build() {
+  const v = k => field(k).value.trim();
+  const sites = [...balRows.querySelectorAll('.balrow')].map(r => {
+    const o = {};
+    r.querySelectorAll('[data-b]').forEach(i => o[i.dataset.b] = i.value.trim());
+    return o;
+  }).filter(o => o.site || o.given || o.ret);
+  const bal = balOn && sites.length > 0;
+
+  const out = [bal ? 'Bronchoscopy and BAL' : 'Bronchoscopy', ''];
+  if (v('route')) out.push(v('route'));
+  const exam = [sentence(v('vc')), v('airways')].filter(Boolean).join(' ');
+  if (exam) out.push(exam);
+  if (bal) sites.forEach(s => {
+    out.push('BAL to ' + (s.site || '___') + ' performed');
+    out.push((s.given || '__') + 'ml given, ' + (s.ret || '__') + 'ml ' + (s.app ? s.app + ' ' : '') + 'returns');
+  });
+  out.push(...lines(field('other').value));
+  if (v('comp')) out.push(v('comp'));
+
+  const post = ['Post procedure patient ' + (v('status') || 'well')];
+  if (v('gcs')) post.push('GCS ' + v('gcs'));
+  const sats = /^\d+$/.test(v('sats')) ? '>' + v('sats') + '%' : v('sats');
+  if (sats || v('o2')) post.push(('maintaining sats ' + sats + (v('o2') ? ' on ' + v('o2') : '')).replace(/\s+/g, ' ').trim());
+  out.push(post.join(', '));
+
+  const plan = lines(field('plan').value);
+  if (plan.length) out.push('', 'Plan:', ...plan.map(p => '- ' + p));
+  return out.join('\n');
+}
+
+function grow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function render() {
+  if (!edited) note.value = build();
+  grow(note);
+  updateMode();
+}
+
+function updateMode() {
+  const m = $('#mode');
+  m.className = edited ? 'edited' : 'auto';
+  m.textContent = edited ? 'Edited by hand — form changes paused' : 'Auto — note follows the form';
+  $('#sep').classList.toggle('edited', edited);
+  $('#sepState').textContent = edited ? 'Note (edited — form changes paused)' : 'Note (edit freely)';
+  $('#sepRegen').hidden = !edited;
+  $('#mRegen').classList.toggle('hot', edited);
+  $('#mUndo').hidden = !undoStash;
+}
+
+function regenerate() {
+  if (edited) undoStash = note.value;
+  edited = false;
+  render();
+}
+
+function undoRegen() {
+  if (undoStash == null) return;
+  note.value = undoStash;
+  undoStash = null;
+  edited = true;
+  render();
+}
+
+function resetForm() {
+  Object.keys(DEFAULTS).forEach(k => { const f = field(k); f.value = DEFAULTS[k]; if (f.tagName === 'TEXTAREA') grow(f); });
+  balRows.innerHTML = '';
+  addRow();
+  setBal(true);
+  edited = false; undoStash = null;
+  render();
+  page.scrollTop = 0;
+  field('route').focus();
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function copyNote() {
+  const text = note.value;
+  const fallback = () => {
+    const s = [note.selectionStart, note.selectionEnd];
+    note.focus(); note.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    note.setSelectionRange(s[0], s[1]);
+    toast(ok ? 'Copied ✓' : 'Copy blocked — select the note and press Ctrl+C');
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => toast('Copied ✓'), fallback);
+  } else fallback();
+}
+
+let armTimer;
+$('#mNew').onclick = e => {
+  const b = e.currentTarget;
+  if (b.classList.contains('armed')) {
+    clearTimeout(armTimer); b.classList.remove('armed'); b.textContent = 'New';
+    resetForm(); toast('Cleared');
+    return;
+  }
+  b.classList.add('armed'); b.textContent = 'Clear all? Click again';
+  armTimer = setTimeout(() => { b.classList.remove('armed'); b.textContent = 'New'; }, 3000);
+};
+$('#mCopy').onclick = copyNote;
+$('#sepCopy').onclick = copyNote;
+$('#mRegen').onclick = regenerate;
+$('#sepRegen').onclick = regenerate;
+$('#mUndo').onclick = undoRegen;
+$('#balToggle').onclick = () => { setBal(!balOn); render(); };
+$('#addSite').onclick = () => { addRow().querySelector('input').focus(); render(); };
+
+form.addEventListener('input', e => {
+  if (e.target.tagName === 'TEXTAREA') grow(e.target);
+  if (e.target.dataset.k === 'route' && /^via (ett|tracheostomy|lma)/i.test(e.target.value) &&
+      field('vc').value === DEFAULTS.vc) field('vc').value = 'Vocal cords not visualised (intubated)';
+  render();
+});
+
+note.addEventListener('input', () => {
+  if (!edited) { edited = true; undoStash = null; }
+  grow(note); updateMode(); caretPos();
+});
+function caretPos() {
+  const before = note.value.slice(0, note.selectionStart).split('\n');
+  $('#pos').textContent = 'Ln ' + before.length + ', Col ' + (before[before.length - 1].length + 1);
+}
+['keyup', 'click', 'select', 'focus'].forEach(ev => note.addEventListener(ev, caretPos));
+
+/* ---- combo dropdown ---- */
+let cur = null, items = [], hi = -1, picking = false;
+const norm = s => s.toLowerCase().replace(/[^a-z0-9+]/g, '');
+const optList = key => OPTS[key].map(o => Array.isArray(o) ? {v: o[0], h: o[1]} : {v: o, h: ''});
+
+function openDD(input, all) {
+  const toks = all ? [] : input.value.trim().split(/\s+/).map(norm).filter(Boolean);
+  items = optList(input.dataset.opts).filter(o => {
+    const s = norm(o.v + ' ' + o.h);
+    return toks.every(t => s.includes(t));
+  });
+  if (!items.length || (!all && items.length === 1 && items[0].v === input.value)) return closeDD();
+  cur = input;
+  hi = all ? items.findIndex(o => o.v === input.value) : -1;
+  dd.innerHTML = '';
+  items.forEach((o, i) => {
+    const d = document.createElement('div');
+    d.className = 'opt' + (i === hi ? ' on' : '');
+    d.setAttribute('role', 'option');
+    const a = document.createElement('span'); a.textContent = o.v; d.appendChild(a);
+    if (o.h) { const h = document.createElement('small'); h.textContent = o.h; d.appendChild(h); }
+    d.addEventListener('mousedown', ev => { ev.preventDefault(); pick(i); });
+    dd.appendChild(d);
+  });
+  dd.hidden = false;
+  const r = input.getBoundingClientRect();
+  dd.style.minWidth = Math.max(r.width, 140) + 'px';
+  dd.style.left = Math.min(r.left, innerWidth - dd.offsetWidth - 8) + 'px';
+  const below = r.bottom + 2, h = dd.offsetHeight;
+  dd.style.top = (below + h > innerHeight - 8 && r.top - h - 2 > 0 ? r.top - h - 2 : below) + 'px';
+  if (hi >= 0) dd.children[hi].scrollIntoView({block: 'nearest'});
+}
+function closeDD() { dd.hidden = true; cur = null; items = []; hi = -1; }
+function pick(i) {
+  const input = cur;
+  input.value = items[i].v;
+  closeDD();
+  picking = true;
+  input.dispatchEvent(new Event('input', {bubbles: true}));
+  picking = false;
+  input.focus();
+  const end = input.value.length;
+  input.setSelectionRange(end, end);
+}
+function move(d) {
+  if (!items.length) return;
+  if (hi >= 0) dd.children[hi].classList.remove('on');
+  hi = (hi + d + items.length) % items.length;
+  dd.children[hi].classList.add('on');
+  dd.children[hi].scrollIntoView({block: 'nearest'});
+}
+
+document.addEventListener('input', e => {
+  if (!picking && e.target.dataset && e.target.dataset.opts) openDD(e.target, !e.target.value.trim());
+});
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (!t.dataset || !t.dataset.opts) return;
+  const open = !dd.hidden && cur === t;
+  if (e.key === 'ArrowDown') { e.preventDefault(); open ? move(1) : openDD(t, true); }
+  else if (e.key === 'ArrowUp' && open) { e.preventDefault(); move(-1); }
+  else if (e.key === 'Enter' && open && hi >= 0) { e.preventDefault(); pick(hi); }
+  else if (e.key === 'Escape' && open) { e.preventDefault(); closeDD(); }
+});
+document.addEventListener('focusout', e => { if (e.target === cur) closeDD(); });
+document.addEventListener('mousedown', e => {
+  const b = e.target.closest && e.target.closest('.combo .dd');
+  if (!b) return;
+  e.preventDefault();
+  const inp = b.previousElementSibling;
+  if (inp.disabled) return;
+  if (!dd.hidden && cur === inp) return closeDD();
+  inp.focus();
+  openDD(inp, true);
+});
+const page = $('#page');
+page.addEventListener('scroll', closeDD);
+window.addEventListener('resize', () => { closeDD(); grow(note); form.querySelectorAll('textarea').forEach(grow); });
+
+decorate(form);
+resetForm();
+</script>
+</body>
+</html>
