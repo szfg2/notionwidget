@@ -141,6 +141,34 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
   }
   .settings-grid label.lbl { margin-top: 10px; }
+
+  /* header tool pills: ICU tools + settings share one anchor so both
+     dropdowns line up with the right edge of the header (and fit on phones) */
+  .head-tools { position: relative; display: flex; gap: 8px; align-items: flex-start; flex: none; }
+  .head-tools details.settings { position: static; }
+  .tools-grid { width: min(420px, calc(100vw - 40px)); padding: 12px; }
+  .tool-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tool-list .ghost-btn.on { color: var(--accent-strong); border-color: var(--accent); }
+  .tool-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .tool-panel h3 { margin: 0 0 2px; font-size: 13.5px; font-weight: 650; }
+  .tool-panel .hint { margin-top: 0; margin-bottom: 10px; }
+  .ibw-in { display: flex; gap: 10px; align-items: flex-end; }
+  .ibw-in .field { flex: 1 1 auto; }
+  .ibw-in input[type="number"] {
+    width: 100%; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 7px;
+    padding: 7px 9px; font: 14px var(--sans);
+  }
+  .ibw-in input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  .ibw-out { margin-top: 12px; }
+  .ibw-pbw { font-size: 13px; color: var(--muted); }
+  .ibw-pbw b { font-family: var(--mono); font-size: 20px; color: var(--accent-strong); font-weight: 650; margin-right: 4px; }
+  .vt-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  .vt-table th, .vt-table td { border: 1px solid var(--border); padding: 5px 8px; text-align: center; }
+  .vt-table th { color: var(--muted); font-weight: 550; background: var(--surface-2); font-size: 12px; }
+  .vt-table td { font-family: var(--mono); }
+  .vt-table .lpv { color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .ibw-warn { color: var(--warn); font-size: 12px; margin-top: 6px; }
   .pill { font-size: 12px; color: var(--muted); }
 
   /* de-id reminder */
@@ -504,6 +532,8 @@
     header.app { margin-bottom: 16px; }
     .head-row { flex-wrap: wrap; gap: 10px; }
     .settings-grid { width: calc(100vw - 24px); }
+    .head-tools { flex: 1 1 100%; }
+    .head-tools .settings-grid { left: 0; right: auto; }
 
     /* 16px keeps iOS Safari from zooming the page in on every field focus */
     input[type="password"], input[type="text"], input[type="search"], textarea, select { font-size: 16px; }
@@ -683,6 +713,38 @@
         <h1>ICU Patient List</h1>
         <p class="sub">Triage new referrals and keep a synced ICU rounding list. <a href="RESblue.html">Blue Letters →</a> <a href="RESClinic.html">Clinic Notes →</a> <a href="index.html">Document Generator →</a></p>
       </div>
+      <div class="head-tools">
+      <details class="settings" id="toolsBox">
+      <summary>🧮 ICU tools</summary>
+      <div class="settings-grid tools-grid">
+        <div class="tool-list" id="toolList">
+          <button class="ghost-btn on" type="button" data-tool="ibw">IBW / tidal volume</button>
+        </div>
+
+        <div class="tool-panel" data-panel="ibw">
+          <h3>Ideal (predicted) body weight</h3>
+          <div class="hint">ARDSNet / Devine: ♂ 50 + 0.91 × (Ht − 152.4) · ♀ 45.5 + 0.91 × (Ht − 152.4)</div>
+          <div class="ibw-in">
+            <div class="field"><label class="lbl">Height (cm)</label><input type="number" id="ibwHt" inputmode="decimal" min="100" max="250" step="0.5" placeholder="170"></div>
+            <div class="seg-group" id="ibwSex">
+              <button class="ghost-btn seg on" type="button" data-sex="m">Male</button>
+              <button class="ghost-btn seg" type="button" data-sex="f">Female</button>
+            </div>
+          </div>
+          <div class="ibw-out" id="ibwOut" hidden>
+            <div class="ibw-pbw"><b id="ibwVal"></b>kg PBW</div>
+            <table class="vt-table">
+              <thead><tr><th>mL/kg</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+              <tbody><tr><th>V<sub>T</sub> (mL)</th><td></td><td></td><td class="lpv"></td><td></td><td></td></tr></tbody>
+            </table>
+            <div class="ibw-warn" id="ibwWarn"></div>
+            <div class="gen-row" style="margin-top:10px">
+              <button class="ghost-btn" type="button" id="ibwCopy">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </details>
       <details class="settings" id="settingsBox">
       <summary>⚙ Settings &amp; keys</summary>
       <div class="settings-grid">
@@ -725,6 +787,7 @@
         </div>
       </div>
       </details>
+      </div>
     </div>
   </header>
 
@@ -3353,6 +3416,54 @@ $("patNavBackdrop").addEventListener("click", pnClose);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && $("patNav").classList.contains("open")) pnClose();
 });
+// ---------- ICU tools dropdown ----------
+(function () {
+  const tools = $("toolsBox"), settings = $("settingsBox");
+  tools.addEventListener("toggle", () => { if (tools.open) settings.open = false; });
+  settings.addEventListener("toggle", () => { if (settings.open) tools.open = false; });
+  document.addEventListener("click", (e) => { if (tools.open && !tools.contains(e.target)) tools.open = false; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && tools.open) tools.open = false; });
+
+  $("toolList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tool]");
+    if (!b) return;
+    $("toolList").querySelectorAll("[data-tool]").forEach((x) => x.classList.toggle("on", x === b));
+    tools.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tool; });
+  });
+
+  let sex = "m";
+  const vts = [4, 5, 6, 7, 8];
+  function ibwCalc() {
+    const ht = parseFloat($("ibwHt").value);
+    if (!(ht > 0)) { $("ibwOut").hidden = true; return; }
+    const pbw = (sex === "m" ? 50 : 45.5) + 0.91 * (ht - 152.4);
+    $("ibwOut").hidden = false;
+    $("ibwVal").textContent = pbw.toFixed(1);
+    const cells = $("ibwOut").querySelectorAll("tbody td");
+    vts.forEach((k, i) => { cells[i].textContent = pbw > 0 ? Math.round(pbw * k) : "–"; });
+    $("ibwWarn").textContent = ht < 130 || ht > 220
+      ? "Height outside 130–220 cm — check entry; formula is unvalidated at the extremes." : "";
+  }
+  $("ibwHt").addEventListener("input", ibwCalc);
+  $("ibwSex").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sex]");
+    if (!b) return;
+    sex = b.dataset.sex;
+    $("ibwSex").querySelectorAll("[data-sex]").forEach((x) => x.classList.toggle("on", x === b));
+    ibwCalc();
+  });
+  $("ibwCopy").addEventListener("click", () => {
+    const ht = $("ibwHt").value, pbw = $("ibwVal").textContent;
+    const cells = $("ibwOut").querySelectorAll("tbody td");
+    const txt = `Ht ${ht} cm (${sex === "m" ? "M" : "F"}), PBW ${pbw} kg. VT 4–8 mL/kg: ` +
+      vts.map((k, i) => `${k}→${cells[i].textContent}`).join(", ") + ` mL (6 mL/kg = ${cells[2].textContent} mL)`;
+    navigator.clipboard.writeText(txt).then(() => {
+      const b = $("ibwCopy");
+      b.textContent = "Copied"; b.classList.add("copied");
+      setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1200);
+    });
+  });
+})();
 </script>
 </body>
 </html>
