@@ -395,8 +395,10 @@
       <div class="field"><label class="lbl">Supplemental O₂</label>
         <select id="smwt_o2"><option value="without">Without</option><option value="with">With</option></select></div>
       <div class="field"><label class="lbl">Nadir SpO₂ (%)</label><input type="number" step="any" id="smwt_nadir"></div>
-      <div class="field"><label class="lbl">Modified Borg — start (0–10)</label><input type="number" step="any" id="smwt_borg_start"></div>
-      <div class="field"><label class="lbl">Modified Borg — end (0–10)</label><input type="number" step="any" id="smwt_borg_end"></div>
+      <div class="field"><label class="lbl">Borg walk 1 — start (0–10)</label><input type="number" step="any" id="smwt_borg_start"></div>
+      <div class="field"><label class="lbl">Borg walk 1 — end (0–10)</label><input type="number" step="any" id="smwt_borg_end"></div>
+      <div class="field"><label class="lbl">Borg walk 2 — start (0–10)</label><input type="number" step="any" id="smwt_borg_start2"></div>
+      <div class="field"><label class="lbl">Borg walk 2 — end (0–10)</label><input type="number" step="any" id="smwt_borg_end2"></div>
       <div class="field span2"><label class="lbl">Early termination / rests / events</label><input type="text" id="smwt_notes" placeholder="Written into the report as typed"></div>
     </div>
   </div>
@@ -1056,15 +1058,17 @@ function build() {
     if (withO2) gap("The 6MWT template reads “<with or without> requiring supplemental oxygen”; “with requiring” is ungrammatical, so “covered requiring supplemental oxygen” was used.");
     add("6 minute walk test with maximum distance of " + f(dist) + "m covered " + (withO2 ? "" : "without ") + "requiring supplemental oxygen " + during + ".",
         "Maximum distance " + f(dist) + " m, " + (withO2 ? "on" : "without") + " supplemental oxygen." + (withO2 ? " Template reads “<with or without> requiring”; “with requiring” is shortened to “requiring”." : ""), "6MWT r2");
-    const bs = num("smwt_borg_start"), be = num("smwt_borg_end");
-    if (bs != null && be != null) {
-      const bS = borgWord(bs), bE = borgWord(be), ws = bS.word, we = bE.word, of = one ? "of the walk" : "of both walks";
-      if (bS.gap) gap(bS.gap);
-      if (bE.gap) gap(bE.gap);
+    let bs1 = num("smwt_borg_start"), be1 = num("smwt_borg_end"), bs2 = num("smwt_borg_start2"), be2 = num("smwt_borg_end2");
+    const w2blank = bs2 == null && be2 == null;
+    if (!one && w2blank) { bs2 = bs1; be2 = be1; }
+    const borg = borgSentence([bs1, one ? null : bs2], [be1, one ? null : be2], one);
+    if (borg) {
+      if (!one && w2blank) gap("Walk 2 Borg not entered — walk 1 scores taken as applying to both walks.");
+      borg.gaps.forEach(gap);
       if (one) gap(oneGap);
-      add(ws === we ? "The patient experienced " + ws + " breathlessness at the start and end " + of + "."
-                    : "The patient experienced " + ws + " breathlessness at the start and " + we + " breathlessness at the end " + of + ".",
-          "Borg " + f(bs) + " → “" + ws + "”, Borg " + f(be) + " → “" + we + "” (Modified Borg Dyspnea Scale). Combined when identical, as the template allows.", "6MWT r3");
+      add(borg.text, borg.why, "6MWT r3");
+    } else {
+      warn("6MWT: no Modified Borg scores entered, so the breathlessness sentence (6MWT r3) is missing. Enter the start (Rest row) and end (end-of-walk or first Recovery row) Borg for each walk.");
     }
     const nadir = num("smwt_nadir");
     if (nadir != null) {
@@ -1102,6 +1106,42 @@ function borgWord(b) {
   for (const row of BORG) if (b >= row[0]) below = row;
   const why = b === 6 || b === 8 ? "is printed blank on the Modified Borg Dyspnea Scale" : "is not a point on the Modified Borg Dyspnea Scale";
   return { word: below[1], gap: "Borg " + f(b) + " " + why + " — the descriptor for " + f(below[0]) + " (“" + below[1] + "”) was used." };
+}
+
+/* 6MWT r3 breathlessness sentence. starts/ends are [walk 1, walk 2] Borg scores (null = not entered).
+   → { text, why, gaps } or null when no score at all. The template's own wording ("at the start and
+   ... at the end of both walks") is used whenever the walks agree; otherwise each walk is named. */
+function borgSentence(starts, ends, one) {
+  const gaps = [], why = [];
+  const phrase = (vals, when) => {
+    const [a, b] = vals;
+    if (a == null && b == null) return null;
+    const wa = a == null ? null : borgWord(a), wb = b == null ? null : borgWord(b);
+    [[a, wa, "walk 1"], [b, wb, "walk 2"]].forEach(([v, w, n]) => {
+      if (w) { why.push(n + " " + when + " Borg " + f(v) + " → “" + w.word + "”"); if (w.gap) gaps.push(w.gap); }
+    });
+    if (one) return { word: (wa || wb).word, of: "of the walk" };
+    if (wa && wb && wa.word === wb.word) return { word: wa.word, of: "of both walks" };
+    if (wa && wb) return { split: wa.word + " breathlessness at the " + when + " of the first walk and " + wb.word + " breathlessness at the " + when + " of the second walk" };
+    gaps.push("Only one walk's " + when + " Borg was entered — reported for that walk alone.");
+    return { word: (wa || wb).word, of: wa ? "of the first walk" : "of the second walk" };
+  };
+  const s = phrase(starts, "start"), e = phrase(ends, "end");
+  if (!s && !e) return null;
+  const part = (p, when) => p.split || p.word + " breathlessness at the " + when + " " + p.of;
+  let text;
+  if (s && e && !s.split && !e.split && s.word === e.word && s.of === e.of) {
+    text = "The patient experienced " + s.word + " breathlessness at the start and end " + s.of + ".";
+  } else if (s && e && !s.split && !e.split && s.of === e.of) {
+    text = "The patient experienced " + s.word + " breathlessness at the start and " + e.word + " breathlessness at the end " + e.of + ".";
+  } else if (s && e) {
+    text = "The patient experienced " + part(s, "start") + ", and " + part(e, "end") + ".";
+    gaps.push("The template's breathlessness sentence assumes both walks scored the same; the walks differed, so each walk is named.");
+  } else {
+    text = "The patient experienced " + (s ? part(s, "start") : part(e, "end")) + ".";
+    gaps.push("Only the " + (s ? "start" : "end") + " Borg was entered — the template sentence covers both start and end.");
+  }
+  return { text, why: why.join("; ") + " (Modified Borg Dyspnea Scale). Combined when identical, as the template allows.", gaps };
 }
 
 /* ============================================================
@@ -1545,7 +1585,7 @@ feno  FeNO / FENO (ppb)
 Methacholine challenge: mch_pd20 (PD20, µg — convert nothing), mch_pc20 (PC20, mg/mL), mch_drop (largest % fall in FEV1 from baseline)
 Exercise challenge: ex_drop (largest % fall in FEV1 %pred / FEV1 from baseline after exercise)
 
-Six-minute walk: smwt_dist (maximum distance, m), smwt_nadir (lowest SpO2, %), smwt_borg_start, smwt_borg_end (Modified Borg dyspnoea score 0–10 as a number; if only the descriptor is printed, give its number: nothing at all 0, very very slight 0.5, very slight 1, slight 2, moderate 3, somewhat severe 4, severe 5, very severe 7, very very severe 9, maximal 10), smwt_walks (1 or 2 — number of walks performed)
+Six-minute walk: smwt_dist (maximum distance, m — the longer walk; on lap sheets it is laps × lap length + extra metres, so recompute it and trust the arithmetic over a misread total), smwt_nadir (lowest SpO2 across all walks, %), smwt_borg_start, smwt_borg_end (walk 1), smwt_borg_start2, smwt_borg_end2 (walk 2; omit for a single walk). Always fill the Borg scores when any are written — never skip them. Start = the Rest/pre-walk row. End = the 6-minute row, or, when the per-minute Borg cells are shaded/hatched or blank, the first Recovery row. If a handwritten value is overwritten, take the final value (Modified Borg dyspnoea score 0–10 as a number; if only the descriptor is printed, give its number: nothing at all 0, very very slight 0.5, very slight 1, slight 2, moderate 3, somewhat severe 4, severe 5, very severe 7, very very severe 9, maximal 10), smwt_walks (1 or 2 — number of walks performed)
 
 TEXT FIELDS (omit if absent):
   spiro_grade  spirometry QC grade letters exactly as printed (e.g. "AA", "AB"); if pre and post grades are both printed, give both separated by a space (e.g. "AA EF")
