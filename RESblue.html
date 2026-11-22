@@ -3181,7 +3181,7 @@ function noteControl(p, colSpan) {
 
   const note = document.createElement("p");
   note.className = "ask-note";
-  note.textContent = "Enter this review's results/vitals (or paste screenshots of the obs chart / results) and your suggested plans; Claude merges them with the stored case context to write the note. The Pleural review tick picks the pleural template. Nothing identifying is sent.";
+  note.textContent = "Enter this review's results/vitals and your suggested plans — either box also takes pasted or dropped screenshots (crop out the patient header); Claude merges them with the stored case context to write the note. The Pleural review tick picks the pleural template. Nothing identifying is sent.";
 
   const mkField = (labelText, placeholder) => {
     const field = document.createElement("div");
@@ -3196,9 +3196,9 @@ function noteControl(p, colSpan) {
     return { field, box };
   };
   const results = mkField("Latest results & vitals",
-    "Today's obs, oxygen device/flow, bloods, pleural fluid results…");
+    "Today's obs, oxygen device/flow, bloods, pleural fluid results… or paste / drop screenshots");
   const suggest = mkField("Suggestions",
-    "Your plans — one per line…");
+    "Your plans — one per line… or paste / drop screenshots");
 
   const genBtn = document.createElement("button");
   genBtn.className = "generate";
@@ -3217,6 +3217,7 @@ function noteControl(p, colSpan) {
   td.appendChild(results.field);
   enableShots(results.box);   // needs the box in the DOM — the thumbnail strip goes after it
   td.appendChild(suggest.field);
+  enableShots(suggest.box);
   td.appendChild(genBtn);
   td.appendChild(err);
   td.appendChild(out);
@@ -3245,7 +3246,8 @@ function noteControl(p, colSpan) {
       return;
     }
     const shots = shotsOf(results.box);
-    const blocked = shotsBlocked(shots);
+    const planShots = shotsOf(suggest.box);
+    const blocked = shotsBlocked(shots.concat(planShots));
     if (blocked) { err.textContent = blocked; err.style.display = "block"; return; }
     const pleural = reviewIsPleural(p);
     eyebrow.textContent = reviewLabel(pleural);
@@ -3258,7 +3260,7 @@ function noteControl(p, colSpan) {
         { text: caseContextOf(p) +
           "\n\nLATEST RESULTS & VITALS (entered at this review):\n" + (typed || (shots.length ? "(see attached screenshots)" : "(none entered)")),
           shots },
-        { text: "SUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || "(none entered)"), shots: [] }
+        { text: "SUGGESTED PLANS (entered at this review):\n" + (suggest.box.value.trim() || (planShots.length ? "(see attached screenshots)" : "(none entered)")), shots: planShots }
       ]);
       const text = await callClaude(key, CONFIG.MODEL, sys, userMessage, CONFIG.REVIEW_MAX_TOKENS, controller.signal, CONFIG.LOW_EFFORT);
       noteText = text || "";
