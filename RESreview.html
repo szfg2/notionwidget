@@ -272,11 +272,12 @@ function saveHist(h) {
   try { localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, HIST_MAX))); } catch (e) {}
 }
 
-// "B/G: 72M COPD on LTOT" makes a better label than the first line, which is always "RES Review".
+// The background line ("79M, ex-smoker, HTN/HLD") under "RES Review" makes the best label.
 function entryTitle(e) {
-  const bg = (e.note || "").split("\n").find(l => /^\s*B\/G\b/i.test(l));
-  const line = bg ? bg.replace(/^\s*B\/G\s*:?\s*/i, "") : (e.dump || "").trim().split("\n")[0];
-  return line || "(untitled)";
+  const lines = (e.note || "").split("\n").map(l => l.trim()).filter(Boolean);
+  const i = lines.findIndex(l => /^RES Review$/i.test(l));
+  const line = (i >= 0 && lines[i + 1]) || (e.dump || "").trim().split("\n")[0];
+  return (line || "(untitled)").replace(/^B\/G\s*:?\s*/i, "");
 }
 function when(iso) {
   const d = new Date(iso);

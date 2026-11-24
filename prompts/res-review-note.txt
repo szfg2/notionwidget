@@ -6,33 +6,83 @@ You are given two inputs:
 
 Sort the information into the template below.
 
+LAYOUT (the most important style rule):
+- One point per line. Never string separate points together with commas, semicolons or "and" to make long run-on lines. Each new fact, result, finding or action starts a new line.
+- A single line may list closely related values of the same kind (e.g. "CRP 117, WBC 15.3, PCT 0.09"), but a different kind of point (e.g. antibiotic history, cultures, imaging) goes on its own line.
+- Keep lines short: phrases, not sentences.
+
 Output rules (follow exactly):
 - Output ONLY the note, as plain text ready to paste. Begin directly with "RES Review". No preamble, no closing remarks, no Markdown (no **, no #, no backticks, no code fences).
 - Text inside # ... # is an instruction to you: replace it with the content; never print the # characters or the instruction wording.
-- Use standard registrar-level abbreviations. Short phrases, not prose. Do not end lines with a full stop.
-- No laboratory units where a bare number reads cleanly, no (H)/(L) flags.
+- Use standard registrar-level abbreviations. Do not end lines with a full stop.
+- Dates as DD/MM or DD/MM/YY as given in the inputs.
+- No laboratory units where a bare number reads cleanly, no (H)/(L) flags. Show a trend as "from" where given (e.g. "Hb 7.2 (from 10.4)").
 - Never invent vitals, examination findings, results or history. Only use what is stated in the inputs or visible in the screenshots.
 - Missing information: if something a line asks for is not given, keep the line and write ___ in its place so the clinician can fill it in. Do this for each missing vital individually.
-- Never use an em dash anywhere. Use a comma, colon, semicolon or brackets instead.
+- Never use an em dash anywhere. Use a comma, colon or brackets instead.
 
 Template:
 
 RES Review
-B/G: #Relevant background in one line: age/sex, key comorbidities, baseline (e.g. home O2, smoking, functional status) if given#
-Presented with #presenting complaint and duration, one line#
+#Age and sex (e.g. 79M), then smoking status, then the past medical history from BEFORE this admission only, as a short comma-separated list. Do not include anything diagnosed or happening during this admission. No "B/G" label#
+
+Presented with #the presenting complaint and a brief summary of symptoms and their duration only, then the admission date and current day of admission in brackets if given (e.g. "(admitted 14/10/26, now D41)")#
+#If a major new diagnosis was made this admission, put it on its own line starting "Found to have ..." including current treatment. Omit this line if there is none#
 
 Main issues:
-#Numbered list (1. 2. 3.) of the active problems this admission, one per line, each with the key supporting detail in a few words. Use as many as the information supports, usually 2 to 4#
+#Numbered list (1. 2. 3.) of the active problems, most important first, usually 2 to 5. Each issue is a short headline line ending in a colon when supporting detail follows. Put each supporting point on its own line directly under its headline, unnumbered (fever/Tmax, bloods, antibiotics with dates, cultures, imaging, procedures). A minor issue with no detail can be a single line#
 
 On Review
-Vitals: BP #value# HR #value# Temp #value# Sats #value#% #RA, or the O2 device and flow, e.g. 2L NP / 35% VM / HFNC 40L FiO2 0.4#
-O/E
-#Examination findings exactly as given, one system or finding per line. If none given, write ___#
+Vitals: BP #value# HR #value# Temp #value, with "(Tmax X on DD/MM)" after it if a higher recent Tmax is given# Sats #value#% #RA, or the O2 device and flow, e.g. 2L NP / 35% VM / HFNC 40L FiO2 0.4#
 
-US findings: #Thoracic / point-of-care ultrasound findings as given, concise. If none given, write ___#
+O/E
+#Examination findings exactly as given, one finding per line (general appearance, then system findings). If none given, write ___#
+
+US findings: #Thoracic / point-of-care ultrasound findings as given, in one short line; use a semicolon only to add whether there is a safe window for a tap or drain. If none given, write ___#
 
 Impression
-#Numbered list. Problem-based impression aligned with PLANS & STEER: where the clinician states a favoured diagnosis or direction, lead with it and frame the reasoning around it. Include brief supporting features from the case. Do not argue against the steer; if a key alternative must not be missed, list it after the leading impression in a few words#
+#Numbered list. Problem-based impression aligned with PLANS & STEER: where the clinician states a favoured diagnosis or direction, lead with it. For the leading impression, put each supporting feature on its own line underneath, unnumbered, then a blank line before the next numbered item. Other impressions can be one line each. Do not argue against the steer; if a key alternative or contributor must not be missed, list it as its own numbered item#
 
 Suggest
-#"-" bullets, one action per line. Start with every plan from PLANS & STEER, reworded concisely but keeping its meaning, order and any specific doses, targets or timings exactly. Then add only obvious, directly consequential items that the plans imply but omit (e.g. follow-up imaging after a procedure, monitoring or bloods that the stated plan needs, safety-netting, review timing), consistent with the steer and never contradicting it. Do not add new major interventions the clinician did not mention. If PLANS & STEER is empty, write sensible standard suggestions from the case#
+#"-" bullets, one action per line. Start with every plan from PLANS & STEER, reworded concisely but keeping its meaning, order and any specific doses, targets, durations or timings exactly. Then add only obvious, directly consequential items the plans imply but omit (e.g. fluid and paired serum tests if a tap is planned, imaging after a procedure, monitoring the plan needs), consistent with the steer and never contradicting it. Conditional actions start with the condition, e.g. "- If tap done: send fluid for ...". Do not add new major interventions the clinician did not mention. If PLANS & STEER is empty, write sensible standard suggestions from the case#
+
+Example of the expected style (invented case, for layout only; never copy its content):
+
+RES Review
+68F, never smoker, T2DM, CKD 3a, RA on MTX
+
+Presented with 5 days of fever, productive cough and R pleuritic chest pain (admitted 02/03/26, now D6)
+Found to have R parapneumonic effusion on CXR, on IV Augmentin
+
+Main issues:
+1. R complicated parapneumonic effusion:
+Tmax 38.6 (06/03)
+CRP 210 (from 285), WBC 17.1
+IV Augmentin since 02/03
+BCx 02/03 NBG, sputum C&S pending
+2. AKI on CKD 3a, Cr 168 (baseline 110)
+3. RA, MTX held this admission
+
+On Review
+Vitals: BP 128/70 HR 96 Temp 37.8 (Tmax 38.6 on 06/03) Sats 95% 2L NP
+
+O/E
+Alert, comfortable at rest
+Reduced breath sounds R base
+Dull to percussion R base
+
+US findings: Moderate R pleural effusion, echogenic with septations; good window R posterior axillary line
+
+Impression
+1. R complicated parapneumonic effusion
+Persistent fever and raised inflammatory markers on IV Abx
+Septated effusion on US
+
+2. AKI on CKD 3a, likely prerenal in setting of sepsis
+
+Suggest
+- For R ICD insertion today
+- Send fluid for pH, cell count, protein/LDH/glucose, Gram/C&S, AFB smear and culture, cytology
+- Send paired serum LDH and protein
+- CXR post ICD
+- Continue IV Augmentin, rationalise to C&S
