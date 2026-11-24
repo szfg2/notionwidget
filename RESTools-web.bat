@@ -24,13 +24,14 @@ echo    4   Blue Letters
 echo    5   Clinic Notes
 echo    6   ICU List
 echo    7   Ward Round List
+echo    8   RES Review
 echo.
-echo    8   Hub  (all tools, click through)
+echo    9   Hub  (all tools, click through)
 echo.
 echo    Q   Quit
 echo.
 
-choice /c 12345678Q /n /m "   Pick a tool: "
+choice /c 123456789Q /n /m "   Pick a tool: "
 set "PICK=%errorlevel%"
 
 if "%PICK%"=="1" set "PAGE=index.html"
@@ -40,8 +41,9 @@ if "%PICK%"=="4" set "PAGE=RESblue.html"
 if "%PICK%"=="5" set "PAGE=RESClinic.html"
 if "%PICK%"=="6" set "PAGE=ICUList.html"
 if "%PICK%"=="7" set "PAGE=GWList.html"
-if "%PICK%"=="8" set "PAGE=RES.html"
-if "%PICK%"=="9" goto :eof
+if "%PICK%"=="8" set "PAGE=RESreview.html"
+if "%PICK%"=="9" set "PAGE=RES.html"
+if "%PICK%"=="10" goto :eof
 
 start "" "%BASE%/%PAGE%"
 goto :eof

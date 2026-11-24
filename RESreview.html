@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RES Review</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<script src="keyvault.data.js"></script>
+<script src="keyvault.js"></script>
+<script src="reshome.js"></script>
+<script src="provider.js"></script>
+<script src="shots.js"></script>
+<style>
+  :root {
+    --bg: #191919;
+    --surface: #1f1f1f;
+    --surface-2: #242424;
+    --border: #333230;
+    --border-strong: #3f3d3a;
+    --text: #e9e7e4;
+    --muted: #8d8a86;
+    --faint: #6b6764;
+    --accent: #5fb8a0;
+    --accent-strong: #74cdb4;
+    --accent-ink: #0e1815;
+    --danger: #e0876a;
+    --danger-bg: #2a1d18;
+    --warn: #c9a24b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  header.app { margin-bottom: 22px; }
+  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+
+  .eyebrow {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 7px;
+  }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  input[type="password"], textarea, select {
+    width: 100%; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px; padding: 9px 11px;
+    font-family: var(--sans); font-size: 14px; outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  select { cursor: pointer; }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  #dump { min-height: 240px; }
+  #plans { min-height: 120px; }
+  #note { min-height: 420px; font-family: var(--mono); font-size: 13px; line-height: 1.55; }
+  .hint { font-size: 12px; color: var(--faint); margin-top: 5px; }
+
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+  .ghost-btn {
+    background: transparent; color: var(--muted); border: 1px solid var(--border-strong);
+    border-radius: 7px; padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+    font-family: var(--sans); transition: color .12s, border-color .12s; white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+  .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+  .copied { color: var(--accent) !important; border-color: var(--accent) !important; }
+
+  details.settings { position: relative; flex: none; }
+  details.settings summary {
+    cursor: pointer; list-style: none; user-select: none; font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 11px; white-space: nowrap;
+    transition: color .12s, border-color .12s;
+  }
+  details.settings summary:hover { color: var(--text); border-color: var(--muted); }
+  details.settings[open] summary { color: var(--accent-strong); border-color: var(--accent); }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .settings-grid {
+    position: absolute; right: 0; top: calc(100% + 8px); width: min(520px, calc(100vw - 40px));
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px;
+    padding: 16px; z-index: 50; box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  }
+  .settings-grid label.lbl { margin-top: 10px; }
+  .pill { font-size: 12px; color: var(--muted); }
+
+  .deid { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--warn); margin: -4px 2px 14px; }
+  .deid .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-top: 6px; flex: none; }
+
+  button.generate {
+    background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px;
+    padding: 10px 20px; font-size: 14px; font-weight: 600; font-family: var(--sans); cursor: pointer;
+    height: 38px; display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
+    transition: background .12s ease, transform .06s ease;
+  }
+  button.generate:hover { background: var(--accent-strong); }
+  button.generate:active { transform: translateY(1px); }
+  button.generate.is-cancel { background: var(--danger); }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent);
+    border-top-color: var(--accent-ink); animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  .gen-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .gen-row select { width: auto; }
+  .status { font-size: 12.5px; color: var(--muted); }
+  .kbd-hint { font-size: 11px; color: var(--faint); }
+  .kbd { font-family: var(--mono); font-size: 10.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .error {
+    display: none; background: var(--danger-bg); border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--danger); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin: 12px 0 0; white-space: pre-wrap;
+  }
+
+  .out-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .out-head .eyebrow { margin: 0; }
+  .out-head .gen-row { gap: 8px; }
+  .empty { color: var(--faint); font-size: 13px; padding: 40px 10px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 8px; }
+
+  .history { display: flex; flex-direction: column; gap: 6px; }
+  .h-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .h-item.current { border-color: var(--accent); }
+  .h-load { flex: 1; min-width: 0; background: none; border: 0; padding: 0; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+  .h-load:hover .h-title { color: var(--accent-strong); }
+  .h-title { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-meta { display: block; font-size: 11.5px; color: var(--faint); }
+  .h-del { padding: 2px 9px; font-size: 14px; line-height: 1.2; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 16px 48px; }
+    .head-row { flex-wrap: wrap; }
+    .settings-grid { width: calc(100vw - 32px); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="head-row">
+      <div>
+        <h1>RES Review</h1>
+        <p class="sub">Dump the case and your plans; Claude writes the review note in the RES Review format.</p>
+      </div>
+      <details class="settings" id="settingsBox">
+        <summary>⚙ Settings &amp; keys</summary>
+        <div class="settings-grid">
+          <label class="lbl">Model provider</label>
+          <select id="provider">
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="gemini">Gemini (Google)</option>
+          </select>
+          <div class="hint">Shared with every RES tool.</div>
+          <label class="lbl">Anthropic (Claude) API key</label>
+          <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+          <label class="lbl">DeepSeek API key</label>
+          <input type="password" id="deepseekKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          <label class="lbl">Gemini (Google AI Studio) API key</label>
+          <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+          <div class="hint">Keys live only in this browser (localStorage) and are shared with the other RES tools.</div>
+          <div class="gen-row" style="margin-top:10px">
+            <button class="ghost-btn" id="saveSettings" type="button">Save settings</button>
+            <span class="pill" id="settingsSaved"></span>
+          </div>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <p class="deid"><span class="dot"></span><span>De-identify before generating: no names, NRIC, MRN, address or DOB. Screenshots can be pasted (Ctrl/⌘ + V) or dropped into either box; crop out the patient header. Screenshots are never saved.</span></p>
+
+  <div class="cols">
+    <div>
+      <div class="card">
+        <label class="lbl" for="dump">Case information: background, presentation, progress, latest vitals, O/E, results, US</label>
+        <textarea id="dump" placeholder="Paste or type everything here in any order: B/G, why they came in, issues, today's obs and O2, exam, bloods, imaging, US findings… or paste / drop screenshots"></textarea>
+      </div>
+      <div class="card">
+        <label class="lbl" for="plans">Plans &amp; steer</label>
+        <textarea id="plans" placeholder="Your plans and leaning, e.g. &quot;favour parapneumonic over malignant; for ICD today, send fluid pH/LDH/cyto, continue Augmentin, CXR post-ICD&quot;"></textarea>
+        <div class="hint">Sets the direction of the Impression and Suggest. Your plans are kept as written; Claude only adds obvious follow-on items.</div>
+      </div>
+      <div class="card">
+        <div class="gen-row">
+          <button class="generate" id="genBtn" type="button">Generate note</button>
+          <select id="model" title="Model used to write the note">
+            <option value="light">Haiku 5.5</option>
+            <option value="default" selected>Sonnet 5.5</option>
+            <option value="ask">Opus 5.5</option>
+          </select>
+          <button class="ghost-btn" id="newBtn" type="button">New review</button>
+          <span class="status" id="status"></span>
+        </div>
+        <div class="kbd-hint" style="margin-top:8px"><span class="kbd">Ctrl/⌘ + Enter</span> from either box to generate. On DeepSeek / Gemini the picker chooses that provider's light / default / reasoning model.</div>
+        <div class="error" id="error"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="out-head">
+          <span class="eyebrow">Review note</span>
+          <div class="gen-row">
+            <button class="ghost-btn" id="copyBtn" type="button" disabled>Copy</button>
+          </div>
+        </div>
+        <div class="empty" id="emptyNote">The note appears here. You can edit it before copying.</div>
+        <textarea id="note" spellcheck="false" style="display:none"></textarea>
+      </div>
+
+      <div class="card">
+        <div class="out-head">
+          <span class="eyebrow">Recent reviews</span>
+          <button class="ghost-btn danger" id="clearHist" type="button" style="display:none">Delete all</button>
+        </div>
+        <div class="history" id="history"></div>
+        <div class="hint" id="histHint">The last 3 generated reviews (inputs and note) are kept in this browser only. Click one to reload it; × deletes it.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+const PROMPT_URL = "prompts/res-review-note.txt";
+const HIST_KEY = "resreview_history";
+const HIST_MAX = 3;
+const SETTINGS_IDS = { provider: "provider", anthropicKey: "claudeKey", deepseekKey: "deepseekKey", geminiKey: "geminiKey" };
+
+/* ---------- settings ---------- */
+AI.fillSettings(SETTINGS_IDS);
+AI.fallbackKey = () => {
+  const box = { anthropic: "claudeKey", deepseek: "deepseekKey", gemini: "geminiKey" }[AI.id()];
+  return box ? $(box).value.trim() : "";
+};
+if (!AI.hasKey()) $("settingsBox").open = true;
+$("saveSettings").addEventListener("click", () => {
+  AI.saveSettings(SETTINGS_IDS);
+  $("settingsSaved").textContent = "Saved ✓";
+  setTimeout(() => { $("settingsSaved").textContent = ""; $("settingsBox").open = false; }, 700);
+});
+
+enableShots($("dump"));
+enableShots($("plans"));
+
+/* ---------- history: last 3 reviews, this browser only ---------- */
+let currentId = null;
+
+function loadHist() {
+  try { const h = JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); return Array.isArray(h) ? h : []; }
+  catch (e) { return []; }
+}
+function saveHist(h) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, HIST_MAX))); } catch (e) {}
+}
+
+// "B/G: 72M COPD on LTOT" makes a better label than the first line, which is always "RES Review".
+function entryTitle(e) {
+  const bg = (e.note || "").split("\n").find(l => /^\s*B\/G\b/i.test(l));
+  const line = bg ? bg.replace(/^\s*B\/G\s*:?\s*/i, "") : (e.dump || "").trim().split("\n")[0];
+  return line || "(untitled)";
+}
+function when(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " " +
+         d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderHist() {
+  const h = loadHist();
+  const box = $("history");
+  box.innerHTML = "";
+  h.forEach(e => {
+    const row = document.createElement("div");
+    row.className = "h-item" + (e.id === currentId ? " current" : "");
+    const load = document.createElement("button");
+    load.className = "h-load";
+    load.type = "button";
+    const t = document.createElement("span");
+    t.className = "h-title";
+    t.textContent = entryTitle(e);
+    const m = document.createElement("span");
+    m.className = "h-meta";
+    m.textContent = when(e.at) + (e.id === currentId ? " · loaded" : "");
+    load.append(t, m);
+    load.addEventListener("click", () => restore(e));
+    const del = document.createElement("button");
+    del.className = "ghost-btn danger h-del";
+    del.type = "button";
+    del.title = "Delete this review";
+    del.textContent = "×";
+    del.addEventListener("click", () => {
+      saveHist(loadHist().filter(x => x.id !== e.id));
+      if (currentId === e.id) currentId = null;
+      renderHist();
+    });
+    row.append(load, del);
+    box.appendChild(row);
+  });
+  $("clearHist").style.display = h.length > 1 ? "" : "none";
+}
+
+// Regenerating a loaded review replaces its entry rather than adding a new one.
+function remember(dump, plans, note, model) {
+  const h = loadHist().filter(x => x.id !== currentId);
+  if (!currentId) currentId = Date.now().toString(36);
+  h.unshift({ id: currentId, at: new Date().toISOString(), dump, plans, note, model });
+  saveHist(h);
+  renderHist();
+}
+
+function showNote(text) {
+  $("note").value = text;
+  const has = !!text;
+  $("note").style.display = has ? "" : "none";
+  $("emptyNote").style.display = has ? "none" : "";
+  $("copyBtn").disabled = !has;
+}
+
+function restore(e) {
+  currentId = e.id;
+  $("dump").value = e.dump || "";
+  $("plans").value = e.plans || "";
+  clearShots($("dump"));
+  clearShots($("plans"));
+  if (e.model) $("model").value = e.model;
+  showNote(e.note || "");
+  $("genBtn").textContent = e.note ? "Regenerate" : "Generate note";
+  setStatus("Loaded review from " + when(e.at));
+  renderHist();
+}
+
+$("clearHist").addEventListener("click", () => {
+  saveHist([]);
+  currentId = null;
+  renderHist();
+});
+
+$("newBtn").addEventListener("click", () => {
+  currentId = null;
+  $("dump").value = "";
+  $("plans").value = "";
+  clearShots($("dump"));
+  clearShots($("plans"));
+  showNote("");
+  $("genBtn").textContent = "Generate note";
+  setStatus("");
+  showError("");
+  renderHist();
+  $("dump").focus();
+});
+
+/* ---------- generate ---------- */
+let promptText = null;
+async function loadPrompt(signal) {
+  if (promptText) return promptText;
+  const r = await fetch(PROMPT_URL, { cache: "no-store", signal });
+  if (!r.ok) throw new Error("Couldn't load the review template (" + PROMPT_URL + ").");
+  promptText = await r.text();
+  return promptText;
+}
+
+function setStatus(t) { $("status").textContent = t; }
+function showError(t) { $("error").textContent = t; $("error").style.display = t ? "block" : "none"; }
+
+let controller = null;
+function setLoading(on) {
+  const b = $("genBtn");
+  if (on) { b.classList.add("is-cancel"); b.innerHTML = '<span class="spinner"></span>Cancel'; }
+  else { b.classList.remove("is-cancel"); b.textContent = $("note").value ? "Regenerate" : "Generate note"; }
+}
+
+async function generate() {
+  if (controller) { controller.abort(); return; }
+  showError("");
+  if (!AI.hasKey()) { $("settingsBox").open = true; return showError(AI.missingKeyMsg()); }
+
+  const dump = $("dump").value.trim();
+  const plans = $("plans").value.trim();
+  const dumpShots = shotsOf($("dump"));
+  const planShots = shotsOf($("plans"));
+  if (!dump && !dumpShots.length) { $("dump").focus(); return showError("Add the case information first."); }
+  const blocked = shotsBlocked(dumpShots.concat(planShots));
+  if (blocked) return showError(blocked);
+
+  controller = new AbortController();
+  setLoading(true);
+  setStatus("");
+  const started = Date.now();
+  try {
+    const sys = await loadPrompt(controller.signal);
+    const content = withShots([
+      { text: "CASE INFORMATION:\n" + (dump || "(see attached screenshots)"), shots: dumpShots },
+      { text: "PLANS & STEER:\n" + (plans || (planShots.length ? "(see attached screenshots)" : "(none entered)")), shots: planShots }
+    ]);
+    const kind = $("model").value;
+    const text = await AI.call({
+      systems: [{ text: sys, cache: true }],
+      messages: [{ role: "user", content }],
+      kind,
+      maxTokens: 16000,
+      signal: controller.signal
+    });
+    const note = (text || "").replace(/^```[a-z]*\n?|\n?```$/g, "").replace(/\s*—\s*/g, ", ").trim();
+    if (!note) throw new Error("No text returned. Try again.");
+    showNote(note);
+    remember(dump, plans, note, kind);
+    setStatus("Done in " + Math.round((Date.now() - started) / 1000) + " s");
+  } catch (e) {
+    if (e.name !== "AbortError") showError(e.message || String(e));
+  } finally {
+    controller = null;
+    setLoading(false);
+  }
+}
+
+$("genBtn").addEventListener("click", generate);
+["dump", "plans"].forEach(id => $(id).addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); generate(); }
+}));
+
+/* ---------- copy (whatever is in the box, including your edits) ---------- */
+$("copyBtn").addEventListener("click", async () => {
+  const b = $("copyBtn");
+  try { await navigator.clipboard.writeText($("note").value); }
+  catch (e) { $("note").select(); document.execCommand("copy"); }
+  b.textContent = "Copied ✓";
+  b.classList.add("copied");
+  setTimeout(() => { b.textContent = "Copy"; b.classList.remove("copied"); }, 1200);
+});
+
+// Edits to the note are kept with its history entry.
+$("note").addEventListener("change", () => {
+  if (!currentId) return;
+  const h = loadHist();
+  const e = h.find(x => x.id === currentId);
+  if (e) { e.note = $("note").value; saveHist(h); }
+});
+
+renderHist();
+</script>
+</body>
+</html>
